@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nmap 완전 레퍼런스</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0e1a;
+  --bg2:#111827;
+  --bg3:#1a2236;
+  --surface:#1e2d47;
+  --surface2:#243352;
+  --border:#2a3f5f;
+  --border2:#3a5070;
+  --accent:#00d4ff;
+  --accent2:#0099cc;
+  --green:#00ff88;
+  --green2:#00cc6a;
+  --amber:#ffb347;
+  --red:#ff5555;
+  --purple:#bb86fc;
+  --text:#e8edf5;
+  --text2:#9bafc8;
+  --text3:#6b83a0;
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Sora',sans-serif;
+  --radius:8px;
+  --radius2:12px;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.6;min-height:100vh}
+
+/* ── Layout ── */
+.shell{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column}
+.main{overflow-x:hidden}
+
+/* ── Sidebar ── */
+.logo{padding:24px 20px 16px;border-bottom:1px solid var(--border)}
+.logo-mark{font-family:var(--mono);font-weight:700;font-size:22px;letter-spacing:3px;color:var(--accent);display:block}
+.logo-sub{font-size:11px;color:var(--text3);letter-spacing:1px;margin-top:3px}
+.nav-section{padding:8px 0}
+.nav-label{font-size:10px;font-weight:600;letter-spacing:2px;color:var(--text3);padding:10px 20px 4px;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;transition:all .15s;border-left:2px solid transparent;font-size:13px;color:var(--text2)}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--surface);color:var(--accent);border-left-color:var(--accent)}
+.nav-item .badge{margin-left:auto;background:var(--surface2);color:var(--text3);font-size:10px;font-family:var(--mono);padding:1px 6px;border-radius:4px}
+.nav-icon{width:16px;height:16px;opacity:.7;flex-shrink:0}
+.nav-item.active .nav-icon{opacity:1}
+
+/* ── Search ── */
+.search-wrap{padding:12px 16px;border-bottom:1px solid var(--border)}
+.search-box{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px 8px 32px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;position:relative}
+.search-box::placeholder{color:var(--text3)}
+.search-box:focus{border-color:var(--accent)}
+.search-wrap-inner{position:relative}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;font-size:14px}
+
+/* ── Header ── */
+.page-header{background:linear-gradient(135deg,var(--bg2) 0%,var(--surface) 100%);border-bottom:1px solid var(--border);padding:28px 36px 24px}
+.chapter-tag{font-size:11px;font-weight:600;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:8px}
+.page-title{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--text);margin-bottom:6px}
+.page-desc{color:var(--text2);font-size:14px;max-width:600px}
+.breadcrumb{display:flex;gap:6px;align-items:center;margin-bottom:12px;font-size:12px;color:var(--text3)}
+.breadcrumb span{color:var(--text3)}
+
+/* ── Content ── */
+.content{padding:32px 36px 64px}
+.section{margin-bottom:40px}
+.section-title{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--accent);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.section-title::before{content:'';width:3px;height:16px;background:var(--accent);border-radius:2px;display:block}
+
+/* ── Command Builder ── */
+.builder{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);overflow:hidden;margin-bottom:40px}
+.builder-header{background:var(--surface);padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.builder-title{font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:700}
+.builder-output{padding:16px 20px;font-family:var(--mono);font-size:14px;color:var(--green);background:var(--bg);min-height:52px;word-break:break-all;line-height:1.8;position:relative}
+.builder-output .cmd-prompt{color:var(--text3);user-select:none}
+.builder-controls{padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:10px;border-top:1px solid var(--border)}
+.ctrl-group{display:flex;flex-direction:column;gap:4px}
+.ctrl-label{font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.5px}
+.ctrl-select{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:7px 10px;color:var(--text);font-family:var(--sans);font-size:13px;cursor:pointer;outline:none;width:100%}
+.ctrl-select:focus{border-color:var(--accent)}
+.ctrl-input{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:7px 10px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none;width:100%}
+.ctrl-input:focus{border-color:var(--accent)}
+.builder-actions{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px}
+.btn{padding:8px 16px;border-radius:var(--radius);font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:var(--sans);transition:all .15s;letter-spacing:.3px}
+.btn-primary{background:var(--accent2);color:#fff}
+.btn-primary:hover{background:var(--accent);color:#000}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.copy-feedback{font-size:11px;color:var(--green);opacity:0;transition:opacity .3s;align-self:center}
+.copy-feedback.show{opacity:1}
+
+/* ── Option Tables ── */
+.opt-table{width:100%;border-collapse:collapse;font-size:13px}
+.opt-table th{background:var(--surface);color:var(--text2);font-weight:600;padding:10px 14px;text-align:left;font-size:11px;letter-spacing:.5px;border-bottom:1px solid var(--border2)}
+.opt-table td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top;line-height:1.5}
+.opt-table tr:last-child td{border-bottom:none}
+.opt-table tr:hover td{background:var(--bg3)}
+.opt-table .opt-flag{font-family:var(--mono);color:var(--accent);font-weight:600;white-space:nowrap;font-size:12px}
+.opt-table .opt-name{color:var(--amber);font-size:12px}
+.opt-table .opt-desc{color:var(--text2)}
+.opt-table .opt-ex{font-family:var(--mono);color:var(--text3);font-size:11px}
+.opt-table .tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:.5px;margin-left:4px}
+.tag-root{background:#2a1f3d;color:var(--purple)}
+.tag-any{background:#1a2d1a;color:var(--green)}
+.tag-fast{background:#2d1a1a;color:var(--amber)}
+.tag-stealth{background:#1a2a2d;color:var(--accent)}
+
+/* ── Code blocks ── */
+.code-block{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:12px 0}
+.code-header{background:var(--surface);padding:8px 14px;display:flex;align-items:center;justify-content:space-between}
+.code-lang{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.code-copy{font-size:11px;color:var(--text3);cursor:pointer;background:none;border:none;padding:2px 8px;border-radius:4px;font-family:var(--sans)}
+.code-copy:hover{color:var(--accent);background:var(--bg3)}
+.code-body{padding:14px 16px;font-family:var(--mono);font-size:12px;line-height:1.8;overflow-x:auto;white-space:pre}
+.code-body .c{color:var(--text3)} /* comment */
+.code-body .f{color:var(--green)} /* flag */
+.code-body .s{color:var(--amber)} /* string/target */
+.code-body .k{color:var(--accent)} /* keyword */
+.code-body .p{color:var(--purple)} /* script */
+
+/* ── Cards ── */
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:12px 0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:16px;transition:border-color .2s,transform .1s}
+.card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.card-icon{font-size:22px;margin-bottom:8px}
+.card-title{font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:700;margin-bottom:4px}
+.card-desc{font-size:12px;color:var(--text2);line-height:1.5}
+.card-badge{display:inline-block;margin-top:8px;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.5px}
+
+/* ── Scan type tabs ── */
+.tab-bar{display:flex;gap:2px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:4px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text3);transition:all .15s;white-space:nowrap}
+.tab:hover{color:var(--text2);background:var(--bg3)}
+.tab.active{background:var(--surface);color:var(--accent)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* ── Info boxes ── */
+.info-box{border-radius:var(--radius);padding:12px 16px;margin:12px 0;font-size:13px;border-left:3px solid;line-height:1.6}
+.info-tip{background:#0a2a1a;border-color:var(--green);color:#7fffc4}
+.info-warn{background:#2a1a0a;border-color:var(--amber);color:#ffcc88}
+.info-danger{background:#2a0a0a;border-color:var(--red);color:#ff9999}
+
+/* ── Scan state diagram ── */
+.port-states{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+.state-pill{padding:8px 16px;border-radius:20px;font-family:var(--mono);font-size:12px;font-weight:600;border:1px solid}
+.state-open{background:#052d1a;border-color:var(--green);color:var(--green)}
+.state-closed{background:#2d0505;border-color:var(--red);color:var(--red)}
+.state-filtered{background:#2d2005;border-color:var(--amber);color:var(--amber)}
+.state-unfiltered{background:#05152d;border-color:var(--accent);color:var(--accent)}
+.state-openf{background:#152d1a;border-color:#88cc88;color:#88cc88}
+.state-closedf{background:#2d1a05;border-color:#cc9955;color:#cc9955}
+
+/* ── Progress viz ── */
+.timing-viz{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:12px 0}
+.timing-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 8px;text-align:center;cursor:pointer;transition:all .2s}
+.timing-card:hover,.timing-card.active{border-color:var(--accent)}
+.timing-card.active{background:var(--surface)}
+.timing-num{font-family:var(--mono);font-size:18px;font-weight:700;margin-bottom:4px}
+.timing-name{font-size:11px;color:var(--text3);margin-bottom:6px}
+.timing-bar{height:4px;border-radius:2px;background:var(--border)}
+.timing-fill{height:4px;border-radius:2px;transition:width .4s}
+.timing-desc{font-size:11px;color:var(--text2);margin-top:8px;min-height:32px;line-height:1.4}
+
+/* ── NSE Category pills ── */
+.nse-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin:12px 0}
+.nse-cat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;cursor:pointer;transition:all .2s}
+.nse-cat:hover{border-color:var(--border2);background:var(--bg3)}
+.nse-cat.active{border-color:var(--accent);background:var(--surface)}
+.nse-cat-name{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:700;margin-bottom:3px}
+.nse-cat-desc{font-size:11px;color:var(--text2)}
+.nse-cat-risk{font-size:10px;font-weight:700;letter-spacing:.5px;margin-top:6px;display:inline-block}
+.risk-safe{color:var(--green)}
+.risk-medium{color:var(--amber)}
+.risk-high{color:var(--red)}
+.nse-detail{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:14px;margin:8px 0;display:none}
+.nse-detail.show{display:block}
+
+/* ── Quick ref cheatsheet ── */
+.cheat-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius2);overflow:hidden;margin:12px 0}
+.cheat-cell{background:var(--bg2);padding:10px 14px}
+.cheat-cell:hover{background:var(--bg3)}
+.cheat-key{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600}
+.cheat-val{font-size:12px;color:var(--text2);margin-top:2px}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--accent2)}
+
+/* ── Highlight ── */
+.hl{background:rgba(0,212,255,.12);color:var(--accent);padding:0 3px;border-radius:3px;font-family:var(--mono);font-size:.95em}
+
+/* ── Search results ── */
+.search-results{display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--border2);border-radius:0 0 var(--radius) var(--radius);max-height:300px;overflow-y:auto;z-index:100}
+.search-result-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px}
+.search-result-item:hover{background:var(--bg3)}
+.sr-flag{font-family:var(--mono);color:var(--accent);font-size:12px;font-weight:700}
+.sr-desc{color:var(--text2);font-size:12px;margin-top:2px}
+
+/* Sections visibility */
+.page{display:none}
+.page.active{display:block}
+
+/* ── Tooltip ── */
+.has-tooltip{position:relative}
+.tooltip{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;font-size:11px;color:var(--text);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .2s;z-index:50;margin-bottom:6px}
+.has-tooltip:hover .tooltip{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+<!-- ── Sidebar ── -->
+<aside class="sidebar">
+  <div class="logo">
+    <span class="logo-mark">NMAP</span>
+    <span class="logo-sub">COMPLETE REFERENCE</span>
+  </div>
+
+  <div class="search-wrap">
+    <div class="search-wrap-inner">
+      <span class="search-icon">⌕</span>
+      <input class="search-box" id="globalSearch" placeholder="옵션 검색... (예: -sS)" autocomplete="off">
+      <div class="search-results" id="searchResults"></div>
+    </div>
+  </div>
+
+  <nav class="nav-section">
+    <div class="nav-label">시작하기</div>
+    <div class="nav-item active" onclick="showPage('builder')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="14" rx="2"/><path d="M4 5h8M4 8h6M4 11h4"/></svg>
+      커맨드 빌더
+    </div>
+    <div class="nav-item" onclick="showPage('overview')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+      개요 & 기초
+    </div>
+  </nav>
+
+  <nav class="nav-section">
+    <div class="nav-label">스캔 옵션</div>
+    <div class="nav-item" onclick="showPage('scan-types')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8h3l2-4 2 8 2-3 1 3h2"/></svg>
+      스캔 유형
+      <span class="badge">8+</span>
+    </div>
+    <div class="nav-item" onclick="showPage('ports')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="8" rx="1"/><path d="M5 4V3M8 4V2M11 4V3"/></svg>
+      포트 지정
+    </div>
+    <div class="nav-item" onclick="showPage('host-disc')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><circle cx="8" cy="8" r="5" stroke-dasharray="2 2"/></svg>
+      호스트 발견
+    </div>
+  </nav>
+
+  <nav class="nav-section">
+    <div class="nav-label">고급 기능</div>
+    <div class="nav-item" onclick="showPage('detection')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 14l4-4m0 0l6-6 2 2-6 6m-2-2l2 2"/><circle cx="12" cy="4" r="2"/></svg>
+      버전 / OS 탐지
+    </div>
+    <div class="nav-item" onclick="showPage('nse')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4l2 2-2 2M8 10h4"/><rect x="1" y="1" width="14" height="14" rx="2"/></svg>
+      NSE 스크립트
+      <span class="badge">14</span>
+    </div>
+    <div class="nav-item" onclick="showPage('timing')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="9" r="5"/><path d="M8 4V2M6 2h4"/><path d="M8 9l2-2"/></svg>
+      타이밍 & 성능
+    </div>
+    <div class="nav-item" onclick="showPage('evasion')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l5 3v4c0 2.5-2 4.5-5 5-3-.5-5-2.5-5-5V5z"/></svg>
+      방화벽 우회
+    </div>
+    <div class="nav-item" onclick="showPage('output')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h8M4 7h8M4 10h5"/><path d="M11 12l2 2 3-3"/></svg>
+      출력 & 저장
+    </div>
+  </nav>
+
+  <nav class="nav-section">
+    <div class="nav-label">참조</div>
+    <div class="nav-item" onclick="showPage('examples')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+      실전 예시
+    </div>
+    <div class="nav-item" onclick="showPage('cheatsheet')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M6 6h4M6 9h4M6 12h2"/></svg>
+      치트시트
+    </div>
+  </nav>
+</aside>
+
+<!-- ── Main ── -->
+<main class="main">
+
+<!-- ══ PAGE: Builder ══ -->
+<div class="page active" id="page-builder">
+  <div class="page-header">
+    <div class="chapter-tag">도구</div>
+    <div class="page-title">커맨드 빌더</div>
+    <div class="page-desc">옵션을 선택하면 nmap 명령어가 자동으로 생성됩니다.</div>
+  </div>
+  <div class="content">
+    <div class="builder">
+      <div class="builder-header">
+        <span class="builder-title">▸ 생성된 명령어</span>
+        <span style="font-size:11px;color:var(--text3)">실시간 미리보기</span>
+      </div>
+      <div class="builder-output" id="cmdOutput">
+        <span class="cmd-prompt">$ </span><span id="cmdText">nmap 192.168.1.1</span>
+      </div>
+      <div class="builder-controls">
+        <div class="ctrl-group">
+          <label class="ctrl-label">스캔 유형</label>
+          <select class="ctrl-select" id="bScanType" onchange="buildCmd()">
+            <option value="">기본 (TCP Connect)</option>
+            <option value="-sS">-sS  SYN 스캔 (추천, root)</option>
+            <option value="-sT">-sT  TCP Connect</option>
+            <option value="-sU">-sU  UDP 스캔</option>
+            <option value="-sA">-sA  ACK 스캔</option>
+            <option value="-sN">-sN  Null 스캔</option>
+            <option value="-sF">-sF  FIN 스캔</option>
+            <option value="-sX">-sX  Xmas 스캔</option>
+            <option value="-sO">-sO  IP 프로토콜</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">포트 범위</label>
+          <select class="ctrl-select" id="bPorts" onchange="buildCmd()">
+            <option value="">기본 (상위 1000)</option>
+            <option value="-F">-F  빠른 (상위 100)</option>
+            <option value="-p-">-p-  전체 65535</option>
+            <option value="-p 1-1024">-p 1-1024  표준</option>
+            <option value="-p 22,80,443">-p 22,80,443  웹+SSH</option>
+            <option value="--top-ports 100">--top-ports 100</option>
+            <option value="--top-ports 500">--top-ports 500</option>
+            <option value="custom">직접 입력...</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">서비스 탐지</label>
+          <select class="ctrl-select" id="bDetect" onchange="buildCmd()">
+            <option value="">없음</option>
+            <option value="-sV">-sV  버전 탐지</option>
+            <option value="-O">-O  OS 탐지 (root)</option>
+            <option value="-sV -O">-sV -O  버전+OS</option>
+            <option value="-A">-A  전체 (버전+OS+스크립트)</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">타이밍</label>
+          <select class="ctrl-select" id="bTiming" onchange="buildCmd()">
+            <option value="">기본 (-T3)</option>
+            <option value="-T0">-T0  Paranoid (최대 스텔스)</option>
+            <option value="-T1">-T1  Sneaky</option>
+            <option value="-T2">-T2  Polite</option>
+            <option value="-T4">-T4  Aggressive (빠름)</option>
+            <option value="-T5">-T5  Insane (최대 속도)</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">NSE 스크립트</label>
+          <select class="ctrl-select" id="bScript" onchange="buildCmd()">
+            <option value="">없음</option>
+            <option value="-sC">-sC  기본 스크립트</option>
+            <option value="--script=vuln">vuln  취약점 스캔</option>
+            <option value="--script=safe">safe  안전한 스크립트</option>
+            <option value="--script=discovery">discovery  탐색</option>
+            <option value="--script=http-title,http-headers">HTTP 정보</option>
+            <option value="--script=smb-vuln-ms17-010">EternalBlue 탐지</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">출력 형식</label>
+          <select class="ctrl-select" id="bOutput" onchange="buildCmd()">
+            <option value="">터미널 출력만</option>
+            <option value="-oN result.txt">-oN  텍스트 저장</option>
+            <option value="-oX result.xml">-oX  XML 저장</option>
+            <option value="-oG result.gnmap">-oG  Grepable 저장</option>
+            <option value="-oA result">-oA  세 가지 동시</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">추가 옵션</label>
+          <select class="ctrl-select" id="bExtra" onchange="buildCmd()">
+            <option value="">없음</option>
+            <option value="-v">-v  상세 출력</option>
+            <option value="-vv">-vv  더 상세히</option>
+            <option value="--reason">--reason  판단 이유</option>
+            <option value="--open">--open  열린 포트만</option>
+            <option value="-Pn">-Pn  핑 스킵</option>
+            <option value="-n">-n  DNS 스킵</option>
+            <option value="-n -Pn">-n -Pn  빠른 스캔</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">대상 (Target)</label>
+          <input class="ctrl-input" id="bTarget" value="192.168.1.1" oninput="buildCmd()" placeholder="IP, 도메인, CIDR...">
+        </div>
+      </div>
+      <div class="builder-actions">
+        <button class="btn btn-primary" onclick="copyCmd()">📋 명령어 복사</button>
+        <button class="btn btn-ghost" onclick="resetBuilder()">↺ 초기화</button>
+        <span class="copy-feedback" id="copyFeedback">복사되었습니다!</span>
+      </div>
+    </div>
+
+    <!-- Quick Tips -->
+    <div class="section">
+      <div class="section-title">자주 쓰는 조합</div>
+      <div class="card-grid">
+        <div class="card" onclick="applyPreset('quick')" style="cursor:pointer">
+          <div class="card-icon">⚡</div>
+          <div class="card-title">빠른 발견</div>
+          <div class="card-desc">네트워크에서 살아있는 호스트와 열린 포트를 빠르게 탐색</div>
+          <span class="card-badge" style="background:#1a2d1a;color:var(--green)">추천</span>
+        </div>
+        <div class="card" onclick="applyPreset('full')" style="cursor:pointer">
+          <div class="card-icon">🔬</div>
+          <div class="card-title">전체 감사</div>
+          <div class="card-desc">버전, OS, 스크립트 포함 완전한 스캔</div>
+          <span class="card-badge" style="background:#2a1f3d;color:var(--purple)">상세</span>
+        </div>
+        <div class="card" onclick="applyPreset('stealth')" style="cursor:pointer">
+          <div class="card-icon">👤</div>
+          <div class="card-title">스텔스 스캔</div>
+          <div class="card-desc">IDS/IPS 탐지를 최소화하는 조용한 스캔</div>
+          <span class="card-badge" style="background:#05152d;color:var(--accent)">스텔스</span>
+        </div>
+        <div class="card" onclick="applyPreset('vuln')" style="cursor:pointer">
+          <div class="card-icon">🛡</div>
+          <div class="card-title">취약점 탐지</div>
+          <div class="card-desc">알려진 취약점과 보안 문제를 스캔</div>
+          <span class="card-badge" style="background:#2d0505;color:var(--red)">주의</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: Overview ══ -->
+<div class="page" id="page-overview">
+  <div class="page-header">
+    <div class="chapter-tag">1장</div>
+    <div class="page-title">개요 & 기초 문법</div>
+    <div class="page-desc">nmap의 기본 구조와 대상 지정 방법</div>
+  </div>
+  <div class="content">
+    <div class="section">
+      <div class="section-title">기본 문법</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">syntax</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body"><span class="k">nmap</span> [<span class="f">옵션</span>] [<span class="s">대상</span>]
+
+<span class="c"># 단순 스캔</span>
+<span class="k">nmap</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># 옵션 조합</span>
+<span class="k">nmap</span> <span class="f">-sS -O -T4</span> <span class="s">192.168.1.0/24</span>
+
+<span class="c"># 포트 + 버전 + 스크립트</span>
+<span class="k">nmap</span> <span class="f">-p 80,443 -sV -sC</span> <span class="s">example.com</span></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">대상(Target) 지정 방법</div>
+      <table class="opt-table">
+        <thead><tr><th>표기법</th><th>설명</th><th>예시</th></tr></thead>
+        <tbody>
+          <tr><td class="opt-flag">192.168.1.1</td><td class="opt-desc">단일 호스트</td><td class="opt-ex">nmap 192.168.1.1</td></tr>
+          <tr><td class="opt-flag">192.168.1.0/24</td><td class="opt-desc">CIDR 서브넷 (256개 호스트)</td><td class="opt-ex">nmap 192.168.1.0/24</td></tr>
+          <tr><td class="opt-flag">192.168.1.1-50</td><td class="opt-desc">연속된 IP 범위</td><td class="opt-ex">nmap 192.168.1.1-50</td></tr>
+          <tr><td class="opt-flag">192.168.*.*</td><td class="opt-desc">와일드카드 (65536개)</td><td class="opt-ex">nmap 192.168.*.*</td></tr>
+          <tr><td class="opt-flag">example.com</td><td class="opt-desc">도메인 이름 (DNS 해석)</td><td class="opt-ex">nmap example.com</td></tr>
+          <tr><td class="opt-flag">-iL targets.txt</td><td class="opt-desc">파일에서 대상 목록 읽기</td><td class="opt-ex">nmap -iL hosts.txt</td></tr>
+          <tr><td class="opt-flag">--exclude 10.0.0.1</td><td class="opt-desc">특정 호스트 제외</td><td class="opt-ex">nmap 10.0.0.0/24 --exclude 10.0.0.1</td></tr>
+          <tr><td class="opt-flag">--excludefile ex.txt</td><td class="opt-desc">파일 기반 제외 목록</td><td class="opt-ex">nmap 10.0.0.0/24 --excludefile ex.txt</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">포트 상태</div>
+      <div class="port-states">
+        <div class="state-pill state-open">open — 서비스 응답 중</div>
+        <div class="state-pill state-closed">closed — RST 응답</div>
+        <div class="state-pill state-filtered">filtered — 방화벽 차단</div>
+        <div class="state-pill state-unfiltered">unfiltered — 접근 가능, 상태 불명</div>
+        <div class="state-pill state-openf">open|filtered — 응답 없음</div>
+        <div class="state-pill state-closedf">closed|filtered — Idle 스캔</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: Scan Types ══ -->
+<div class="page" id="page-scan-types">
+  <div class="page-header">
+    <div class="chapter-tag">2장</div>
+    <div class="page-title">스캔 유형</div>
+    <div class="page-desc">TCP, UDP, 스텔스 스캔의 모든 방식</div>
+  </div>
+  <div class="content">
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('scan','tcp',this)">TCP 스캔</div>
+      <div class="tab" onclick="switchTab('scan','udp',this)">UDP / 기타</div>
+      <div class="tab" onclick="switchTab('scan','stealth',this)">스텔스 스캔</div>
+      <div class="tab" onclick="switchTab('scan','compare',this)">비교표</div>
+    </div>
+
+    <div class="tab-content active" id="scan-tcp">
+      <table class="opt-table">
+        <thead><tr><th>옵션</th><th>이름</th><th>설명</th><th>권한</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="opt-flag">-sS</td>
+            <td class="opt-name">SYN (Half-open)</td>
+            <td class="opt-desc">SYN 패킷만 전송, RST로 닫음. 가장 빠르고 널리 사용됨. 로그에 기록되지 않는 경우 많음</td>
+            <td><span class="tag tag-root">root</span></td>
+          </tr>
+          <tr>
+            <td class="opt-flag">-sT</td>
+            <td class="opt-name">TCP Connect</td>
+            <td class="opt-desc">OS의 connect() 시스템 콜 사용. 완전한 3-way handshake. 로그에 남을 가능성 높음</td>
+            <td><span class="tag tag-any">일반</span></td>
+          </tr>
+          <tr>
+            <td class="opt-flag">-sA</td>
+            <td class="opt-name">TCP ACK</td>
+            <td class="opt-desc">방화벽 규칙 파악에 사용. 포트 열림/닫힘이 아닌 필터링 여부를 탐지</td>
+            <td><span class="tag tag-root">root</span></td>
+          </tr>
+          <tr>
+            <td class="opt-flag">-sW</td>
+            <td class="opt-name">TCP Window</td>
+            <td class="opt-desc">ACK와 유사하지만 TCP Window 크기로 상태 판단. 일부 시스템에 효과적</td>
+            <td><span class="tag tag-root">root</span></td>
+          </tr>
+          <tr>
+            <td class="opt-flag">-sM</td>
+            <td class="opt-name">TCP Maimon</td>
+            <td class="opt-desc">FIN/ACK 조합. BSD 기반 시스템에서 필터된 포트 탐지</td>
+            <td><span class="tag tag-root">root</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="code-block" style="margin-top:16px">
+        <div class="code-header"><span class="code-lang">예시</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body"><span class="c"># SYN 스캔 — 가장 일반적</span>
+<span class="f">sudo</span> nmap <span class="f">-sS</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># root 없이 TCP Connect 스캔</span>
+nmap <span class="f">-sT</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># ACK 스캔으로 방화벽 매핑</span>
+<span class="f">sudo</span> nmap <span class="f">-sA</span> <span class="f">-p 1-1024</span> <span class="s">192.168.1.1</span></div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="scan-udp">
+      <table class="opt-table">
+        <thead><tr><th>옵션</th><th>이름</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td class="opt-flag">-sU</td><td class="opt-name">UDP 스캔</td><td class="opt-desc">UDP 포트 스캔. 느리지만 DNS(53), SNMP(161), DHCP(67) 등 탐지에 필수. ICMP unreachable 응답으로 판단</td></tr>
+          <tr><td class="opt-flag">-sY</td><td class="opt-name">SCTP INIT</td><td class="opt-desc">SCTP 프로토콜 스캔. 텔레콤 네트워크에서 사용</td></tr>
+          <tr><td class="opt-flag">-sZ</td><td class="opt-name">SCTP COOKIE-ECHO</td><td class="opt-desc">상태 저장 방화벽 우회에 유용한 SCTP 스캔</td></tr>
+          <tr><td class="opt-flag">-sO</td><td class="opt-name">IP 프로토콜</td><td class="opt-desc">어떤 IP 프로토콜(TCP=6, UDP=17 등)이 지원되는지 탐지</td></tr>
+          <tr><td class="opt-flag">-sI &lt;zombie&gt;</td><td class="opt-name">Idle/Zombie</td><td class="opt-desc">완전한 익명 스캔. 좀비 호스트의 IP ID를 사이드채널로 활용</td></tr>
+          <tr><td class="opt-flag">-b &lt;ftp&gt;</td><td class="opt-name">FTP Bounce</td><td class="opt-desc">FTP 서버를 프록시로 이용한 간접 스캔 (대부분 패치됨)</td></tr>
+        </tbody>
+      </table>
+      <div class="code-block" style="margin-top:16px">
+        <div class="code-header"><span class="code-lang">예시</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body"><span class="c"># UDP + TCP SYN 동시 스캔</span>
+<span class="f">sudo</span> nmap <span class="f">-sS -sU</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># UDP 상위 100포트 빠른 스캔</span>
+<span class="f">sudo</span> nmap <span class="f">-sU --top-ports 100</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># DNS, SNMP, DHCP 포트</span>
+<span class="f">sudo</span> nmap <span class="f">-sU -p 53,161,67</span> <span class="s">192.168.1.1</span></div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="scan-stealth">
+      <div class="info-box info-warn">RFC 793 기반 스텔스 스캔은 Windows에서 동작하지 않습니다. Unix/Linux 대상에서만 유효합니다.</div>
+      <table class="opt-table" style="margin-top:12px">
+        <thead><tr><th>옵션</th><th>플래그 조합</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td class="opt-flag">-sN</td><td class="opt-name">플래그 없음</td><td class="opt-desc">TCP 플래그를 전혀 설정하지 않음. RFC 793 구현 시스템에서 closed 포트는 RST 응답, 방화벽 우회 가능</td></tr>
+          <tr><td class="opt-flag">-sF</td><td class="opt-name">FIN</td><td class="opt-desc">FIN 플래그만 설정. 일부 시스템에서 stateful 방화벽 우회</td></tr>
+          <tr><td class="opt-flag">-sX</td><td class="opt-name">FIN+PSH+URG</td><td class="opt-desc">세 플래그를 모두 켠 "크리스마스트리" 패킷. 다채로운 패킷으로 일부 IDS 우회</td></tr>
+          <tr><td class="opt-flag">--scanflags</td><td class="opt-name">커스텀 플래그</td><td class="opt-desc">원하는 플래그 조합 직접 지정: URG, ACK, PSH, RST, SYN, FIN</td></tr>
+        </tbody>
+      </table>
+      <div class="code-block" style="margin-top:16px">
+        <div class="code-header"><span class="code-lang">예시</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body"><span class="c"># Null 스캔</span>
+<span class="f">sudo</span> nmap <span class="f">-sN</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># Xmas 스캔</span>
+<span class="f">sudo</span> nmap <span class="f">-sX</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># 커스텀 플래그 (FIN+URG)</span>
+<span class="f">sudo</span> nmap <span class="f">--scanflags FINURG</span> <span class="s">192.168.1.1</span></div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="scan-compare">
+      <table class="opt-table">
+        <thead><tr><th>스캔</th><th>속도</th><th>스텔스</th><th>정확도</th><th>root</th><th>Windows</th></tr></thead>
+        <tbody>
+          <tr><td class="opt-flag">-sS</td><td>★★★★★</td><td>★★★★☆</td><td>★★★★★</td><td>✓</td><td>✓</td></tr>
+          <tr><td class="opt-flag">-sT</td><td>★★★☆☆</td><td>★★☆☆☆</td><td>★★★★★</td><td>✗</td><td>✓</td></tr>
+          <tr><td class="opt-flag">-sA</td><td>★★★★☆</td><td>★★★☆☆</td><td>★★★☆☆</td><td>✓</td><td>✓</td></tr>
+          <tr><td class="opt-flag">-sN</td><td>★★★★☆</td><td>★★★★★</td><td>★★☆☆☆</td><td>✓</td><td>✗</td></tr>
+          <tr><td class="opt-flag">-sF</td><td>★★★★☆</td><td>★★★★★</td><td>★★☆☆☆</td><td>✓</td><td>✗</td></tr>
+          <tr><td class="opt-flag">-sX</td><td>★★★★☆</td><td>★★★★★</td><td>★★☆☆☆</td><td>✓</td><td>✗</td></tr>
+          <tr><td class="opt-flag">-sU</td><td>★☆☆☆☆</td><td>★★★☆☆</td><td>★★★☆☆</td><td>✓</td><td>✓</td></tr>
+          <tr><td class="opt-flag">-sI</td><td>★★☆☆☆</td><td>★★★★★</td><td>★★★★☆</td><td>✓</td><td>△</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: Ports ══ -->
+<div class="page" id="page-ports">
+  <div class="page-header">
+    <div class="chapter-tag">3장</div>
+    <div class="page-title">포트 지정 옵션</div>
+    <div class="page-desc">스캔할 포트 범위와 우선순위 제어</div>
+  </div>
+  <div class="content">
+    <div class="section">
+      <div class="section-title">포트 지정 옵션</div>
+      <table class="opt-table">
+        <thead><tr><th>옵션</th><th>설명</th><th>예시</th></tr></thead>
+        <tbody>
+          <tr><td class="opt-flag">-p &lt;포트&gt;</td><td class="opt-desc">특정 포트 또는 범위 지정</td><td class="opt-ex">-p 22,80,443 / -p 1-1024</td></tr>
+          <tr><td class="opt-flag">-p-</td><td class="opt-desc">전체 65535 포트 스캔</td><td class="opt-ex">nmap -p- target</td></tr>
+          <tr><td class="opt-flag">-p U:53,T:80</td><td class="opt-desc">프로토콜별 포트 지정 (U=UDP, T=TCP)</td><td class="opt-ex">-p U:53,T:80,443</td></tr>
+          <tr><td class="opt-flag">--top-ports &lt;n&gt;</td><td class="opt-desc">가장 많이 사용되는 n개 포트</td><td class="opt-ex">--top-ports 100</td></tr>
+          <tr><td class="opt-flag">-F</td><td class="opt-desc">Fast mode: 상위 100개 포트만</td><td class="opt-ex">nmap -F target</td></tr>
+          <tr><td class="opt-flag">--port-ratio &lt;0-1&gt;</td><td class="opt-desc">사용 빈도 비율 이상인 포트만 스캔</td><td class="opt-ex">--port-ratio 0.1</td></tr>
+          <tr><td class="opt-flag">-r</td><td class="opt-desc">포트를 순서대로 스캔 (기본값은 랜덤)</td><td class="opt-ex">nmap -r target</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">주요 포트 번호 참조</div>
+      <div class="cheat-grid">
+        <div class="cheat-cell"><div class="cheat-key">20/21</div><div class="cheat-val">FTP (데이터/제어)</div></div>
+        <div class="cheat-cell"><div class="cheat-key">22</div><div class="cheat-val">SSH</div></div>
+        <div class="cheat-cell"><div class="cheat-key">23</div><div class="cheat-val">Telnet</div></div>
+        <div class="cheat-cell"><div class="cheat-key">25</div><div class="cheat-val">SMTP</div></div>
+        <div class="cheat-cell"><div class="cheat-key">53</div><div class="cheat-val">DNS</div></div>
+        <div class="cheat-cell"><div class="cheat-key">67/68</div><div class="cheat-val">DHCP</div></div>
+        <div class="cheat-cell"><div class="cheat-key">80</div><div class="cheat-val">HTTP</div></div>
+        <div class="cheat-cell"><div class="cheat-key">110</div><div class="cheat-val">POP3</div></div>
+        <div class="cheat-cell"><div class="cheat-key">143</div><div class="cheat-val">IMAP</div></div>
+        <div class="cheat-cell"><div class="cheat-key">161</div><div class="cheat-val">SNMP (UDP)</div></div>
+        <div class="cheat-cell"><div class="cheat-key">443</div><div class="cheat-val">HTTPS</div></div>
+        <div class="cheat-cell"><div class="cheat-key">445</div><div class="cheat-val">SMB</div></div>
+        <div class="cheat-cell"><div class="cheat-key">3306</div><div class="cheat-val">MySQL</div></div>
+        <div class="cheat-cell"><div class="cheat-key">3389</div><div class="cheat-val">RDP</div></div>
+        <div class="cheat-cell"><div class="cheat-key">5432</div><div class="cheat-val">PostgreSQL</div></div>
+        <div class="cheat-cell"><div class="cheat-key">6379</div><div class="cheat-val">Redis</div></div>
+        <div class="cheat-cell"><div class="cheat-key">8080</div><div class="cheat-val">HTTP 대체</div></div>
+        <div class="cheat-cell"><div class="cheat-key">27017</div><div class="cheat-val">MongoDB</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: Host Discovery ══ -->
+<div class="page" id="page-host-disc">
+  <div class="page-header">
+    <div class="chapter-tag">9장</div>
+    <div class="page-title">호스트 발견</div>
+    <div class="page-desc">살아있는 호스트를 효율적으로 탐색하는 방법</div>
+  </div>
+  <div class="content">
+    <div class="section">
+      <div class="section-title">호스트 발견 옵션</div>
+      <table class="opt-table">
+        <thead><tr><th>옵션</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td class="opt-flag">-sn</td><td class="opt-desc">포트 스캔 없이 호스트 발견만 (구 -sP)</td></tr>
+          <tr><td class="opt-flag">-Pn</td><td class="opt-desc">호스트 발견 생략 — 모든 호스트를 온라인으로 간주하고 스캔</td></tr>
+          <tr><td class="opt-flag">-sL</td><td class="opt-desc">목록 스캔 — 실제 스캔 없이 대상 목록만 출력 (DNS 조회 포함)</td></tr>
+          <tr><td class="opt-flag">-PR</td><td class="opt-desc">ARP Ping — 로컬 네트워크에서 가장 빠르고 신뢰도 높음</td></tr>
+          <tr><td class="opt-flag">-PE</td><td class="opt-desc">ICMP Echo 요청 (ping)</td></tr>
+          <tr><td class="opt-flag">-PP</td><td class="opt-desc">ICMP 타임스탬프 요청</td></tr>
+          <tr><td class="opt-flag">-PM</td><td class="opt-desc">ICMP 서브넷 마스크 요청</td></tr>
+          <tr><td class="opt-flag">-PS &lt;포트&gt;</td><td class="opt-desc">TCP SYN Ping (지정 포트로, 기본 80)</td></tr>
+          <tr><td class="opt-flag">-PA &lt;포트&gt;</td><td class="opt-desc">TCP ACK Ping</td></tr>
+          <tr><td class="opt-flag">-PU &lt;포트&gt;</td><td class="opt-desc">UDP Ping</td></tr>
+          <tr><td class="opt-flag">-PY &lt;포트&gt;</td><td class="opt-desc">SCTP INIT Ping</td></tr>
+          <tr><td class="opt-flag">-n</td><td class="opt-desc">DNS 해석 비활성화 — 속도 향상에 큰 효과</td></tr>
+          <tr><td class="opt-flag">-R</td><td class="opt-desc">모든 대상에 DNS 역방향 조회 강제</td></tr>
+          <tr><td class="opt-flag">--dns-servers &lt;IP&gt;</td><td class="opt-desc">사용할 DNS 서버 직접 지정</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="section">
+      <div class="section-title">상황별 예시</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body"><span class="c"># LAN에서 살아있는 호스트 발견 (ARP - 가장 빠름)</span>
+<span class="f">sudo</span> nmap <span class="f">-PR -sn</span> <span class="s">192.168.1.0/24</span>
+
+<span class="c"># ICMP가 차단된 경우 TCP로 핑</span>
+nmap <span class="f">-PS80,443 -sn</span> <span class="s">192.168.1.0/24</span>
+
+<span class="c"># 호스트 발견 건너뛰고 바로 포트 스캔</span>
+nmap <span class="f">-Pn</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># DNS 없이 빠른 호스트 발견</span>
+nmap <span class="f">-sn -n</span> <span class="s">192.168.1.0/24</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: Detection ══ -->
+<div class="page" id="page-detection">
+  <div class="page-header">
+    <div class="chapter-tag">4장</div>
+    <div class="page-title">버전 / OS 탐지</div>
+    <div class="page-desc">서비스 버전과 운영체제를 식별하는 옵션</div>
+  </div>
+  <div class="content">
+    <div class="section">
+      <div class="section-title">버전 탐지 옵션</div>
+      <table class="opt-table">
+        <thead><tr><th>옵션</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td class="opt-flag">-sV</td><td class="opt-desc">서비스/버전 탐지 활성화. 프로브를 전송해 서비스 이름과 버전 확인</td></tr>
+          <tr><td class="opt-flag">--version-intensity &lt;0-9&gt;</td><td class="opt-desc">탐지 강도 설정. 0=가장 빠름(덜 정확), 9=가장 느림(가장 정확). 기본값 7</td></tr>
+          <tr><td class="opt-flag">--version-light</td><td class="opt-desc">강도 2 — 빠른 버전 탐지 (정확도 낮음)</td></tr>
+          <tr><td class="opt-flag">--version-all</td><td class="opt-desc">강도 9 — 모든 프로브 사용 (가장 느림, 가장 정확)</td></tr>
+          <tr><td class="opt-flag">--version-trace</td><td class="opt-desc">버전 탐지 과정 디버그 출력</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="section">
+      <div class="section-title">OS 탐지 옵션</div>
+      <table class="opt-table">
+        <thead><tr><th>옵션</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td class="opt-flag">-O</td><td class="opt-desc">OS 탐지 활성화. TCP/IP 스택 지문(fingerprint)으로 OS 추측. root 필요</td></tr>
+          <tr><td class="opt-flag">--osscan-limit</td><td class="opt-desc">열린 포트와 닫힌 포트 모두 있는 경우에만 OS 탐지 시도 (성능 향상)</td></tr>
+          <tr><td class="opt-flag">--osscan-guess</td><td class="opt-desc">확실하지 않은 경우 가장 가능성 높은 OS 추측해서 표시</td></tr>
+          <tr><td class="opt-flag">--max-os-tries &lt;n&gt;</td><td class="opt-desc">OS 탐지 재시도 횟수 제한 (기본 5)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="section">
+      <div class="section-title">예시 및 출력</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body"><span class="c"># 버전 + OS 탐지</span>
+<span class="f">sudo</span> nmap <span class="f">-sV -O</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># 가장 정확한 버전 탐지</span>
+<span class="f">sudo</span> nmap <span class="f">-sV --version-all</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># 전체 종합 스캔 (-A = -sV -O -sC --traceroute)</span>
+<span class="f">sudo</span> nmap <span class="f">-A -T4</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># 출력 예시:</span>
+<span class="c"># 22/tcp  open  ssh     OpenSSH 8.9p1 Ubuntu</span>
+<span class="c"># 80/tcp  open  http    Apache httpd 2.4.54</span>
+<span class="c"># 443/tcp open  ssl/http nginx 1.22.1</span>
+<span class="c"># OS: Linux 5.15 - 5.19 (96%)</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: NSE ══ -->
+<div class="page" id="page-nse">
+  <div class="page-header">
+    <div class="chapter-tag">5장</div>
+    <div class="page-title">NSE 스크립팅 엔진</div>
+    <div class="page-desc">Lua 기반 스크립트로 취약점 탐지, 정보 수집, 브루트포스 등 실행</div>
+  </div>
+  <div class="content">
+    <div class="section">
+      <div class="section-title">스크립트 실행 옵션</div>
+      <table class="opt-table">
+        <thead><tr><th>옵션</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td class="opt-flag">-sC</td><td class="opt-desc">기본(default) 카테고리 스크립트 실행 — --script=default와 동일</td></tr>
+          <tr><td class="opt-flag">--script=&lt;이름&gt;</td><td class="opt-desc">특정 스크립트 실행 (쉼표로 여러 개 지정, 와일드카드 사용 가능)</td></tr>
+          <tr><td class="opt-flag">--script-args=&lt;인자&gt;</td><td class="opt-desc">스크립트에 인자 전달 (예: user=admin,pass=pw123)</td></tr>
+          <tr><td class="opt-flag">--script-args-file=&lt;파일&gt;</td><td class="opt-desc">파일에서 스크립트 인자 읽기</td></tr>
+          <tr><td class="opt-flag">--script-trace</td><td class="opt-desc">스크립트의 모든 네트워크 통신 내용 출력</td></tr>
+          <tr><td class="opt-flag">--script-updatedb</td><td class="opt-desc">스크립트 데이터베이스 업데이트</td></tr>
+          <tr><td class="opt-flag">--script-help=&lt;이름&gt;</td><td class="opt-desc">특정 스크립트의 사용법 출력</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">카테고리 — 클릭해서 자세히 보기</div>
+      <div class="nse-grid" id="nseGrid"></div>
+      <div id="nseDetailPanel"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">실전 예시</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body"><span class="c"># 기본 스크립트 + 버전 탐지</span>
+nmap <span class="f">-sC -sV</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># 전체 취약점 스캔</span>
+<span class="f">sudo</span> nmap <span class="f">--script=vuln</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># SMB EternalBlue (MS17-010) 탐지</span>
+nmap <span class="f">--script=smb-vuln-ms17-010</span> <span class="f">-p 445</span> <span class="s">192.168.1.0/24</span>
+
+<span class="c"># HTTP 정보 수집</span>
+nmap <span class="f">--script=http-title,http-headers,http-methods</span> <span class="f">-p 80,443</span> <span class="s">target</span>
+
+<span class="c"># FTP 익명 로그인 탐지</span>
+nmap <span class="f">--script=ftp-anon</span> <span class="f">-p 21</span> <span class="s">192.168.1.0/24</span>
+
+<span class="c"># SSH 브루트포스 (주의!)</span>
+nmap <span class="f">--script=ssh-brute</span> <span class="f">--script-args userdb=users.txt,passdb=pass.txt</span> <span class="f">-p 22</span> <span class="s">target</span>
+
+<span class="c"># SSL 취약점 (HeartBleed, POODLE)</span>
+nmap <span class="f">--script=ssl-heartbleed,ssl-poodle,ssl-dh-params</span> <span class="f">-p 443</span> <span class="s">target</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: Timing ══ -->
+<div class="page" id="page-timing">
+  <div class="page-header">
+    <div class="chapter-tag">6장</div>
+    <div class="page-title">타이밍 & 성능</div>
+    <div class="page-desc">스캔 속도와 스텔스 사이의 균형 조절</div>
+  </div>
+  <div class="content">
+    <div class="section">
+      <div class="section-title">타이밍 템플릿 (-T0 ~ -T5)</div>
+      <div class="timing-viz" id="timingViz"></div>
+      <div id="timingDetail" style="margin-top:12px"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">세부 타이밍 옵션</div>
+      <table class="opt-table">
+        <thead><tr><th>옵션</th><th>설명</th><th>기본값</th></tr></thead>
+        <tbody>
+          <tr><td class="opt-flag">--min-hostgroup &lt;n&gt;</td><td class="opt-desc">병렬 스캔 최소 호스트 수</td><td>1</td></tr>
+          <tr><td class="opt-flag">--max-hostgroup &lt;n&gt;</td><td class="opt-desc">병렬 스캔 최대 호스트 수</td><td>512</td></tr>
+          <tr><td class="opt-flag">--min-parallelism &lt;n&gt;</td><td class="opt-desc">최소 병렬 프로브 수</td><td>동적</td></tr>
+          <tr><td class="opt-flag">--max-parallelism &lt;n&gt;</td><td class="opt-desc">최대 병렬 프로브 수</td><td>동적</td></tr>
+          <tr><td class="opt-flag">--min-rtt-timeout &lt;시간&gt;</td><td class="opt-desc">최소 응답 대기 시간</td><td>100ms</td></tr>
+          <tr><td class="opt-flag">--max-rtt-timeout &lt;시간&gt;</td><td class="opt-desc">최대 응답 대기 시간</td><td>10s</td></tr>
+          <tr><td class="opt-flag">--max-retries &lt;n&gt;</td><td class="opt-desc">최대 재전송 횟수</td><td>10</td></tr>
+          <tr><td class="opt-flag">--host-timeout &lt;시간&gt;</td><td class="opt-desc">호스트당 최대 스캔 시간</td><td>없음</td></tr>
+          <tr><td class="opt-flag">--scan-delay &lt;시간&gt;</td><td class="opt-desc">프로브 간 최소 지연</td><td>0</td></tr>
+          <tr><td class="opt-flag">--max-scan-delay &lt;시간&gt;</td><td class="opt-desc">프로브 간 최대 지연</td><td>1s</td></tr>
+          <tr><td class="opt-flag">--min-rate &lt;n&gt;</td><td class="opt-desc">초당 최소 패킷 전송 수</td><td>동적</td></tr>
+          <tr><td class="opt-flag">--max-rate &lt;n&gt;</td><td class="opt-desc">초당 최대 패킷 전송 수</td><td>동적</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="section">
+      <div class="section-title">예시</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body"><span class="c"># 빠른 LAN 스캔</span>
+nmap <span class="f">-T4 -F</span> <span class="s">192.168.1.0/24</span>
+
+<span class="c"># IDS 우회 스텔스 스캔</span>
+<span class="f">sudo</span> nmap <span class="f">-T1 -sS</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># 초당 최대 패킷 제한 (네트워크 부하 조절)</span>
+nmap <span class="f">--max-rate 100</span> <span class="s">192.168.1.0/24</span>
+
+<span class="c"># 재시도 최소화로 속도 향상</span>
+nmap <span class="f">--max-retries 1 -T4</span> <span class="s">192.168.1.0/24</span>
+
+<span class="c"># 느린 호스트 타임아웃으로 스킵</span>
+nmap <span class="f">--host-timeout 30s</span> <span class="s">192.168.1.0/24</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: Evasion ══ -->
+<div class="page" id="page-evasion">
+  <div class="page-header">
+    <div class="chapter-tag">8장</div>
+    <div class="page-title">방화벽 / IDS 우회</div>
+    <div class="page-desc">패킷 조작으로 탐지를 피하는 기술</div>
+  </div>
+  <div class="content">
+    <div class="info-box info-danger">이 기능들은 반드시 권한이 있는 시스템에서만 사용해야 합니다. 무단 스캔은 불법입니다.</div>
+    <div class="section" style="margin-top:20px">
+      <div class="section-title">패킷 조작 옵션</div>
+      <table class="opt-table">
+        <thead><tr><th>옵션</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td class="opt-flag">-f</td><td class="opt-desc">IP 단편화 — 패킷을 8바이트 조각으로 분할하여 DPI(심층 패킷 검사) 우회</td></tr>
+          <tr><td class="opt-flag">-f -f</td><td class="opt-desc">더 작은 단편화 (16바이트). --mtu 옵션과 동일 효과</td></tr>
+          <tr><td class="opt-flag">--mtu &lt;크기&gt;</td><td class="opt-desc">MTU 직접 지정 (8의 배수). 방화벽이 단편화된 패킷을 재조립하지 않으면 우회 가능</td></tr>
+          <tr><td class="opt-flag">-D &lt;decoy1,decoy2,...&gt;</td><td class="opt-desc">디코이(위장 IP) 사용 — 로그에 여러 IP가 섞여 실제 스캐너 식별 어렵게 함</td></tr>
+          <tr><td class="opt-flag">-D RND:10</td><td class="opt-desc">10개의 랜덤 디코이 자동 생성. ME로 자신의 IP 위치 지정 가능</td></tr>
+          <tr><td class="opt-flag">-S &lt;IP&gt;</td><td class="opt-desc">소스 IP 주소 위조 (스푸핑). 응답은 수신 불가 — 무응답 스캔에만 의미</td></tr>
+          <tr><td class="opt-flag">-e &lt;인터페이스&gt;</td><td class="opt-desc">특정 네트워크 인터페이스 사용 (eth0, wlan0 등)</td></tr>
+          <tr><td class="opt-flag">-g &lt;포트&gt; / --source-port</td><td class="opt-desc">소스 포트 위장 — 80이나 53으로 설정하면 일부 방화벽 통과 가능</td></tr>
+          <tr><td class="opt-flag">--proxies &lt;URL,...&gt;</td><td class="opt-desc">HTTP/SOCKS4 프록시 체인 경유 스캔</td></tr>
+          <tr><td class="opt-flag">--data-length &lt;길이&gt;</td><td class="opt-desc">랜덤 데이터로 패킷 크기 조절 — 시그니처 기반 탐지 우회</td></tr>
+          <tr><td class="opt-flag">--ip-options &lt;옵션&gt;</td><td class="opt-desc">IP 옵션 필드 설정 (레코드 라우트, 느슨한 소스 라우팅 등)</td></tr>
+          <tr><td class="opt-flag">--ttl &lt;값&gt;</td><td class="opt-desc">IP TTL 필드 직접 설정</td></tr>
+          <tr><td class="opt-flag">--spoof-mac &lt;MAC&gt;</td><td class="opt-desc">MAC 주소 위조. 0이면 랜덤, 공급업체 이름도 사용 가능</td></tr>
+          <tr><td class="opt-flag">--badsum</td><td class="opt-desc">잘못된 체크섬으로 패킷 전송 — 방화벽/IDS 반응 여부 테스트</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="section">
+      <div class="section-title">우회 기법 예시</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body"><span class="c"># IP 단편화로 DPI 우회</span>
+<span class="f">sudo</span> nmap <span class="f">-f -sS</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># 소스 포트를 80으로 위장 (방화벽 outbound 80 허용 시)</span>
+<span class="f">sudo</span> nmap <span class="f">-g 80 -sS</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># 디코이 + 자신의 IP 위치 지정</span>
+<span class="f">sudo</span> nmap <span class="f">-D 10.0.0.1,10.0.0.2,ME,10.0.0.3</span> <span class="f">-sS</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># MAC 주소 위조 (랜덤)</span>
+<span class="f">sudo</span> nmap <span class="f">--spoof-mac 0</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># 데이터 길이로 시그니처 우회</span>
+<span class="f">sudo</span> nmap <span class="f">--data-length 200 -sS</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># 프록시 체인 경유</span>
+nmap <span class="f">--proxies socks4://127.0.0.1:9050</span> <span class="s">192.168.1.1</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: Output ══ -->
+<div class="page" id="page-output">
+  <div class="page-header">
+    <div class="chapter-tag">7장</div>
+    <div class="page-title">출력 & 저장</div>
+    <div class="page-desc">스캔 결과를 다양한 형식으로 저장하고 분석하는 방법</div>
+  </div>
+  <div class="content">
+    <div class="section">
+      <div class="section-title">출력 형식 옵션</div>
+      <table class="opt-table">
+        <thead><tr><th>옵션</th><th>형식</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td class="opt-flag">-oN &lt;파일&gt;</td><td class="opt-name">Normal</td><td class="opt-desc">사람이 읽기 쉬운 텍스트 형식 (.nmap). 기본 터미널 출력과 동일</td></tr>
+          <tr><td class="opt-flag">-oX &lt;파일&gt;</td><td class="opt-name">XML</td><td class="opt-desc">구조화된 XML 형식. Metasploit, Nessus 등 보안 도구와 연동에 적합</td></tr>
+          <tr><td class="opt-flag">-oG &lt;파일&gt;</td><td class="opt-name">Grepable</td><td class="opt-desc">grep/awk 처리 최적화. 한 호스트 당 한 줄 (.gnmap)</td></tr>
+          <tr><td class="opt-flag">-oS &lt;파일&gt;</td><td class="opt-name">Script Kiddie</td><td class="opt-desc">특수문자로 꾸민 농담성 형식 (실용적 용도 없음)</td></tr>
+          <tr><td class="opt-flag">-oA &lt;기본명&gt;</td><td class="opt-name">All (세 가지)</td><td class="opt-desc">Normal(.nmap) + XML(.xml) + Grepable(.gnmap) 동시 저장 — 추천</td></tr>
+          <tr><td class="opt-flag">--append-output</td><td>추가</td><td class="opt-desc">기존 파일에 결과 추가 (덮어쓰기 방지)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="section">
+      <div class="section-title">상세도 & 디버그 옵션</div>
+      <table class="opt-table">
+        <thead><tr><th>옵션</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td class="opt-flag">-v / -vv</td><td class="opt-desc">상세 출력 — 포트 발견 시 즉시 표시. -vv는 더욱 상세</td></tr>
+          <tr><td class="opt-flag">-d / -d9</td><td class="opt-desc">디버그 레벨 (1-9). -d9는 최대 디버그</td></tr>
+          <tr><td class="opt-flag">--reason</td><td class="opt-desc">각 포트 상태 판단 이유 표시 (어떤 패킷을 받았는지)</td></tr>
+          <tr><td class="opt-flag">--open</td><td class="opt-desc">열린(open) 포트만 출력 — 결과 간소화에 유용</td></tr>
+          <tr><td class="opt-flag">--packet-trace</td><td class="opt-desc">전송/수신된 모든 패킷 표시 (디버깅용)</td></tr>
+          <tr><td class="opt-flag">--iflist</td><td class="opt-desc">네트워크 인터페이스 및 라우팅 테이블 목록 표시</td></tr>
+          <tr><td class="opt-flag">--resume &lt;파일&gt;</td><td class="opt-desc">중단된 스캔을 grepable 또는 XML 파일로부터 재개</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="section">
+      <div class="section-title">출력 활용 예시</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body"><span class="c"># 세 가지 형식 동시 저장 (가장 추천)</span>
+nmap <span class="f">-sS -sV -oA scan_result</span> <span class="s">192.168.1.0/24</span>
+
+<span class="c"># Grepable 출력에서 열린 포트 추출</span>
+nmap <span class="f">-oG -</span> <span class="s">192.168.1.0/24</span> | grep <span class="s">'open'</span>
+
+<span class="c"># XML을 HTML 보고서로 변환</span>
+nmap <span class="f">-oX out.xml</span> <span class="s">192.168.1.1</span>
+xsltproc /usr/share/nmap/nmap.xsl out.xml > report.html
+
+<span class="c"># 열린 포트만, 이유 포함</span>
+nmap <span class="f">--open --reason</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># 중단된 스캔 재개</span>
+nmap <span class="f">--resume scan_result.gnmap</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: Examples ══ -->
+<div class="page" id="page-examples">
+  <div class="page-header">
+    <div class="chapter-tag">10장</div>
+    <div class="page-title">실전 예시 모음</div>
+    <div class="page-desc">시나리오별 완성된 nmap 명령어</div>
+  </div>
+  <div class="content">
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('ex','recon',this)">정찰</div>
+      <div class="tab" onclick="switchTab('ex','vuln',this)">취약점</div>
+      <div class="tab" onclick="switchTab('ex','web',this)">웹 서버</div>
+      <div class="tab" onclick="switchTab('ex','windows',this)">Windows</div>
+      <div class="tab" onclick="switchTab('ex','services',this)">서비스별</div>
+    </div>
+
+    <div class="tab-content active" id="ex-recon">
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">네트워크 정찰 (Reconnaissance)</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body"><span class="c"># 1단계: 살아있는 호스트 발견</span>
+nmap <span class="f">-sn</span> <span class="s">192.168.1.0/24</span> <span class="f">-oG alive.gnmap</span>
+grep <span class="s">'Up'</span> alive.gnmap | cut -d<span class="s">' '</span> -f2 > alive_hosts.txt
+
+<span class="c"># 2단계: 빠른 포트 스캔</span>
+nmap <span class="f">-iL alive_hosts.txt -T4 -F -oA quick_scan</span>
+
+<span class="c"># 3단계: 전체 포트 상세 스캔</span>
+<span class="f">sudo</span> nmap <span class="f">-iL alive_hosts.txt -p- -sV -O -T4 -oA full_scan</span>
+
+<span class="c"># 4단계: 스크립트 스캔</span>
+nmap <span class="f">-iL alive_hosts.txt -sC --open -oA script_scan</span></div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="ex-vuln">
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">취약점 평가 (Vulnerability Assessment)</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body"><span class="c"># 전체 취약점 스캔</span>
+<span class="f">sudo</span> nmap <span class="f">-sV --script=vuln</span> <span class="s">192.168.1.1</span>
+
+<span class="c"># SSL/TLS 취약점 (HeartBleed, POODLE, FREAK)</span>
+nmap <span class="f">--script=ssl-heartbleed,ssl-poodle,ssl-dh-params,ssl-enum-ciphers</span> <span class="f">-p 443</span> <span class="s">target</span>
+
+<span class="c"># ShellShock (CVE-2014-6271)</span>
+nmap <span class="f">--script=http-shellshock</span> <span class="f">--script-args uri=/cgi-bin/test.cgi</span> <span class="f">-p 80</span> <span class="s">target</span>
+
+<span class="c"># 오래된 소프트웨어 탐지 후 CVE 확인</span>
+nmap <span class="f">-sV --version-all</span> <span class="s">192.168.1.1</span></div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="ex-web">
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">웹 서버 감사</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body"><span class="c"># 웹 서버 전체 정보 수집</span>
+nmap <span class="f">-sV -p 80,443,8080,8443</span> \
+  <span class="f">--script=http-title,http-headers,http-methods,http-server-header</span> <span class="s">target</span>
+
+<span class="c"># 디렉토리 브루트포스</span>
+nmap <span class="f">--script=http-enum</span> <span class="f">-p 80,443</span> <span class="s">target</span>
+
+<span class="c"># SQL Injection 탐지</span>
+nmap <span class="f">--script=http-sql-injection</span> <span class="f">-p 80</span> <span class="s">target</span>
+
+<span class="c"># 웹 서버 방화벽(WAF) 탐지</span>
+nmap <span class="f">--script=http-waf-detect,http-waf-fingerprint</span> <span class="f">-p 80,443</span> <span class="s">target</span>
+
+<span class="c"># 기본 자격증명 테스트</span>
+nmap <span class="f">--script=http-default-accounts</span> <span class="f">-p 80,443,8080</span> <span class="s">target</span></div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="ex-windows">
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">Windows 네트워크 감사</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body"><span class="c"># SMB 취약점 전체</span>
+<span class="f">sudo</span> nmap <span class="f">-p 445 --script=smb-vuln-*</span> <span class="s">192.168.1.0/24</span>
+
+<span class="c"># EternalBlue (MS17-010) — WannaCry 취약점</span>
+nmap <span class="f">--script=smb-vuln-ms17-010</span> <span class="f">-p 445</span> <span class="s">192.168.1.0/24</span>
+
+<span class="c"># SMB 공유 열거</span>
+nmap <span class="f">--script=smb-enum-shares,smb-enum-users</span> <span class="f">-p 445</span> <span class="s">target</span>
+
+<span class="c"># NetBIOS 정보</span>
+nmap <span class="f">--script=nbstat.nse</span> <span class="f">-p 137</span> <span class="s">192.168.1.0/24</span>
+
+<span class="c"># RDP 취약점</span>
+nmap <span class="f">--script=rdp-vuln-ms12-020,rdp-enum-encryption</span> <span class="f">-p 3389</span> <span class="s">target</span>
+
+<span class="c"># Windows 업데이트 상태 (WMIC via SMB)</span>
+nmap <span class="f">--script=smb-security-mode</span> <span class="f">-p 445</span> <span class="s">target</span></div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="ex-services">
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">서비스별 스캔</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body"><span class="c"># SSH 감사</span>
+nmap <span class="f">-p 22 --script=ssh-auth-methods,ssh-hostkey,ssh2-enum-algos</span> <span class="s">target</span>
+
+<span class="c"># FTP 감사 (익명, 브루트포스, 바운스)</span>
+nmap <span class="f">-p 21 --script=ftp-anon,ftp-bounce,ftp-brute</span> <span class="s">target</span>
+
+<span class="c"># SMTP 메일 서버</span>
+nmap <span class="f">-p 25,465,587 --script=smtp-commands,smtp-open-relay,smtp-enum-users</span> <span class="s">target</span>
+
+<span class="c"># DNS 서버</span>
+nmap <span class="f">-sU -p 53 --script=dns-zone-transfer,dns-cache-snoop,dns-recursion</span> <span class="s">target</span>
+
+<span class="c"># SNMP (커뮤니티 문자열 브루트포스)</span>
+<span class="f">sudo</span> nmap <span class="f">-sU -p 161 --script=snmp-brute,snmp-info,snmp-sysdescr</span> <span class="s">target</span>
+
+<span class="c"># MySQL/MariaDB</span>
+nmap <span class="f">-p 3306 --script=mysql-info,mysql-empty-password,mysql-databases</span> <span class="s">target</span>
+
+<span class="c"># MongoDB (인증 없는 접근)</span>
+nmap <span class="f">-p 27017 --script=mongodb-info,mongodb-databases</span> <span class="s">target</span>
+
+<span class="c"># Redis</span>
+nmap <span class="f">-p 6379 --script=redis-info</span> <span class="s">target</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: Cheatsheet ══ -->
+<div class="page" id="page-cheatsheet">
+  <div class="page-header">
+    <div class="chapter-tag">참조</div>
+    <div class="page-title">치트시트</div>
+    <div class="page-desc">자주 쓰는 명령어와 옵션 빠른 참조</div>
+  </div>
+  <div class="content">
+    <div class="section">
+      <div class="section-title">Top 10 명령어</div>
+      <table class="opt-table">
+        <thead><tr><th>#</th><th>명령어</th><th>용도</th></tr></thead>
+        <tbody id="top10Table"></tbody>
+      </table>
+    </div>
+    <div class="section">
+      <div class="section-title">전체 옵션 요약</div>
+      <div class="cheat-grid" id="fullCheatGrid"></div>
+    </div>
+    <div class="info-box info-warn" style="margin-top:20px">
+      nmap 스캔은 대상 시스템의 명시적 허가 없이는 불법입니다. 항상 서면 권한을 확인하세요.
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────
+
+const nseCategories = [
+  {name:'default',desc:'기본 안전 스크립트 (-sC)',risk:'safe',scripts:['ssh-hostkey','http-title','ssl-cert','ftp-anon'],detail:'nmap -sC로 실행되는 안전하고 일반적인 스크립트 모음. 빠르고 신뢰도 높음.'},
+  {name:'safe',desc:'비침입적, 안전한 스크립트',risk:'safe',scripts:['banner','http-headers','ssl-cert','whois-ip'],detail:'네트워크나 서비스에 영향을 미치지 않는 읽기 전용 스크립트.'},
+  {name:'discovery',desc:'추가 정보 탐색',risk:'safe',scripts:['dns-brute','snmp-info','broadcast-ping','broadcast-arp-scan'],detail:'서비스와 호스트에 대한 더 많은 정보를 수집하는 스크립트.'},
+  {name:'version',desc:'버전 탐지 보조',risk:'safe',scripts:['skypev2-version','pptp-version','irc-info'],detail:'-sV 버전 탐지를 보완하는 추가 버전 확인 스크립트.'},
+  {name:'auth',desc:'인증 테스트',risk:'medium',scripts:['ftp-anon','http-auth-finder','ssh-auth-methods','snmp-empty-community'],detail:'기본 자격증명, 익명 로그인, 인증 방식을 테스트합니다.'},
+  {name:'broadcast',desc:'브로드캐스트 탐색',risk:'medium',scripts:['broadcast-arp-scan','broadcast-dhcp-discover','broadcast-dns-service-discovery'],detail:'로컬 네트워크 브로드캐스트로 서비스와 호스트를 탐색합니다.'},
+  {name:'brute',desc:'브루트포스 공격',risk:'high',scripts:['ftp-brute','ssh-brute','http-brute','smb-brute'],detail:'자격증명 브루트포스. 계정 잠금을 유발할 수 있습니다.'},
+  {name:'vuln',desc:'취약점 탐지',risk:'high',scripts:['smb-vuln-ms17-010','ssl-heartbleed','http-shellshock','http-sql-injection'],detail:'알려진 CVE 취약점과 보안 문제를 탐지합니다.'},
+  {name:'exploit',desc:'취약점 실제 공격',risk:'high',scripts:['http-shellshock','smb-vuln-ms08-067'],detail:'취약점을 실제로 익스플로잇합니다. 반드시 권한 있는 환경에서만 사용.'},
+  {name:'intrusive',desc:'침입적, 탐지 위험',risk:'high',scripts:['http-sql-injection','ftp-proftpd-backdoor','http-vuln-cve2010-0738'],detail:'서비스에 큰 영향을 줄 수 있으며 IDS에 탐지될 가능성이 높습니다.'},
+  {name:'dos',desc:'DoS 취약점 테스트',risk:'high',scripts:['http-slowloris-check','rdp-vuln-ms12-020'],detail:'서비스 거부 공격 취약점을 테스트합니다. 실제 중단을 유발할 수 있음.'},
+  {name:'malware',desc:'악성코드/백도어 탐지',risk:'medium',scripts:['smtp-strangeport','http-badheaders','dns-blacklist'],detail:'백도어, 악성코드 감염 여부를 탐지합니다.'},
+  {name:'external',desc:'외부 DB/서비스 활용',risk:'safe',scripts:['whois-domain','whois-ip','http-virustotal'],detail:'외부 데이터베이스나 API를 이용해 추가 정보를 수집합니다.'},
+  {name:'fuzzer',desc:'퍼징 (예외처리 테스트)',risk:'high',scripts:['dns-fuzz','http-form-fuzzer'],detail:'비정상 입력으로 예외처리 버그를 찾아냅니다. 서비스 불안정 유발 가능.'}
+];
+
+const timings = [
+  {n:'T0',name:'Paranoid',color:'#00d4ff',fill:5,desc:'5분/포트. 완전한 스텔스. IDS 타임아웃보다 긴 지연으로 우회'},
+  {n:'T1',name:'Sneaky',color:'#4dc3ff',fill:15,desc:'15초/포트. IDS 거의 우회. 매우 느림'},
+  {n:'T2',name:'Polite',color:'#99d9ff',fill:30,desc:'0.4초/포트. 네트워크 자원 절약'},
+  {n:'T3',name:'Normal',color:'#00ff88',fill:50,desc:'기본값. 균형 잡힌 속도와 정확도'},
+  {n:'T4',name:'Aggressive',color:'#ffb347',fill:75,desc:'빠름. 신뢰할 수 있는 LAN 환경 권장'},
+  {n:'T5',name:'Insane',color:'#ff5555',fill:100,desc:'최대 속도. 패킷 손실 가능, 정확도 낮아질 수 있음'}
+];
+
+const top10 = [
+  ['nmap -sn 192.168.1.0/24','네트워크 호스트 발견'],
+  ['nmap -sV -p 1-1024 target','상위 포트 버전 탐지'],
+  ['sudo nmap -sS -T4 -F target','빠른 SYN 스캔'],
+  ['sudo nmap -A target','종합 스캔 (버전+OS+스크립트)'],
+  ['nmap -p- target','전체 65535 포트 스캔'],
+  ['sudo nmap --script=vuln target','전체 취약점 스캔'],
+  ['sudo nmap -sU --top-ports 100 target','UDP 상위 100 포트'],
+  ['nmap -oA output target','결과 세 가지 형식으로 저장'],
+  ['nmap -Pn -p 80,443 target','핑 우회 웹 포트 스캔'],
+  ['nmap --script=smb-vuln-ms17-010 -p 445 target','EternalBlue 취약점 탐지']
+];
+
+const cheatData = [
+  ['-sS','-sT','-sA','-sU','-sN','-sX'],
+  ['-p <포트>','-p-','-F','--top-ports <n>'],
+  ['-sn','-Pn','-PR','-PS','-PA','-PE'],
+  ['-sV','-O','-A','--version-all'],
+  ['-sC','--script=<이름>','--script-args'],
+  ['-T0~T5','--min-rate','--max-rate','--host-timeout'],
+  ['-oN','-oX','-oG','-oA','-v','--reason'],
+  ['-f','-D RND:10','-g 80','--spoof-mac','--mtu']
+];
+
+const cheatLabels = ['스캔 유형','포트 지정','호스트 발견','버전/OS 탐지','NSE 스크립트','타이밍','출력','방화벽 우회'];
+
+// ── Search Data ───────────────────────────────────────────────────────────
+const searchIndex = [
+  {flag:'-sS',desc:'TCP SYN 스캔 (Half-open)',page:'scan-types'},
+  {flag:'-sT',desc:'TCP Connect 스캔',page:'scan-types'},
+  {flag:'-sA',desc:'TCP ACK 스캔 (방화벽 탐지)',page:'scan-types'},
+  {flag:'-sU',desc:'UDP 스캔',page:'scan-types'},
+  {flag:'-sN',desc:'Null 스캔 (스텔스)',page:'scan-types'},
+  {flag:'-sF',desc:'FIN 스캔 (스텔스)',page:'scan-types'},
+  {flag:'-sX',desc:'Xmas 스캔 (스텔스)',page:'scan-types'},
+  {flag:'-sV',desc:'서비스/버전 탐지',page:'detection'},
+  {flag:'-sC',desc:'기본 NSE 스크립트 실행',page:'nse'},
+  {flag:'-O',desc:'OS 탐지 (root 필요)',page:'detection'},
+  {flag:'-A',desc:'종합 스캔 (버전+OS+스크립트+traceroute)',page:'detection'},
+  {flag:'-p',desc:'포트 지정 (-p 80,443 또는 -p 1-1024)',page:'ports'},
+  {flag:'-p-',desc:'전체 65535 포트 스캔',page:'ports'},
+  {flag:'-F',desc:'빠른 스캔 (상위 100 포트)',page:'ports'},
+  {flag:'--top-ports',desc:'상위 n개 포트 스캔',page:'ports'},
+  {flag:'-sn',desc:'포트 없이 호스트 발견만',page:'host-disc'},
+  {flag:'-Pn',desc:'호스트 발견 스킵',page:'host-disc'},
+  {flag:'-PR',desc:'ARP Ping (LAN 호스트 발견)',page:'host-disc'},
+  {flag:'-n',desc:'DNS 해석 비활성화 (속도 향상)',page:'host-disc'},
+  {flag:'-T0',desc:'Paranoid 타이밍 (최대 스텔스)',page:'timing'},
+  {flag:'-T4',desc:'Aggressive 타이밍 (빠름)',page:'timing'},
+  {flag:'-T5',desc:'Insane 타이밍 (최고 속도)',page:'timing'},
+  {flag:'--min-rate',desc:'초당 최소 패킷 수',page:'timing'},
+  {flag:'--max-rate',desc:'초당 최대 패킷 수',page:'timing'},
+  {flag:'-oA',desc:'세 가지 형식 동시 저장',page:'output'},
+  {flag:'-oX',desc:'XML 형식 저장',page:'output'},
+  {flag:'-oG',desc:'Grepable 형식 저장',page:'output'},
+  {flag:'--open',desc:'열린 포트만 출력',page:'output'},
+  {flag:'--reason',desc:'포트 상태 판단 이유 표시',page:'output'},
+  {flag:'-f',desc:'IP 단편화 (DPI 우회)',page:'evasion'},
+  {flag:'-D',desc:'디코이 IP 사용',page:'evasion'},
+  {flag:'-g',desc:'소스 포트 지정',page:'evasion'},
+  {flag:'--spoof-mac',desc:'MAC 주소 위조',page:'evasion'},
+  {flag:'--script=vuln',desc:'취약점 스캔 스크립트',page:'nse'},
+  {flag:'--script-args',desc:'스크립트 인자 전달',page:'nse'},
+];
+
+// ── Init ──────────────────────────────────────────────────────────────────
+
+function init(){
+  buildNSEGrid();
+  buildTimingViz();
+  buildTop10();
+  buildCheatGrid();
+  buildCmd();
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────
+
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const page = document.getElementById('page-'+id);
+  if(page) page.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+id+"'"))
+      n.classList.add('active');
+  });
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+
+function switchTab(group,id,el){
+  document.querySelectorAll('#page-'+
+    (group==='scan'?'scan-types':'examples')+
+    ' .tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('#page-'+
+    (group==='scan'?'scan-types':'examples')+
+    ' .tab').forEach(t=>t.classList.remove('active'));
+  const tc = document.getElementById(group+'-'+id);
+  if(tc) tc.classList.add('active');
+  if(el) el.classList.add('active');
+}
+
+// ── Command Builder ───────────────────────────────────────────────────────
+
+function buildCmd(){
+  const scanType = document.getElementById('bScanType').value;
+  const ports    = document.getElementById('bPorts').value;
+  const detect   = document.getElementById('bDetect').value;
+  const timing   = document.getElementById('bTiming').value;
+  const script   = document.getElementById('bScript').value;
+  const output   = document.getElementById('bOutput').value;
+  const extra    = document.getElementById('bExtra').value;
+  const target   = document.getElementById('bTarget').value.trim() || '192.168.1.1';
+
+  const parts = ['nmap'];
+  if(scanType) parts.push(scanType);
+  if(ports && ports!=='custom') parts.push(ports);
+  if(detect) parts.push(detect);
+  if(timing) parts.push(timing);
+  if(script) parts.push(script);
+  if(extra) parts.push(extra);
+  if(output) parts.push(output);
+  parts.push(target);
+
+  document.getElementById('cmdText').textContent = parts.join(' ');
+}
+
+function copyCmd(){
+  const cmd = document.getElementById('cmdText').textContent;
+  navigator.clipboard.writeText(cmd).then(()=>{
+    const fb = document.getElementById('copyFeedback');
+    fb.classList.add('show');
+    setTimeout(()=>fb.classList.remove('show'),2000);
+  });
+}
+
+function resetBuilder(){
+  ['bScanType','bPorts','bDetect','bTiming','bScript','bOutput','bExtra'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+  document.getElementById('bTarget').value='192.168.1.1';
+  buildCmd();
+}
+
+function applyPreset(type){
+  resetBuilder();
+  const presets={
+    quick:{scan:'-sS',ports:'-F',timing:'-T4',extra:'-n'},
+    full:{scan:'-sS',detect:'-sV -O',timing:'-T4',script:'-sC'},
+    stealth:{scan:'-sS',timing:'-T1'},
+    vuln:{scan:'-sS',detect:'-sV',script:'--script=vuln'}
+  };
+  const p=presets[type];
+  if(!p)return;
+  if(p.scan) document.getElementById('bScanType').value=p.scan;
+  if(p.ports) document.getElementById('bPorts').value=p.ports;
+  if(p.detect) document.getElementById('bDetect').value=p.detect;
+  if(p.timing) document.getElementById('bTiming').value=p.timing;
+  if(p.script) document.getElementById('bScript').value=p.script;
+  if(p.extra) document.getElementById('bExtra').value=p.extra;
+  buildCmd();
+}
+
+// ── NSE Grid ──────────────────────────────────────────────────────────────
+
+function buildNSEGrid(){
+  const grid=document.getElementById('nseGrid');
+  if(!grid)return;
+  grid.innerHTML=nseCategories.map((c,i)=>`
+    <div class="nse-cat" onclick="toggleNSE(${i},this)">
+      <div class="nse-cat-name">${c.name}</div>
+      <div class="nse-cat-desc">${c.desc}</div>
+      <span class="nse-cat-risk ${c.risk==='safe'?'risk-safe':c.risk==='medium'?'risk-medium':'risk-high'}">
+        ${c.risk==='safe'?'● 안전':c.risk==='medium'?'▲ 중간':'■ 주의'}
+      </span>
+    </div>
+  `).join('');
+}
+
+function toggleNSE(idx,el){
+  const panel=document.getElementById('nseDetailPanel');
+  const c=nseCategories[idx];
+  const wasActive=el.classList.contains('active');
+  document.querySelectorAll('.nse-cat').forEach(e=>e.classList.remove('active'));
+  if(wasActive){panel.innerHTML='';return;}
+  el.classList.add('active');
+  panel.innerHTML=`
+    <div class="nse-detail show">
+      <div style="font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:700;margin-bottom:8px">
+        --script=${c.name}
+      </div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:10px">${c.detail}</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">주요 스크립트:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${c.scripts.map(s=>`<span style="background:var(--surface);border:1px solid var(--border2);border-radius:4px;padding:2px 8px;font-family:var(--mono);font-size:11px;color:var(--accent)">${s}</span>`).join('')}
+      </div>
+      <div class="code-block" style="margin-top:12px">
+        <div class="code-header"><span class="code-lang">사용 예시</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body" style="white-space:pre"><span class="f">sudo</span> nmap <span class="f">--script=${c.name}</span> <span class="s">target</span></div>
+      </div>
+    </div>`;
+}
+
+// ── Timing Viz ────────────────────────────────────────────────────────────
+
+function buildTimingViz(){
+  const viz=document.getElementById('timingViz');
+  if(!viz)return;
+  viz.innerHTML=timings.map((t,i)=>`
+    <div class="timing-card ${i===3?'active':''}" onclick="selectTiming(${i},this)">
+      <div class="timing-num" style="color:${t.color}">${t.n}</div>
+      <div class="timing-name">${t.name}</div>
+      <div class="timing-bar"><div class="timing-fill" style="width:${t.fill}%;background:${t.color}"></div></div>
+      <div class="timing-desc">${t.desc}</div>
+    </div>
+  `).join('');
+}
+
+function selectTiming(idx,el){
+  document.querySelectorAll('.timing-card').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  const t=timings[idx];
+  const d=document.getElementById('timingDetail');
+  if(d){
+    d.innerHTML=`
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">-${t.n} 예시</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+        <div class="code-body" style="white-space:pre"><span class="f">sudo</span> nmap <span class="f">-${t.n} -sS</span> <span class="s">192.168.1.0/24</span></div>
+      </div>`;
+  }
+}
+
+// ── Top 10 & Cheatsheet ───────────────────────────────────────────────────
+
+function buildTop10(){
+  const t=document.getElementById('top10Table');
+  if(!t)return;
+  t.innerHTML=top10.map((r,i)=>`
+    <tr>
+      <td style="color:var(--text3);font-family:var(--mono)">${i+1}</td>
+      <td class="opt-flag">${r[0]}</td>
+      <td class="opt-desc">${r[1]}</td>
+    </tr>`).join('');
+}
+
+function buildCheatGrid(){
+  const g=document.getElementById('fullCheatGrid');
+  if(!g)return;
+  g.innerHTML=cheatLabels.map((label,i)=>`
+    <div class="cheat-cell">
+      <div class="cheat-key">${label}</div>
+      <div class="cheat-val">${cheatData[i].join('  ')}</div>
+    </div>`).join('');
+}
+
+// ── Copy Code ─────────────────────────────────────────────────────────────
+
+function copyCode(btn){
+  const block=btn.closest('.code-block');
+  const body=block.querySelector('.code-body');
+  const text=body.innerText||body.textContent;
+  navigator.clipboard.writeText(text.trim()).then(()=>{
+    const orig=btn.textContent;
+    btn.textContent='✓';
+    setTimeout(()=>btn.textContent=orig,1500);
+  });
+}
+
+// ── Search ────────────────────────────────────────────────────────────────
+
+const searchBox=document.getElementById('globalSearch');
+const searchResults=document.getElementById('searchResults');
+
+searchBox.addEventListener('input',function(){
+  const q=this.value.toLowerCase().trim();
+  if(!q){searchResults.style.display='none';return;}
+  const matches=searchIndex.filter(item=>
+    item.flag.toLowerCase().includes(q)||item.desc.toLowerCase().includes(q)
+  ).slice(0,8);
+  if(!matches.length){searchResults.style.display='none';return;}
+  searchResults.style.display='block';
+  searchResults.innerHTML=matches.map(m=>`
+    <div class="search-result-item" onclick="goToFlag('${m.page}','${m.flag}')">
+      <div class="sr-flag">${m.flag}</div>
+      <div class="sr-desc">${m.desc}</div>
+    </div>`).join('');
+});
+
+function goToFlag(page,flag){
+  searchResults.style.display='none';
+  searchBox.value='';
+  showPage(page);
+}
+
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.search-wrap-inner'))
+    searchResults.style.display='none';
+});
+
+// ── Run ───────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
