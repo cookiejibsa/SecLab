@@ -1,0 +1,1925 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>x86-64 어셈블리 완전 정복 — 리버스 엔지니어링을 위한 가이드</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Noto+Serif+KR:wght@300;400;700&family=Space+Grotesk:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --bg2: #13161e;
+    --bg3: #1a1e2a;
+    --border: #252a38;
+    --accent: #00e5ff;
+    --accent2: #ff6b35;
+    --accent3: #a78bfa;
+    --accent4: #34d399;
+    --text: #c9d1e0;
+    --text-dim: #7a8499;
+    --text-bright: #eef0f5;
+    --code-bg: #0a0c11;
+    --highlight: #1c2333;
+    --red: #ff4757;
+    --yellow: #ffd32a;
+    --green: #34d399;
+    --sidebar-w: 280px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Serif KR', serif;
+    font-size: 16px;
+    line-height: 1.8;
+    display: flex;
+  }
+
+  /* ─── TOOLTIP 시스템 ─── */
+  /* 마우스를 올리면 위에 뜨는 용어 설명 */
+  .tt {
+    position: relative;
+    display: inline;
+    border-bottom: 1px dashed var(--accent3);
+    cursor: help;
+    color: inherit;
+  }
+  .tt::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e2235;
+    color: var(--text-bright);
+    border: 1px solid var(--accent3);
+    border-radius: 6px;
+    padding: 8px 13px;
+    font-size: 12.5px;
+    font-family: 'Space Grotesk', sans-serif;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    max-width: 320px;
+    width: max-content;
+    min-width: 160px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    transform: translateX(-50%) translateY(4px);
+    z-index: 9999;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  }
+  .tt::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--accent3);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    z-index: 9999;
+  }
+  .tt:hover::after,
+  .tt:hover::before {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  /* 왼쪽 정렬용 (화면 끝 근처) */
+  .tt.tl::after { left: 0; transform: translateX(0); }
+  .tt.tl:hover::after { transform: translateX(0) translateY(0); }
+  .tt.tl::before { left: 16px; }
+
+  /* ─── SIDEBAR ─── */
+  #sidebar {
+    width: var(--sidebar-w);
+    min-height: 100vh;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    position: fixed;
+    top: 0; left: 0;
+    overflow-y: auto;
+    z-index: 100;
+    padding-bottom: 40px;
+  }
+  #sidebar::-webkit-scrollbar { width: 4px; }
+  #sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .sidebar-title {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .sidebar-title span {
+    display: block;
+    color: var(--text-bright);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0;
+    margin-top: 4px;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  .nav-section {
+    padding: 16px 0 4px 20px;
+    font-size: 10px;
+    color: var(--accent2);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .nav-item {
+    display: block;
+    padding: 7px 20px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    font-family: 'Space Grotesk', sans-serif;
+    border-left: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .nav-item:hover, .nav-item.active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    background: rgba(0,229,255,0.04);
+  }
+
+  /* ─── MAIN CONTENT ─── */
+  #main {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    max-width: 900px;
+    padding: 0 48px 120px;
+  }
+
+  /* ─── HERO ─── */
+  .hero {
+    padding: 80px 0 60px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 60px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -100px; right: -200px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(0,229,255,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 52px;
+    font-weight: 700;
+    color: var(--text-bright);
+    line-height: 1.1;
+    margin-bottom: 20px;
+  }
+  .hero h1 em { color: var(--accent); font-style: normal; }
+  .hero p { font-size: 17px; color: var(--text-dim); max-width: 600px; line-height: 1.7; }
+  .hero-badges { display: flex; gap: 10px; margin-top: 28px; flex-wrap: wrap; }
+  .badge {
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+  .badge-cyan { background: rgba(0,229,255,0.1); color: var(--accent); border: 1px solid rgba(0,229,255,0.3); }
+  .badge-orange { background: rgba(255,107,53,0.1); color: var(--accent2); border: 1px solid rgba(255,107,53,0.3); }
+  .badge-purple { background: rgba(167,139,250,0.1); color: var(--accent3); border: 1px solid rgba(167,139,250,0.3); }
+
+  /* ─── SECTIONS ─── */
+  .chapter { margin-bottom: 80px; animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .chapter-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: block;
+  }
+  h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 16px;
+  }
+  h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--accent3);
+    margin: 48px 0 16px;
+  }
+  h4 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--accent4);
+    margin: 32px 0 10px;
+  }
+  p { margin-bottom: 16px; color: var(--text); }
+  .chapter-intro {
+    font-size: 17px;
+    color: var(--text-dim);
+    margin-bottom: 32px;
+    padding-left: 16px;
+    border-left: 3px solid var(--accent);
+  }
+
+  /* ─── CODE BLOCKS ─── */
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    overflow-x: auto;
+    margin: 20px 0 28px;
+    position: relative;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13.5px;
+    line-height: 1.7;
+  }
+  pre::before {
+    content: attr(data-lang);
+    position: absolute;
+    top: 8px; right: 14px;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    padding: 2px 7px;
+    border-radius: 4px;
+    color: var(--accent);
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; }
+
+  .kw { color: #ff79c6; }
+  .reg { color: #8be9fd; }
+  .num { color: #bd93f9; }
+  .str { color: #f1fa8c; }
+  .cmt { color: #6272a4; font-style: italic; }
+  .lbl { color: #50fa7b; }
+  .fn { color: #ffb86c; }
+  .op { color: #ff79c6; }
+
+  /* ─── COMPARE BOX ─── */
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 20px 0 28px;
+  }
+  .compare-box {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .compare-box.c-box { border-top: 2px solid var(--accent2); }
+  .compare-box.asm-box { border-top: 2px solid var(--accent); }
+  .compare-header {
+    padding: 8px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .c-box .compare-header { background: rgba(255,107,53,0.08); color: var(--accent2); }
+  .asm-box .compare-header { background: rgba(0,229,255,0.08); color: var(--accent); }
+  .compare-box pre { border: none; border-radius: 0; margin: 0; border-top: 1px solid var(--border); }
+
+  /* ─── INFO BOXES ─── */
+  .info-box {
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 20px 0 28px;
+    border-left: 4px solid;
+    font-size: 15px;
+  }
+  .info-box .box-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .note { background: rgba(0,229,255,0.05); border-color: var(--accent); }
+  .note .box-title { color: var(--accent); }
+  .warn { background: rgba(255,215,42,0.05); border-color: var(--yellow); }
+  .warn .box-title { color: var(--yellow); }
+  .tip { background: rgba(52,211,153,0.05); border-color: var(--green); }
+  .tip .box-title { color: var(--green); }
+  .danger { background: rgba(255,71,87,0.05); border-color: var(--red); }
+  .danger .box-title { color: var(--red); }
+
+  /* ─── TABLES ─── */
+  table { width: 100%; border-collapse: collapse; margin: 20px 0 28px; font-size: 14px; }
+  th {
+    background: var(--bg3);
+    padding: 10px 16px;
+    text-align: left;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    color: var(--accent);
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  td { padding: 10px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: var(--highlight); }
+  td code { font-size: 12px; }
+
+  /* ─── REGISTER DIAGRAM ─── */
+  .reg-diagram {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin: 20px 0 28px;
+    overflow-x: auto;
+  }
+  .reg-row { display: flex; align-items: center; margin-bottom: 10px; }
+  .reg-label { width: 60px; color: var(--accent); font-weight: 600; font-size: 12px; flex-shrink: 0; }
+  .reg-bar {
+    display: flex; height: 32px; border-radius: 4px;
+    overflow: hidden; border: 1px solid var(--border); flex: 1;
+  }
+  .reg-seg {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; border-right: 1px solid var(--bg);
+  }
+  .seg-64 { background: rgba(0,229,255,0.15); color: var(--accent); }
+  .seg-32 { background: rgba(255,107,53,0.15); color: var(--accent2); }
+  .seg-16 { background: rgba(167,139,250,0.15); color: var(--accent3); }
+  .seg-8h { background: rgba(255,215,42,0.12); color: var(--yellow); }
+  .seg-8l { background: rgba(52,211,153,0.12); color: var(--green); }
+
+  /* ─── MEMORY DIAGRAM ─── */
+  .mem-diagram { font-family: 'JetBrains Mono', monospace; font-size: 13px; margin: 20px 0 28px; }
+  .mem-row { display: flex; align-items: stretch; margin-bottom: 2px; }
+  .mem-addr {
+    width: 130px; padding: 8px 12px; color: var(--text-dim);
+    font-size: 12px; flex-shrink: 0; display: flex; align-items: center;
+  }
+  .mem-cell {
+    flex: 1; padding: 8px 16px; border-radius: 4px;
+    display: flex; align-items: center; font-size: 13px;
+    color: var(--text-bright); border: 1px solid var(--border);
+  }
+  .mem-cell.stack { background: rgba(0,229,255,0.06); }
+  .mem-cell.heap { background: rgba(52,211,153,0.06); }
+  .mem-cell.data { background: rgba(255,107,53,0.06); }
+  .mem-cell.text { background: rgba(167,139,250,0.06); }
+  .mem-cell.free { background: var(--code-bg); color: var(--text-dim); }
+  .mem-tag {
+    width: 80px; padding: 8px 0 8px 12px;
+    font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+    display: flex; align-items: center; color: var(--text-dim);
+  }
+
+  /* ─── STEP LIST ─── */
+  .steps { counter-reset: step; list-style: none; margin: 20px 0 28px; }
+  .steps li { counter-increment: step; display: flex; gap: 16px; margin-bottom: 20px; align-items: flex-start; }
+  .steps li::before {
+    content: counter(step);
+    min-width: 32px; height: 32px;
+    background: var(--accent); color: var(--bg);
+    font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 2px;
+  }
+
+  /* ─── FLAG GRID ─── */
+  .flag-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px; margin: 20px 0 28px;
+  }
+  .flag-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+  .flag-name { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .flag-full { font-size: 12px; color: var(--accent2); font-family: 'Space Grotesk', sans-serif; margin-bottom: 6px; }
+  .flag-desc { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+
+  /* ─── CONCEPT BOX ─── */
+  .concept {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 20px 24px; margin: 20px 0 28px;
+  }
+  .concept-term {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 18px; font-weight: 700; color: var(--text-bright); margin-bottom: 8px;
+  }
+  .concept-term .en { font-size: 13px; color: var(--text-dim); font-weight: 400; margin-left: 8px; }
+
+  /* ─── TOC ─── */
+  .toc {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 28px; margin-bottom: 60px;
+  }
+  .toc h3 { margin-top: 0; color: var(--text-bright); font-size: 18px; margin-bottom: 20px; }
+  .toc-list { list-style: none; columns: 2; gap: 20px; }
+  .toc-list li { margin-bottom: 8px; break-inside: avoid; }
+  .toc-list a { color: var(--text-dim); text-decoration: none; font-size: 14px; font-family: 'Space Grotesk', sans-serif; transition: color 0.2s; }
+  .toc-list a:hover { color: var(--accent); }
+  .toc-num { color: var(--accent2); font-family: 'JetBrains Mono', monospace; font-size: 12px; margin-right: 6px; }
+
+  /* ─── PROGRESS / BACK TO TOP ─── */
+  #progress {
+    position: fixed; top: 0; left: 0; height: 2px;
+    background: var(--accent); z-index: 999;
+    transition: width 0.1s; box-shadow: 0 0 8px var(--accent);
+  }
+  #back-top {
+    position: fixed; bottom: 32px; right: 32px;
+    width: 44px; height: 44px; background: var(--bg3);
+    border: 1px solid var(--border); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--accent); font-size: 18px;
+    transition: all 0.2s; text-decoration: none; opacity: 0;
+  }
+  #back-top.visible { opacity: 1; }
+  #back-top:hover { background: var(--accent); color: var(--bg); }
+
+  /* ─── 용어 가이드 범례 ─── */
+  .legend {
+    display: flex; gap: 20px; flex-wrap: wrap;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 20px;
+    font-size: 13px; margin-bottom: 32px;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; color: var(--text-dim); }
+  .legend-tt { border-bottom: 1px dashed var(--accent3); color: var(--text-bright); }
+
+  @media (max-width: 900px) {
+    #sidebar { display: none; }
+    #main { margin-left: 0; padding: 0 20px 80px; }
+    .compare { grid-template-columns: 1fr; }
+    .toc-list { columns: 1; }
+    .hero h1 { font-size: 36px; }
+    .tt::after { max-width: 240px; }
+  }
+
+  strong { color: var(--text-bright); }
+  em { color: var(--accent3); font-style: normal; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<!-- ─── SIDEBAR ─── -->
+<nav id="sidebar">
+  <div class="sidebar-title">
+    완전 정복 가이드
+    <span>x86-64 어셈블리</span>
+  </div>
+  <div class="nav-section">Part 1 — CS 기초</div>
+  <a href="#cs1" class="nav-item">1. 컴퓨터 기본 구조</a>
+  <a href="#cs2" class="nav-item">2. 수 체계와 진법</a>
+  <a href="#cs3" class="nav-item">3. 메모리 구조</a>
+  <a href="#cs4" class="nav-item">4. CPU 작동 원리</a>
+  <a href="#cs5" class="nav-item">5. 운영체제 기초</a>
+  <div class="nav-section">Part 2 — 어셈블리 기초</div>
+  <a href="#asm1" class="nav-item">6. 레지스터</a>
+  <a href="#asm2" class="nav-item">7. 기본 명령어</a>
+  <a href="#asm3" class="nav-item">8. 메모리 접근</a>
+  <a href="#asm4" class="nav-item">9. 플래그와 점프</a>
+  <a href="#asm5" class="nav-item">10. 스택 동작</a>
+  <div class="nav-section">Part 3 — 중급 문법</div>
+  <a href="#mid1" class="nav-item">11. 함수 호출 규약</a>
+  <a href="#mid2" class="nav-item">12. 스택 프레임</a>
+  <a href="#mid3" class="nav-item">13. 배열과 구조체</a>
+  <a href="#mid4" class="nav-item">14. 문자열 조작</a>
+  <a href="#mid5" class="nav-item">15. 시스템 콜</a>
+  <div class="nav-section">Part 4 — 고급 문법</div>
+  <a href="#adv1" class="nav-item">16. 최적화 패턴</a>
+  <a href="#adv2" class="nav-item">17. SIMD 명령어</a>
+  <a href="#adv3" class="nav-item">18. C → ASM 패턴</a>
+  <a href="#adv4" class="nav-item">19. 리버싱 기법</a>
+  <a href="#adv5" class="nav-item">20. 보안 취약점</a>
+</nav>
+
+<!-- ─── MAIN ─── -->
+<main id="main">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-label">완전 정복 가이드 v2.0 — 용어 완전 해설판</div>
+    <h1>x86-64<br><em>어셈블리어</em></h1>
+    <p>리버스 엔지니어링과 보안 분석을 위한 가이드. CS 기초부터 고급 패턴까지, C 언어와 1:1 비교로 배웁니다.</p>
+    <div class="hero-badges">
+      <span class="badge badge-cyan">x86-64 아키텍처</span>
+      <span class="badge badge-orange">C 언어 매핑</span>
+      <span class="badge badge-purple">리버스 엔지니어링</span>
+    </div>
+  </div>
+
+  <!-- 용어 범례 -->
+  <div class="legend">
+    <strong style="color:var(--text-bright);">📖 읽는 법</strong>
+    <div class="legend-item">
+      <span class="legend-tt tt" data-tip="이런 식으로 점선 밑줄이 있는 단어에 마우스를 올리면&#10;이 자리에 용어 설명이 뜹니다.">점선 밑줄 단어</span>
+      <span>← 마우스를 올리면 뜻이 팝업</span>
+    </div>
+    <div class="legend-item">
+      <span style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:2px 10px;color:var(--text-bright);font-size:13px;">파란 박스</span>
+      <span>← 중요 개념 본문 설명</span>
+    </div>
+  </div>
+
+  <!-- TOC -->
+  <div class="toc">
+    <h3>📋 목차</h3>
+    <ul class="toc-list">
+      <li><a href="#cs1"><span class="toc-num">01</span>컴퓨터 기본 구조</a></li>
+      <li><a href="#cs2"><span class="toc-num">02</span>수 체계와 진법</a></li>
+      <li><a href="#cs3"><span class="toc-num">03</span>메모리 구조</a></li>
+      <li><a href="#cs4"><span class="toc-num">04</span>CPU 작동 원리</a></li>
+      <li><a href="#cs5"><span class="toc-num">05</span>운영체제 기초</a></li>
+      <li><a href="#asm1"><span class="toc-num">06</span>레지스터</a></li>
+      <li><a href="#asm2"><span class="toc-num">07</span>기본 명령어</a></li>
+      <li><a href="#asm3"><span class="toc-num">08</span>메모리 접근</a></li>
+      <li><a href="#asm4"><span class="toc-num">09</span>플래그와 점프</a></li>
+      <li><a href="#asm5"><span class="toc-num">10</span>스택 동작</a></li>
+      <li><a href="#mid1"><span class="toc-num">11</span>함수 호출 규약</a></li>
+      <li><a href="#mid2"><span class="toc-num">12</span>스택 프레임</a></li>
+      <li><a href="#mid3"><span class="toc-num">13</span>배열과 구조체</a></li>
+      <li><a href="#mid4"><span class="toc-num">14</span>문자열 조작</a></li>
+      <li><a href="#mid5"><span class="toc-num">15</span>시스템 콜</a></li>
+      <li><a href="#adv1"><span class="toc-num">16</span>최적화 패턴</a></li>
+      <li><a href="#adv2"><span class="toc-num">17</span>SIMD 명령어</a></li>
+      <li><a href="#adv3"><span class="toc-num">18</span>C → ASM 패턴 사전</a></li>
+      <li><a href="#adv4"><span class="toc-num">19</span>리버싱 기법</a></li>
+      <li><a href="#adv5"><span class="toc-num">20</span>보안 취약점</a></li>
+    </ul>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       PART 1 — CS 기초
+  ════════════════════════════════════════════ -->
+
+  <section id="cs1" class="chapter">
+    <span class="chapter-num">Part 1 · Chapter 01</span>
+    <h2>컴퓨터 기본 구조</h2>
+    <p class="chapter-intro">어셈블리어는 CPU가 직접 이해하는 언어입니다. 그러므로 CPU가 어떻게 생겼는지, 메모리와 어떻게 대화하는지 먼저 알아야 합니다.</p>
+
+    <h3>컴퓨터는 무엇으로 이루어져 있나?</h3>
+
+    <p>컴퓨터는 크게 <strong>CPU(중앙처리장치)</strong>, <strong>메모리(RAM)</strong>, <strong>저장장치(SSD/HDD)</strong>, <strong>입출력장치</strong>로 이루어집니다.</p>
+
+    <div class="concept">
+      <div class="concept-term">CPU <span class="en">(Central Processing Unit, 중앙처리장치)</span></div>
+      <p style="margin:0;">컴퓨터의 "뇌"입니다. 덧셈, 비교, 점프 같은 <span class="tt" data-tip="연산(Operation): 더하기, 빼기, 비교, 데이터 읽기/쓰기 같이&#10;CPU가 수행하는 작업 하나하나를 뜻합니다.">연산</span>을 초당 수십억 번 실행합니다. 어셈블리 명령어는 결국 CPU에게 보내는 직접 지시입니다. "이 두 숫자를 더해라", "여기 주소의 값을 읽어라" 같은 명령들입니다.</p>
+    </div>
+
+    <div class="concept">
+      <div class="concept-term">RAM <span class="en">(Random Access Memory)</span></div>
+      <p style="margin:0;">프로그램이 실행 중일 때 데이터를 임시로 저장하는 공간입니다. 책상 위의 메모지 같은 개념으로, 전원이 꺼지면 사라집니다. 어셈블리에서 <code>mov</code>로 읽고 쓰는 대부분의 공간이 이 RAM입니다. <span class="tt" data-tip="주소(Address): 메모리 안의 특정 위치를 가리키는 번호입니다.&#10;마치 아파트 호수처럼, 메모리 내 모든 바이트는 고유한 번호를 가집니다.">주소(번지)</span>로 접근하며, 모든 바이트는 고유한 주소를 가집니다.</p>
+    </div>
+
+    <div class="concept">
+      <div class="concept-term">저장장치 <span class="en">(SSD / HDD)</span></div>
+      <p style="margin:0;">전원이 꺼져도 남아있는 영구 저장공간입니다. 파일들이 여기 있습니다. 프로그램을 실행하면 저장장치에서 RAM으로 복사되어 올라갑니다. <span class="tt" data-tip="SSD(Solid State Drive): 반도체 기반 저장장치. 빠르고 충격에 강합니다.&#10;HDD(Hard Disk Drive): 자기 디스크를 회전시키는 방식의 저장장치. 느리지만 용량 대비 저렴합니다.">SSD는 HDD보다 훨씬 빠르지만</span>, 둘 다 RAM보다는 수십~수천 배 느립니다.</p>
+    </div>
+
+    <h3>폰 노이만 구조 — 현대 컴퓨터의 설계 철학</h3>
+
+    <p><strong>폰 노이만 구조(Von Neumann Architecture)</strong>는 1945년에 만들어진 컴퓨터 설계 방식으로, 현재 여러분의 PC가 그대로 따르고 있습니다. 핵심 아이디어는 딱 하나입니다:</p>
+
+    <div class="info-box note">
+      <div class="box-title">💡 폰 노이만의 핵심 아이디어</div>
+      <p style="margin:0;"><strong>프로그램 코드(명령어)와 데이터를 같은 메모리에 저장한다.</strong> 덕분에 프로그램을 메모리에서 읽어와서 순서대로 실행할 수 있습니다. 어셈블리 코드도 결국 메모리의 특정 주소에 저장된 바이트들입니다.</p>
+    </div>
+
+    <h3>비트(Bit)와 바이트(Byte)</h3>
+
+    <div class="concept">
+      <div class="concept-term">비트 <span class="en">(Bit)</span></div>
+      <p style="margin:0;">컴퓨터가 다룰 수 있는 가장 작은 정보 단위입니다. 0 또는 1, 두 가지 값만 가집니다. 왜 0과 1밖에 없냐면? 전기가 흐르면 1, 안 흐르면 0으로 물리적으로 표현하기 가장 쉽기 때문입니다.</p>
+    </div>
+
+    <div class="concept">
+      <div class="concept-term">바이트 <span class="en">(Byte)</span></div>
+      <p style="margin:0;">8개의 비트를 묶은 단위입니다. <code>00000000</code>부터 <code>11111111</code>까지, 즉 0부터 255까지의 값을 표현할 수 있습니다. 메모리의 주소는 바이트 단위로 매겨집니다. 1KB = 1024바이트, 1MB = 1024KB입니다.</p>
+    </div>
+
+    <table>
+      <tr><th>단위</th><th>크기</th><th>예시</th><th>어셈블리 표현</th></tr>
+      <tr><td>비트(bit)</td><td>1bit</td><td>0 또는 1</td><td>-</td></tr>
+      <tr><td>바이트(byte)</td><td>8bit</td><td>문자 'A' = 65</td><td><code>BYTE PTR</code></td></tr>
+      <tr><td>워드(word)</td><td>16bit = 2byte</td><td>0~65535</td><td><code>WORD PTR</code></td></tr>
+      <tr><td>더블워드(dword)</td><td>32bit = 4byte</td><td>int 변수</td><td><code>DWORD PTR</code></td></tr>
+      <tr><td>쿼드워드(qword)</td><td>64bit = 8byte</td><td>포인터, long</td><td><code>QWORD PTR</code></td></tr>
+    </table>
+
+    <div class="info-box note">
+      <div class="box-title">📌 PTR이 뭔가요?</div>
+      <p style="margin:0;"><code>PTR</code>은 <strong>Pointer(포인터)</strong>의 약자입니다. 여기서는 "이 주소에 있는 값을 ○○ 크기로 해석하라"는 뜻입니다. <code>DWORD PTR [rbx]</code>는 "rbx가 가리키는 주소에 있는 4바이트를 읽어라"라는 의미입니다.</p>
+    </div>
+  </section>
+
+  <!-- ─────────────────── Chapter 2 ─────────────────── -->
+
+  <section id="cs2" class="chapter">
+    <span class="chapter-num">Part 1 · Chapter 02</span>
+    <h2>수 체계와 진법</h2>
+    <p class="chapter-intro">어셈블리 코드에는 숫자가 넘쳐납니다. 그런데 <code>0x7fff</code>, <code>0b1010</code> 같은 이상한 표기가 나옵니다. 이게 뭔지 알아야 합니다.</p>
+
+    <h3>우리가 쓰는 10진법(Decimal)</h3>
+
+    <p>우리는 일상에서 <strong>10진법(Decimal)</strong>을 씁니다. 0~9까지 10개의 숫자를 쓰며, 9 다음에는 자리가 올라가 10이 됩니다. 예: 42, 255, 1000.</p>
+
+    <h3>컴퓨터가 쓰는 2진법(Binary)</h3>
+
+    <p>컴퓨터는 <strong>2진법(Binary)</strong>을 씁니다. 0과 1만 사용합니다. 1 다음에 바로 자리가 올라가서 10(이진수)이 됩니다.</p>
+
+    <table>
+      <tr><th>10진수</th><th>2진수</th><th>16진수</th></tr>
+      <tr><td>0</td><td>0000</td><td>0</td></tr>
+      <tr><td>1</td><td>0001</td><td>1</td></tr>
+      <tr><td>5</td><td>0101</td><td>5</td></tr>
+      <tr><td>10</td><td>1010</td><td>A</td></tr>
+      <tr><td>15</td><td>1111</td><td>F</td></tr>
+      <tr><td>16</td><td>0001 0000</td><td>10</td></tr>
+      <tr><td>255</td><td>1111 1111</td><td>FF</td></tr>
+    </table>
+
+    <h3>어셈블리에서 자주 쓰는 16진법(Hexadecimal, Hex)</h3>
+
+    <p><strong>16진법(Hexadecimal)</strong>은 0~9, A~F까지 16개의 기호를 씁니다. A=10, B=11, C=12, D=13, E=14, F=15입니다. 왜 쓰냐고요? 2진수 4비트가 정확히 16진수 1자리에 대응되기 때문입니다. 8비트(1바이트)는 16진수 두 자리 <code>FF</code>로 표현됩니다. 훨씬 읽기 편합니다.</p>
+
+    <div class="info-box note">
+      <div class="box-title">📌 표기법</div>
+      <p style="margin:0;">C/어셈블리에서 <code>0x</code>를 앞에 붙이면 16진수입니다. <code>0xFF</code> = 255, <code>0x41</code> = 65 = 문자 'A'. 메모리 주소는 대부분 <code>0x7fffffffe5a0</code> 같은 16진수로 표시됩니다.</p>
+    </div>
+
+    <h3>음수 표현 — 2의 보수(Two's Complement)</h3>
+
+    <p>컴퓨터는 음수를 어떻게 저장할까요? <strong>2의 보수(Two's Complement)</strong> 방식을 사용합니다.</p>
+
+    <p>규칙은 간단합니다: 어떤 양수의 2의 보수를 구하려면, ① 비트를 모두 뒤집고 ② 1을 더합니다.</p>
+
+    <pre data-lang="예시">+5 = 0000 0101 (8비트 이진수)
+ 1단계: 비트 반전     → 1111 1010
+ 2단계: 1 더하기      → 1111 1011
+
+따라서 -5 = 1111 1011 = 0xFB</pre>
+
+    <p>왜 이 방식을 쓸까요? <span class="tt" data-tip="덧셈 회로(Adder Circuit): CPU 안에서 두 수를 더하는 전자 회로입니다.&#10;이 회로 하나로 덧셈과 뺄셈을 모두 처리하면 CPU 설계가 간단해집니다.">덧셈 회로</span> 하나로 덧셈과 뺄셈을 모두 처리할 수 있기 때문입니다. <code>5 + (-3)</code>을 그냥 비트 덧셈으로 하면 정확히 2가 나옵니다. 컴퓨터 입장에서 매우 효율적입니다.</p>
+
+    <div class="info-box warn">
+      <div class="box-title">⚠️ 부호있는(Signed) vs 부호없는(Unsigned)</div>
+      <p style="margin:0;"><code>0xFF</code>는 <span class="tt" data-tip="부호 없음(Unsigned): 음수 없이 0 이상의 정수만 표현합니다.&#10;8비트 기준 0~255까지 표현 가능합니다.">부호 없이</span> 보면 255이고, <span class="tt" data-tip="부호 있음(Signed): 음수와 양수 모두 표현합니다.&#10;8비트 기준 -128~127까지 표현 가능합니다. 최상위 비트가 1이면 음수입니다.">부호 있게</span> 보면 -1입니다! 같은 비트 패턴이지만 해석이 달라집니다. 어셈블리에서 <code>movsx</code>(부호 확장)와 <code>movzx</code>(0 확장)의 차이가 여기서 생깁니다.</p>
+    </div>
+  </section>
+
+  <!-- ─────────────────── Chapter 3 ─────────────────── -->
+
+  <section id="cs3" class="chapter">
+    <span class="chapter-num">Part 1 · Chapter 03</span>
+    <h2>메모리 구조</h2>
+    <p class="chapter-intro">프로그램이 실행될 때 메모리는 어떻게 나뉘어 있을까요? 이것을 모르면 스택 오버플로우, 버퍼 오버플로우 같은 개념을 이해할 수 없습니다.</p>
+
+    <h3>메모리 주소란?</h3>
+
+    <div class="concept">
+      <div class="concept-term">메모리 주소 <span class="en">(Memory Address)</span></div>
+      <p style="margin:0;">RAM의 각 바이트는 고유한 번호(주소)를 가집니다. 아파트 호수처럼요. x86-64에서 주소는 64비트(8바이트)입니다. 보통 <code>0x7fffffffe5a0</code> 같은 16진수로 표시됩니다. <strong>포인터(pointer)</strong>는 이 주소를 담는 변수입니다. C에서 <code>int *p</code>라고 쓸 때 p가 바로 주소를 담는 포인터입니다.</p>
+    </div>
+
+    <h3>프로세스 메모리 레이아웃</h3>
+
+    <p><span class="tt" data-tip="프로세스(Process): 실행 중인 프로그램 하나를 뜻합니다.&#10;같은 프로그램을 두 번 실행하면 프로세스 두 개가 생깁니다.&#10;각 프로세스는 자신만의 메모리 공간을 가집니다.">프로세스(실행 중인 프로그램)</span>가 받는 메모리는 구역이 나뉩니다:</p>
+
+    <div class="mem-diagram">
+      <div class="mem-row">
+        <div class="mem-addr">높은 주소<br>0xFFFFFFFF...</div>
+        <div class="mem-cell stack">🔼 스택(Stack) — 함수 호출, 지역변수</div>
+        <div class="mem-tag">STACK</div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr"></div>
+        <div class="mem-cell free">↓ 스택이 아래로 자람 (RSP 감소)</div>
+        <div class="mem-tag"></div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr"></div>
+        <div class="mem-cell free">…… 빈 공간 ……</div>
+        <div class="mem-tag"></div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr"></div>
+        <div class="mem-cell free">↑ 힙이 위로 자람</div>
+        <div class="mem-tag"></div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr"></div>
+        <div class="mem-cell heap">🟢 힙(Heap) — malloc, 동적 할당</div>
+        <div class="mem-tag">HEAP</div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr"></div>
+        <div class="mem-cell data">🟠 BSS — 초기화 안 된 전역변수</div>
+        <div class="mem-tag">BSS</div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr"></div>
+        <div class="mem-cell data">🟠 데이터(Data) — 초기화된 전역변수</div>
+        <div class="mem-tag">DATA</div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr">낮은 주소<br>0x400000...</div>
+        <div class="mem-cell text">🟣 텍스트(Text) — 실행 코드 (어셈블리)</div>
+        <div class="mem-tag">TEXT</div>
+      </div>
+    </div>
+
+    <h3>각 구역 자세히 보기</h3>
+
+    <h4>텍스트(Text) 세그먼트 — 코드가 사는 곳</h4>
+    <p>여러분이 작성한 C/어셈블리 코드가 <span class="tt" data-tip="컴파일(Compile): 사람이 읽을 수 있는 C/C++ 소스코드를&#10;CPU가 직접 실행할 수 있는 기계어(바이트)로 변환하는 과정입니다.&#10;gcc, clang 같은 '컴파일러' 프로그램이 이 일을 합니다.">컴파일</span>되면, <span class="tt" data-tip="기계어(Machine Code): CPU가 직접 이해하고 실행하는 0과 1로 이루어진 바이트입니다.&#10;어셈블리어와 거의 1:1로 대응됩니다. 예: 'mov rax, 1'은 기계어로 '48 C7 C0 01 00 00 00'입니다.">기계어 바이트</span>들이 이 구역에 저장됩니다. 읽기 전용입니다. <span class="tt" data-tip="Ghidra: 미국 NSA(국가안보국)가 개발하고 무료로 공개한 리버싱 도구입니다.&#10;바이너리를 열어 어셈블리어로 보거나, 유사 C코드로 디컴파일해줍니다.">Ghidra</span>나 <span class="tt" data-tip="IDA(Interactive Disassembler): 업계 표준 리버싱 도구입니다.&#10;유료이지만 무료 버전(IDA Free)도 있습니다. Ghidra보다 기능이 많습니다.">IDA</span>로 <span class="tt" data-tip="바이너리(Binary): 컴파일된 실행 파일입니다. 사람이 읽기 어렵고&#10;0과 1의 기계어로 이루어진 파일입니다. Windows의 .exe, Linux의 ELF 파일이 바이너리입니다.">바이너리</span>를 열면 이 구역을 분석합니다. <code>rip</code> 레지스터(명령 포인터)가 현재 실행 중인 명령의 주소를 가리킵니다.</p>
+
+    <h4>데이터(Data) / BSS 세그먼트 — 전역변수</h4>
+    <p><span class="tt" data-tip="전역변수(Global Variable): 함수 밖에 선언된 변수입니다.&#10;프로그램 전체에서 접근 가능하고, 프로그램이 시작될 때부터 끝날 때까지 메모리에 존재합니다.&#10;반대는 지역변수(Local Variable)로 함수 안에서만 존재합니다.">전역변수</span>가 저장되는 공간입니다. 초기값이 있는 것은 Data, 없는 것은 BSS에 들어갑니다.</p>
+    <pre data-lang="c"><span class="cmt">// C 코드</span>
+<span class="kw">int</span> initialized = <span class="num">42</span>;   <span class="cmt">// Data 세그먼트 (초기값 있음)</span>
+<span class="kw">int</span> uninitialized;       <span class="cmt">// BSS 세그먼트 (0으로 초기화됨)</span></pre>
+
+    <div class="info-box note">
+      <div class="box-title">📌 BSS란?</div>
+      <p style="margin:0;"><strong>BSS</strong>는 "Block Started by Symbol"의 약자입니다(역사적 이유로 이상한 이름이 됐습니다). 실행 파일에는 실제 0 데이터를 넣지 않고 "이 크기만큼 0으로 채워진 공간이 필요하다"는 정보만 넣습니다. 덕분에 실행 파일 용량이 줄어듭니다.</p>
+    </div>
+
+    <h4>힙(Heap) — 동적으로 할당하는 메모리</h4>
+    <p>C의 <code>malloc()</code>으로 요청하는 메모리가 여기서 옵니다. <span class="tt" data-tip="동적 할당(Dynamic Allocation): 프로그램이 실행되는 도중에&#10;필요한 만큼 메모리를 요청하는 방법입니다.&#10;얼마나 필요한지 컴파일 시점에 모를 때 사용합니다. malloc()이 이 방법입니다.">힙</span>은 낮은 주소에서 높은 주소 방향으로 자랍니다. 직접 해제(<code>free()</code>)하지 않으면 <span class="tt" data-tip="메모리 누수(Memory Leak): 동적으로 할당한 메모리를 free()로 해제하지 않아서&#10;프로그램이 끝날 때까지 메모리가 계속 낭비되는 현상입니다.&#10;장시간 실행되는 서버 프로그램에서 특히 치명적입니다.">메모리 누수(Memory Leak)</span>가 발생합니다. 리버싱에서 <span class="tt" data-tip="힙 취약점(Heap Exploitation): 힙 영역의 버그(이중 해제, 버퍼 오버플로우 등)를&#10;이용해 임의 코드 실행이나 권한 상승을 노리는 공격 기법입니다.">힙 취약점(Heap Exploitation)</span>이 중요한 이유입니다.</p>
+
+    <h4>스택(Stack) — 함수가 쓰는 임시 공간</h4>
+    <p>가장 중요합니다. 함수를 호출할 때마다 스택에 새 공간이 생기고, 함수가 끝나면 사라집니다. <strong>높은 주소에서 낮은 주소 방향으로 자랍니다</strong>. 즉, <code>push</code>하면 <code>rsp</code>(스택 포인터)가 감소합니다. 이 역방향 성장이 버퍼 오버플로우 공격의 핵심 요소입니다.</p>
+
+    <div class="info-box tip">
+      <div class="box-title">✅ 핵심 암기</div>
+      <p style="margin:0;">스택은 <strong>위에서 아래로</strong> 자랍니다 (주소 감소). 힙은 <strong>아래에서 위로</strong> 자랍니다 (주소 증가). <code>push rax</code>는 rsp를 8 감소시키고 rax 값을 씁니다.</p>
+    </div>
+
+    <h3>엔디안(Endianness) — 바이트 저장 순서</h3>
+
+    <div class="concept">
+      <div class="concept-term">리틀 엔디안 <span class="en">(Little Endian)</span></div>
+      <p style="margin:0;">x86/x86-64가 사용하는 방식입니다. 숫자를 메모리에 저장할 때 <strong>작은(낮은) 바이트가 낮은 주소</strong>에 먼저 옵니다. 예를 들어 <code>0x12345678</code>이라는 4바이트 값은 메모리에 <code>78 56 34 12</code> 순서로 저장됩니다. "리틀"은 "작은 쪽(낮은 바이트)이 먼저"라는 의미입니다.</p>
+    </div>
+
+    <pre data-lang="예시">값: 0x12345678 (32비트 정수)
+
+리틀 엔디안 (x86):        빅 엔디안 (네트워크):
+주소 0x100: 0x78         주소 0x100: 0x12
+주소 0x101: 0x56         주소 0x101: 0x34
+주소 0x102: 0x34         주소 0x102: 0x56
+주소 0x103: 0x12         주소 0x103: 0x78</pre>
+
+    <div class="info-box warn">
+      <div class="box-title">⚠️ 리버싱에서 중요</div>
+      <p style="margin:0;"><span class="tt" data-tip="Ghidra: NSA가 만든 무료 역공학 도구. 바이너리를 어셈블리/유사C코드로 보여줍니다.">Ghidra</span>나 <span class="tt" data-tip="xxd: 파일이나 메모리를 16진수로 보여주는 Linux 명령줄 도구입니다.&#10;예: xxd program.exe 를 실행하면 바이트를 16진수로 나열해서 보여줍니다.">xxd(헥스 덤프 도구)</span>로 바이너리를 볼 때 바이트가 거꾸로 보일 수 있습니다. x86은 리틀 엔디안이므로 4바이트 이상의 값을 읽을 때 항상 뒤집어서 해석하세요.</p>
+    </div>
+  </section>
+
+  <!-- ─────────────────── Chapter 4 ─────────────────── -->
+
+  <section id="cs4" class="chapter">
+    <span class="chapter-num">Part 1 · Chapter 04</span>
+    <h2>CPU 작동 원리</h2>
+    <p class="chapter-intro">어셈블리 명령어 하나가 CPU에서 어떻게 처리되는지 이해하면, 왜 레지스터가 필요한지, 왜 캐시가 중요한지 자연스럽게 이해됩니다.</p>
+
+    <h3>명령어 사이클 — CPU가 하는 일의 반복</h3>
+
+    <p>CPU는 매우 단순한 일을 엄청 빠르게 반복합니다. 이 반복을 <strong>명령어 사이클(Instruction Cycle)</strong>이라고 합니다:</p>
+
+    <ol class="steps">
+      <li>
+        <div>
+          <strong>패치(Fetch) — 명령어 가져오기</strong><br>
+          <code>rip</code>(<span class="tt" data-tip="명령 포인터(Instruction Pointer): '다음에 실행할 명령어가 메모리의 어디에 있는지'를 저장하는 레지스터입니다.&#10;x86-64에서는 rip라고 부릅니다. 명령어를 실행할 때마다 자동으로 증가합니다.">명령 포인터 레지스터</span>)가 가리키는 메모리 주소에서 다음 명령어(<span class="tt" data-tip="기계어 바이트: CPU가 직접 이해하는 숫자 코드입니다.&#10;예를 들어 'mov rax, rbx'는 'H\x89\xC7'라는 3바이트로 표현됩니다.">기계어 바이트</span>)를 읽어옵니다. 예: 주소 <code>0x401234</code>에서 <code>48 89 c7</code> 같은 바이트를 읽습니다.
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>디코드(Decode) — 명령어 해석</strong><br>
+          읽어온 바이트가 무슨 명령인지 해석합니다. <code>48 89 c7</code>이 <code>mov rdi, rax</code>라는 명령임을 알아냅니다. 명령어마다 길이가 다릅니다(1~15바이트). 이 해석 과정을 <span class="tt" data-tip="디코드(Decode): '해독하다'라는 뜻입니다.&#10;암호화된 메시지를 해독하듯, CPU가 기계어 바이트를 읽어서&#10;'이건 덧셈 명령이구나', '이건 점프구나' 하고 파악하는 과정입니다.">디코딩</span>이라고 합니다.
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>실행(Execute) — 명령 수행</strong><br>
+          <span class="tt" data-tip="ALU(Arithmetic Logic Unit, 산술논리장치): CPU 안에서 실제 계산을 담당하는 부품입니다.&#10;덧셈, 뺄셈, AND, OR, 비교 같은 연산을 수행합니다.&#10;계산기의 '계산 엔진' 역할을 합니다.">ALU(산술논리장치)</span>가 실제 연산을 수행합니다. <code>add rax, rbx</code>라면 두 레지스터 값을 더하는 회로가 작동합니다.
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>라이트백(Writeback) — 결과 저장</strong><br>
+          연산 결과를 레지스터나 메모리에 씁니다. <span class="tt" data-tip="플래그 레지스터(Flags Register): 연산 결과의 상태를 기록하는 레지스터입니다.&#10;결과가 0인지, 음수인지, 넘침이 있는지 등을 각 비트(플래그)로 표시합니다.&#10;자세한 내용은 Chapter 9에서 다룹니다.">플래그 레지스터(<code>rflags</code>)</span>도 이때 갱신됩니다.
+        </div>
+      </li>
+    </ol>
+
+    <h3>캐시(Cache) — CPU와 RAM 사이의 고속 메모리</h3>
+
+    <div class="concept">
+      <div class="concept-term">캐시 <span class="en">(Cache)</span></div>
+      <p style="margin:0;">RAM은 CPU에 비해 매우 느립니다. 그래서 CPU 내부에 더 빠른 소용량 메모리(캐시)를 두고, 자주 쓰는 데이터를 미리 복사해둡니다. L1(가장 빠름, 작음) → L2 → L3 순으로 계층이 있습니다. 어셈블리 최적화에서 "<span class="tt" data-tip="캐시 히트(Cache Hit): 필요한 데이터가 캐시에 이미 있어서 빠르게 가져오는 경우입니다.&#10;캐시 미스(Cache Miss): 필요한 데이터가 캐시에 없어서 느린 RAM에서 가져와야 하는 경우입니다.&#10;히트가 많을수록 프로그램이 빠릅니다.">캐시 히트/미스</span>"가 중요한 성능 요소입니다.</p>
+    </div>
+
+    <table>
+      <tr><th>메모리 유형</th><th>속도</th><th>용량</th><th>위치</th></tr>
+      <tr><td>레지스터</td><td>1 사이클</td><td>수십 개</td><td>CPU 내부</td></tr>
+      <tr><td>L1 캐시</td><td>~4 사이클</td><td>32~64KB</td><td>CPU 내부</td></tr>
+      <tr><td>L2 캐시</td><td>~12 사이클</td><td>256KB~1MB</td><td>CPU 내부</td></tr>
+      <tr><td>L3 캐시</td><td>~40 사이클</td><td>8~32MB</td><td>CPU(공유)</td></tr>
+      <tr><td>RAM</td><td>~200 사이클</td><td>8~64GB</td><td>별도 칩</td></tr>
+      <tr><td>SSD</td><td>수만 사이클</td><td>수백GB~TB</td><td>별도 장치</td></tr>
+    </table>
+
+    <div class="info-box note">
+      <div class="box-title">📌 사이클이란?</div>
+      <p style="margin:0;"><strong>사이클(Cycle)</strong>은 CPU 클럭 한 번의 단위입니다. 3GHz CPU는 1초에 30억 번 클럭이 뜁니다. 1 사이클 = 약 0.33나노초(0.00000000033초)입니다. 레지스터는 1사이클이면 끝나지만, RAM은 200사이클이나 기다려야 합니다. 그래서 레지스터 접근이 압도적으로 빠릅니다.</p>
+    </div>
+  </section>
+
+  <!-- ─────────────────── Chapter 5 ─────────────────── -->
+
+  <section id="cs5" class="chapter">
+    <span class="chapter-num">Part 1 · Chapter 05</span>
+    <h2>운영체제 기초</h2>
+    <p class="chapter-intro">어셈블리로 시스템 콜을 하거나, 리버싱으로 프로그램을 분석할 때 운영체제가 하는 역할을 알아야 합니다.</p>
+
+    <h3>커널(Kernel)과 유저 공간(User Space)</h3>
+
+    <div class="concept">
+      <div class="concept-term">커널 <span class="en">(Kernel)</span></div>
+      <p style="margin:0;">운영체제의 핵심입니다. 하드웨어(메모리, <span class="tt" data-tip="파일시스템(File System): 하드디스크에 파일을 어떻게 저장하고 찾는지 정하는 방식입니다.&#10;Windows의 NTFS, Linux의 ext4가 대표적입니다.">파일시스템</span>, 네트워크)를 직접 관리하며, <span class="tt" data-tip="특권 명령어(Privileged Instruction): 일반 프로그램이 실행할 수 없고&#10;커널만 실행할 수 있는 위험한 명령어입니다.&#10;메모리 접근 권한 설정, 하드웨어 직접 제어 등이 여기에 해당합니다.">특권 명령어</span>를 실행할 수 있습니다. "<span class="tt" data-tip="링 0(Ring 0): x86 CPU가 지원하는 권한 레벨 중 가장 높은 단계입니다.&#10;링 0~3이 있으며, 숫자가 낮을수록 권한이 높습니다.&#10;링 0 = 커널 모드(모든 명령어 가능), 링 3 = 유저 모드(제한됨).">링 0(Ring 0)</span>"이라는 최고 권한 모드에서 실행됩니다.</p>
+    </div>
+
+    <div class="concept">
+      <div class="concept-term">유저 공간 <span class="en">(User Space)</span></div>
+      <p style="margin:0;">우리가 만드는 프로그램이 실행되는 공간입니다. 직접 하드웨어를 건드릴 수 없고, 커널에 요청(시스템 콜)을 해야 합니다. "링 3(Ring 3)"에서 실행됩니다. 이 구분이 보안의 핵심입니다.</p>
+    </div>
+
+    <h3>시스템 콜(System Call)</h3>
+
+    <p>유저 프로그램이 커널에 서비스를 요청하는 방법입니다. C의 <code>printf()</code>는 내부적으로 <code>write</code> 시스템 콜을 씁니다. 어셈블리에서는 <code>syscall</code> 명령어로 직접 호출합니다. 자세한 사용법은 Chapter 15에서 다룹니다.</p>
+
+    <div class="info-box note">
+      <div class="box-title">📌 왜 시스템 콜이 필요한가?</div>
+      <p style="margin:0;">만약 모든 프로그램이 하드웨어를 마음대로 건드릴 수 있다면? 악성 프로그램이 다른 프로그램의 메모리를 훔쳐보거나, 디스크를 마음대로 지울 수 있습니다. 커널이 문지기 역할을 해서 "파일을 읽고 싶다면 나(커널)한테 요청해라"라고 통제합니다.</p>
+    </div>
+
+    <h3>프로세스와 쓰레드</h3>
+
+    <div class="concept">
+      <div class="concept-term">프로세스 <span class="en">(Process)</span></div>
+      <p style="margin:0;">실행 중인 프로그램의 <span class="tt" data-tip="인스턴스(Instance): '실체', '사례'라는 뜻입니다.&#10;같은 프로그램을 두 번 실행하면 두 개의 '인스턴스'(독립된 실행 복사본)가 생깁니다.&#10;붕어빵 틀(프로그램)로 구운 붕어빵(인스턴스)에 비유하면 이해하기 쉽습니다.">인스턴스</span>입니다. 자체 메모리 공간(주소 공간)을 가집니다. 다른 프로세스의 메모리를 함부로 읽을 수 없습니다 (OS가 가상 메모리로 분리).</p>
+    </div>
+
+    <div class="concept">
+      <div class="concept-term">쓰레드 <span class="en">(Thread)</span></div>
+      <p style="margin:0;">프로세스 안에서 동시에 실행되는 여러 실행 흐름 중 하나입니다. 같은 프로세스 내 쓰레드들은 메모리를 공유합니다. 예: 웹 브라우저에서 동영상 재생 쓰레드, 사용자 입력 처리 쓰레드가 동시에 돌아갑니다. 어셈블리에서는 각 쓰레드마다 고유한 스택이 있습니다.</p>
+    </div>
+
+    <div class="concept">
+      <div class="concept-term">가상 메모리 <span class="en">(Virtual Memory)</span></div>
+      <p style="margin:0;">각 프로세스는 메모리 전체를 혼자 쓰는 것처럼 보이는 <em>가상 주소 공간</em>을 받습니다. 실제 RAM 주소와의 변환은 <span class="tt" data-tip="MMU(Memory Management Unit, 메모리 관리 장치): CPU 안에 있는 하드웨어로,&#10;프로그램이 쓰는 '가상 주소'를 실제 RAM의 '물리 주소'로 변환합니다.&#10;덕분에 여러 프로그램이 서로 충돌 없이 메모리를 쓸 수 있습니다.">MMU(메모리 관리 장치)</span>가 담당합니다. 그래서 다른 프로그램과 주소가 충돌하지 않습니다.</p>
+    </div>
+
+    <div class="info-box tip">
+      <div class="box-title">✅ 리버싱에서 중요한 이유</div>
+      <p style="margin:0;">리버싱 도구(<span class="tt" data-tip="GDB(GNU Debugger): Linux/macOS에서 가장 많이 쓰이는 무료 디버거입니다.&#10;프로그램 실행을 중간에 멈추고, 레지스터/메모리 값을 확인하고, 한 줄씩 실행할 수 있습니다.">gdb</span>, <span class="tt" data-tip="x64dbg: Windows용 무료 오픈소스 디버거입니다.&#10;64비트/32비트 바이너리를 분석하는 데 사용합니다. GUI가 있어 GDB보다 직관적입니다.">x64dbg</span>)로 프로세스를 분석할 때 보이는 주소들은 가상 주소입니다. <span class="tt" data-tip="ASLR(Address Space Layout Randomization, 주소 공간 배치 난수화):&#10;프로그램을 실행할 때마다 스택, 힙, 라이브러리 등의 주소를 무작위로 배치하는 보안 기법입니다.&#10;공격자가 특정 주소를 미리 알 수 없게 해서 공격을 어렵게 만듭니다.">ASLR(주소 공간 배치 난수화)</span>이 켜져 있으면 실행할 때마다 주소가 달라집니다. 이것도 보안 기법 중 하나입니다.</p>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════
+       PART 2 — 어셈블리 기초
+  ════════════════════════════════════════════ -->
+
+  <section id="asm1" class="chapter">
+    <span class="chapter-num">Part 2 · Chapter 06</span>
+    <h2>레지스터 완전 해부</h2>
+    <p class="chapter-intro">레지스터는 CPU 안에 있는 초고속 저장 공간입니다. 어셈블리의 모든 연산은 레지스터를 중심으로 돌아갑니다.</p>
+
+    <h3>레지스터란?</h3>
+
+    <div class="concept">
+      <div class="concept-term">레지스터 <span class="en">(Register)</span></div>
+      <p style="margin:0;">CPU 안에 있는 극소량의 저장 공간입니다. RAM보다 수백 배 빠릅니다. x86-64에는 16개의 <span class="tt" data-tip="범용 레지스터(General Purpose Register): 특정 용도에 고정되지 않고&#10;다양한 목적으로 자유롭게 사용할 수 있는 레지스터입니다.&#10;rax, rbx, rcx 등이 범용 레지스터입니다. 반면 rip(명령포인터)는 특수목적 레지스터입니다.">범용 레지스터</span>가 있으며, 각각 64비트(8바이트)입니다. C 변수를 메모리에 저장하는 것과 달리, 어셈블리에서는 가능한 한 레지스터를 이용해 연산합니다.</p>
+    </div>
+
+    <h3>레지스터 크기별 이름 — 같은 물리 레지스터, 다른 이름</h3>
+
+    <p>중요합니다! x86-64의 레지스터는 크기별로 다른 이름을 가집니다. <code>rax</code>의 하위 32비트가 <code>eax</code>, 하위 16비트가 <code>ax</code>, 하위 8비트가 <code>al</code>입니다. 이들은 <em>같은 물리 공간의 일부</em>입니다:</p>
+
+    <div class="reg-diagram">
+      <div class="reg-row">
+        <div class="reg-label">RAX</div>
+        <div class="reg-bar">
+          <div class="reg-seg seg-64" style="width:100%">RAX (64비트)</div>
+        </div>
+      </div>
+      <div class="reg-row">
+        <div class="reg-label">EAX</div>
+        <div class="reg-bar">
+          <div class="reg-seg" style="width:50%; background: rgba(100,100,100,0.1); color: var(--text-dim);">상위 32비트 (미사용)</div>
+          <div class="reg-seg seg-32" style="width:50%">EAX (32비트)</div>
+        </div>
+      </div>
+      <div class="reg-row">
+        <div class="reg-label">AX</div>
+        <div class="reg-bar">
+          <div class="reg-seg" style="width:75%; background: rgba(100,100,100,0.1); color: var(--text-dim);">상위 48비트 (미사용)</div>
+          <div class="reg-seg seg-16" style="width:25%">AX (16비트)</div>
+        </div>
+      </div>
+      <div class="reg-row">
+        <div class="reg-label">AH / AL</div>
+        <div class="reg-bar">
+          <div class="reg-seg" style="width:75%; background: rgba(100,100,100,0.1); color: var(--text-dim);">상위 48비트</div>
+          <div class="reg-seg seg-8h" style="width:12.5%">AH</div>
+          <div class="reg-seg seg-8l" style="width:12.5%">AL</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-box note">
+      <div class="box-title">📌 이름의 의미</div>
+      <p style="margin:0;">이름에는 역사가 있습니다. <strong>R</strong>AX = Register AX (64비트 확장), <strong>E</strong>AX = Extended AX (32비트), <strong>AX</strong> = 16비트 원래 이름, <strong>AH</strong> = AX High (상위 8비트), <strong>AL</strong> = AX Low (하위 8비트). e(Extended/확장), r(Register/64비트 시대)이 붙은 것입니다.</p>
+    </div>
+
+    <div class="info-box warn">
+      <div class="box-title">⚠️ 32비트 쓰면 상위가 0이 됩니다</div>
+      <p style="margin:0;"><code>mov eax, 1</code>을 실행하면 rax의 상위 32비트는 자동으로 0이 됩니다. 이건 x86-64의 중요한 특성입니다. 반면 <code>mov ax, 1</code>은 상위 48비트를 건드리지 않습니다.</p>
+    </div>
+
+    <h3>16개 범용 레지스터와 각자의 역할</h3>
+
+    <table>
+      <tr><th>64비트</th><th>32비트</th><th>16비트</th><th>8비트(L)</th><th>주된 역할 / 관례</th></tr>
+      <tr><td><code>rax</code></td><td><code>eax</code></td><td><code>ax</code></td><td><code>al</code></td><td>함수 <strong>리턴값</strong>, <span class="tt" data-tip="누산기(Accumulator): '쌓는 것'이라는 뜻으로,&#10;연산 결과를 반복적으로 누적(더하거나 쌓아가는)하는 데 주로 쓰이는 레지스터입니다.&#10;예전 CPU에서는 거의 모든 연산 결과가 이 레지스터에 담겼습니다.">누산기(accumulator)</span>. <code>return</code> 결과가 여기 담김</td></tr>
+      <tr><td><code>rbx</code></td><td><code>ebx</code></td><td><code>bx</code></td><td><code>bl</code></td><td><span class="tt" data-tip="Callee-saved(피호출자 보존): 호출된 함수(callee)가 사용하기 전에 값을 저장해두고&#10;함수 종료 전에 원래 값으로 복원해야 하는 레지스터입니다.&#10;호출한 함수 입장에서는 이 레지스터가 함수 호출 후에도 값이 변하지 않는다고 믿을 수 있습니다.">Callee-saved</span> (호출받은 함수가 보존해야 함)</td></tr>
+      <tr><td><code>rcx</code></td><td><code>ecx</code></td><td><code>cx</code></td><td><code>cl</code></td><td>함수 <strong>4번째 인수</strong>, <span class="tt" data-tip="루프 카운터: 반복문(for, while)에서 반복 횟수를 세는 변수입니다.&#10;예전 x86에서 loop 명령어가 rcx를 자동으로 1씩 줄이며 반복했기 때문에&#10;관례적으로 카운터로 씁니다.">루프 카운터</span></td></tr>
+      <tr><td><code>rdx</code></td><td><code>edx</code></td><td><code>dx</code></td><td><code>dl</code></td><td>함수 <strong>3번째 인수</strong>, <span class="tt" data-tip="나머지(Remainder): 나눗셈의 나머지 결과가 rdx에 저장됩니다.&#10;예: 10 ÷ 3 = 몫 3 (rax에), 나머지 1 (rdx에).">나눗셈 나머지</span></td></tr>
+      <tr><td><code>rsi</code></td><td><code>esi</code></td><td><code>si</code></td><td><code>sil</code></td><td>함수 <strong>2번째 인수</strong>, <span class="tt" data-tip="문자열 소스(Source): 문자열 복사 명령어(movsb 등)에서&#10;복사할 원본 데이터의 주소를 가리킵니다. SI = Source Index의 약자입니다.">문자열 소스</span></td></tr>
+      <tr><td><code>rdi</code></td><td><code>edi</code></td><td><code>di</code></td><td><code>dil</code></td><td>함수 <strong>1번째 인수</strong>, <span class="tt" data-tip="문자열 목적지(Destination): 문자열 복사 명령어(movsb 등)에서&#10;데이터를 복사할 대상 주소를 가리킵니다. DI = Destination Index의 약자입니다.">문자열 목적지</span></td></tr>
+      <tr><td><code>rsp</code></td><td><code>esp</code></td><td><code>sp</code></td><td><code>spl</code></td><td><strong>스택 포인터</strong> — 현재 스택 최상단 주소. <span class="tt" data-tip="SP = Stack Pointer의 약자입니다.&#10;push하면 rsp가 8 감소하고, pop하면 8 증가합니다.&#10;절대 임의로 변경하면 안 되는 매우 중요한 레지스터입니다.">SP = Stack Pointer</span></td></tr>
+      <tr><td><code>rbp</code></td><td><code>ebp</code></td><td><code>bp</code></td><td><code>bpl</code></td><td><strong>베이스 포인터</strong> — 스택 프레임 기준점. <span class="tt" data-tip="BP = Base Pointer의 약자입니다.&#10;함수 실행 중 스택 프레임의 기준점(바닥)을 가리킵니다.&#10;지역변수에 rbp-8, rbp-16 같이 rbp 기준으로 접근합니다.">BP = Base Pointer</span></td></tr>
+      <tr><td><code>r8</code></td><td><code>r8d</code></td><td><code>r8w</code></td><td><code>r8b</code></td><td>함수 <strong>5번째 인수</strong></td></tr>
+      <tr><td><code>r9</code></td><td><code>r9d</code></td><td><code>r9w</code></td><td><code>r9b</code></td><td>함수 <strong>6번째 인수</strong></td></tr>
+      <tr><td><code>r10</code>~<code>r15</code></td><td>…d</td><td>…w</td><td>…b</td><td>임시 변수, <span class="tt" data-tip="Caller-saved(호출자 보존): 함수를 호출하기 전에 호출하는 쪽(caller)이 저장해야 하는 레지스터입니다.&#10;피호출 함수가 이 레지스터를 마음대로 바꿔도 됩니다.&#10;반대는 Callee-saved로, 피호출 함수가 보존해야 합니다.">Caller-saved</span></td></tr>
+    </table>
+
+    <h3>특수 목적 레지스터</h3>
+
+    <table>
+      <tr><th>레지스터</th><th>이름</th><th>역할</th></tr>
+      <tr><td><code>rip</code></td><td>Instruction Pointer</td><td>다음에 실행할 명령어의 주소를 가짐. 직접 수정 불가 (jmp, call로 변경)</td></tr>
+      <tr><td><code>rflags</code></td><td>Flags Register</td><td>연산 결과의 상태 플래그 모음 (ZF, CF, SF, OF 등). 조건 점프에 사용</td></tr>
+    </table>
+
+    <div class="info-box note">
+      <div class="box-title">📌 C와 연결해서 기억하기</div>
+      <p>C 함수 <code>int add(int a, int b)</code>를 호출하면:<br>
+      → <code>a</code>는 <code>rdi</code>에 들어있고<br>
+      → <code>b</code>는 <code>rsi</code>에 들어있으며<br>
+      → <code>return</code> 값은 <code>rax</code>에 넣고 함수를 종료합니다.</p>
+    </div>
+  </section>
+
+  <!-- ─────────────────── Chapter 7 ─────────────────── -->
+
+  <section id="asm2" class="chapter">
+    <span class="chapter-num">Part 2 · Chapter 07</span>
+    <h2>기본 명령어</h2>
+    <p class="chapter-intro">어셈블리 명령어는 수백 개가 있지만, 실제 코드의 80%는 여기 나오는 명령어들로 이루어집니다. 각 명령어를 C와 1:1로 대응시켜 이해합시다.</p>
+
+    <h3>어셈블리 명령어 기본 형식</h3>
+
+    <pre data-lang="intel syntax">명령어  목적지, 소스
+; 예:
+mov  rax, rbx    ; rax = rbx  (rbx를 rax로 복사)
+add  rax, 5      ; rax = rax + 5
+sub  rdi, rsi    ; rdi = rdi - rsi</pre>
+
+    <div class="info-box note">
+      <div class="box-title">📌 Intel 문법 vs AT&amp;T 문법</div>
+      <p>어셈블리에는 두 가지 문법이 있습니다. <strong>Intel 문법</strong>: <code>mov rax, rbx</code> (목적지 먼저), <strong>AT&amp;T 문법</strong>: <code>movq %rbx, %rax</code> (소스 먼저, % 붙음). 이 교재는 Intel 문법을 씁니다. Ghidra도 기본적으로 Intel 문법입니다. <span class="tt" data-tip="GDB(GNU Debugger)는 기본적으로 AT&T 문법으로 어셈블리를 보여줍니다.&#10;'set disassembly-flavor intel'을 GDB에서 실행하면&#10;Intel 문법으로 바꿀 수 있습니다.">GDB는 기본이 AT&amp;T이지만 <code>set disassembly-flavor intel</code>로 바꿀 수 있습니다.</span></p>
+    </div>
+
+    <h3>MOV — 데이터 이동</h3>
+
+    <p><code>mov</code>는 어셈블리에서 가장 많이 쓰이는 명령어입니다. "이동"이라는 이름이지만 실제로는 <strong>복사</strong>입니다. 원본은 그대로 남습니다.</p>
+
+    <div class="compare">
+      <div class="compare-box c-box">
+        <div class="compare-header">C 코드</div>
+        <pre><span class="kw">int</span> a = <span class="num">42</span>;
+<span class="kw">int</span> b = a;
+<span class="kw">long</span> c = <span class="num">0x1234567890</span>;</pre>
+      </div>
+      <div class="compare-box asm-box">
+        <div class="compare-header">어셈블리 (Intel)</div>
+        <pre><span class="kw">mov</span>  <span class="reg">eax</span>, <span class="num">42</span>
+<span class="kw">mov</span>  <span class="reg">ebx</span>, <span class="reg">eax</span>
+<span class="kw">mov</span>  <span class="reg">rcx</span>, <span class="num">0x1234567890</span></pre>
+      </div>
+    </div>
+
+    <table>
+      <tr><th>명령어</th><th>의미</th><th>예시</th></tr>
+      <tr><td><code>mov dst, src</code></td><td>src 값을 dst로 복사</td><td><code>mov rax, rbx</code></td></tr>
+      <tr><td><code>movsx dst, src</code></td><td>복사 + <span class="tt" data-tip="부호 확장(Sign Extension): 작은 크기의 값을 큰 크기로 늘릴 때&#10;음수(부호)를 보존하는 방식입니다.&#10;예: 8비트 -1(0xFF)을 64비트로 확장하면 -1(0xFFFFFFFFFFFFFFFF)이 됩니다.">부호 확장</span> (음수 보존)</td><td><code>movsx rax, eax</code></td></tr>
+      <tr><td><code>movzx dst, src</code></td><td>복사 + <span class="tt" data-tip="0 확장(Zero Extension): 작은 크기의 값을 큰 크기로 늘릴 때&#10;남은 상위 비트를 모두 0으로 채웁니다.&#10;예: 8비트 0xFF를 64비트로 확장하면 0x00000000000000FF가 됩니다.">0으로 확장</span></td><td><code>movzx rax, al</code></td></tr>
+      <tr><td><code>lea dst, [src]</code></td><td><span class="tt" data-tip="LEA(Load Effective Address): 메모리에서 값을 읽는 것이 아니라&#10;'주소 계산 결과'를 레지스터에 넣습니다.&#10;곱셈/덧셈 최적화에도 자주 사용됩니다.">주소 계산 결과를 dst에 저장</span></td><td><code>lea rax, [rbx+8]</code></td></tr>
+      <tr><td><code>xchg dst, src</code></td><td>두 값 교환 (swap)</td><td><code>xchg rax, rbx</code></td></tr>
+    </table>
+
+    <h4>LEA — 주소 계산의 만능 도구</h4>
+
+    <p><strong>LEA (Load Effective Address)</strong>는 겉보기엔 주소를 계산하는 명령어이지만, <span class="tt" data-tip="컴파일러(Compiler): C/C++ 같은 고수준 언어 코드를&#10;CPU가 직접 실행할 수 있는 기계어로 변환하는 프로그램입니다.&#10;gcc, clang, MSVC 등이 대표적인 컴파일러입니다.">컴파일러</span>가 곱셈/덧셈을 할 때도 씁니다!</p>
+
+    <div class="compare">
+      <div class="compare-box c-box">
+        <div class="compare-header">C 코드</div>
+        <pre><span class="cmt">// 포인터 주소 계산</span>
+<span class="kw">int</span> *p = arr + i;
+
+<span class="cmt">// 곱셈 (최적화 시)</span>
+<span class="kw">int</span> x = a * <span class="num">3</span>;
+<span class="cmt">// = a + a*2</span></pre>
+      </div>
+      <div class="compare-box asm-box">
+        <div class="compare-header">어셈블리</div>
+        <pre><span class="cmt">; rbx = arr 주소, rax = i</span>
+<span class="kw">lea</span>  <span class="reg">rcx</span>, [<span class="reg">rbx</span> + <span class="reg">rax</span>*<span class="num">4</span>]
+
+<span class="cmt">; rax = a</span>
+<span class="kw">lea</span>  <span class="reg">rax</span>, [<span class="reg">rax</span> + <span class="reg">rax</span>*<span class="num">2</span>]
+<span class="cmt">; rax = a + a*2 = a*3</span></pre>
+      </div>
+    </div>
+
+    <h3>산술 명령어</h3>
+
+    <div class="compare">
+      <div class="compare-box c-box">
+        <div class="compare-header">C 코드</div>
+        <pre>a = a + b;
+a = a - b;
+a = a * b;
+a = a / b;  <span class="cmt">// 몫</span>
+c = a % b;  <span class="cmt">// 나머지</span>
+a++;
+a--;
+a = -a;</pre>
+      </div>
+      <div class="compare-box asm-box">
+        <div class="compare-header">어셈블리</div>
+        <pre><span class="kw">add</span>  <span class="reg">rax</span>, <span class="reg">rbx</span>
+<span class="kw">sub</span>  <span class="reg">rax</span>, <span class="reg">rbx</span>
+<span class="kw">imul</span> <span class="reg">rax</span>, <span class="reg">rbx</span>
+<span class="kw">idiv</span> <span class="reg">rbx</span>    <span class="cmt">; rdx:rax ÷ rbx, 몫→rax</span>
+               <span class="cmt">; 나머지→rdx</span>
+<span class="kw">inc</span>  <span class="reg">rax</span>
+<span class="kw">dec</span>  <span class="reg">rax</span>
+<span class="kw">neg</span>  <span class="reg">rax</span></pre>
+      </div>
+    </div>
+
+    <div class="info-box warn">
+      <div class="box-title">⚠️ idiv 주의사항</div>
+      <p style="margin:0;"><code>idiv rbx</code>는 <code>rdx:rax</code>(128비트 값으로 취급)를 <code>rbx</code>로 나눕니다. 나누기 전에 반드시 <code>rdx</code>를 설정해야 합니다. 양수를 나눈다면 <code>xor rdx, rdx</code>(부호없음) 또는 <span class="tt" data-tip="cqo(Convert Quadword to Octword): rax의 값을 rdx:rax 128비트로 부호 확장합니다.&#10;rax가 양수면 rdx=0, 음수면 rdx=0xFFFFFFFFFFFFFFFF로 설정합니다.&#10;부호있는 나눗셈 전에 반드시 사용해야 합니다."><code>cqo</code>(부호있음 확장)</span>를 먼저 하세요.</p>
+    </div>
+
+    <h3>비트 연산 명령어</h3>
+
+    <p>비트 연산은 <span class="tt" data-tip="암호화(Encryption): 데이터를 읽기 어렵게 변환하는 기술입니다.&#10;비트 연산(XOR, AND, 시프트)은 암호화 알고리즘의 기본 구성요소입니다.&#10;예: AES, ChaCha20 같은 암호화 알고리즘이 비트 연산으로 구성됩니다.">암호화</span>, 플래그 체크, 최적화에서 자주 나옵니다.</p>
+
+    <table>
+      <tr><th>명령어</th><th>C 연산자</th><th>설명</th><th>예시 (rax=0b1010, rbx=0b1100)</th></tr>
+      <tr><td><code>and</code></td><td><code>&amp;</code></td><td>둘 다 1이면 1, 나머지 0</td><td><code>and rax, rbx</code> → <code>0b1000</code></td></tr>
+      <tr><td><code>or</code></td><td><code>|</code></td><td>하나라도 1이면 1</td><td><code>or rax, rbx</code> → <code>0b1110</code></td></tr>
+      <tr><td><code>xor</code></td><td><code>^</code></td><td>서로 다르면 1</td><td><code>xor rax, rbx</code> → <code>0b0110</code></td></tr>
+      <tr><td><code>not</code></td><td><code>~</code></td><td>비트 반전</td><td><code>not rax</code> → <code>0b…10110101</code></td></tr>
+      <tr><td><code>shl</code></td><td><code>&lt;&lt;</code></td><td><span class="tt" data-tip="왼쪽 시프트(Left Shift): 비트를 왼쪽으로 n칸 밀어냅니다.&#10;1칸 이동할 때마다 값이 2배가 됩니다.&#10;shl rax, 3은 rax * 8 과 같습니다.">왼쪽 시프트 (×2^n)</span></td><td><code>shl rax, 2</code> → <code>rax*4</code></td></tr>
+      <tr><td><code>shr</code></td><td><code>&gt;&gt;</code></td><td><span class="tt" data-tip="오른쪽 논리 시프트(Logical Right Shift): 비트를 오른쪽으로 n칸 밀고,&#10;빈 상위 비트는 0으로 채웁니다. 부호없는 나눗셈에 해당합니다.&#10;shr rax, 1은 rax / 2 와 같습니다(양수 기준).">오른쪽 시프트 (÷2^n, 부호없음)</span></td><td><code>shr rax, 1</code> → <code>rax/2</code></td></tr>
+      <tr><td><code>sar</code></td><td><code>&gt;&gt;</code> (부호)</td><td><span class="tt" data-tip="오른쪽 산술 시프트(Arithmetic Right Shift): 비트를 오른쪽으로 n칸 밀되,&#10;빈 상위 비트를 부호 비트(최상위 비트)와 같은 값으로 채웁니다.&#10;음수를 2로 나눠도 음수가 유지됩니다.">오른쪽 산술 시프트 (부호 보존)</span></td><td><code>sar rax, 1</code></td></tr>
+    </table>
+
+    <h4>XOR 자기 자신 — 0 초기화 트릭</h4>
+
+    <p><code>xor rax, rax</code>는 rax를 0으로 만드는 <span class="tt" data-tip="관용구(Idiom): 어셈블리에서 자주 반복적으로 쓰이는&#10;특정 패턴/표현입니다. 영어의 'piece of cake(식은 죽 먹기)'처럼&#10;글자 그대로의 의미가 아닌 관례적 의미를 가집니다.">관용구</span>입니다. <code>mov rax, 0</code>보다 기계어가 짧아서 컴파일러가 자주 씁니다. 리버싱에서 자주 보이므로 반드시 외우세요.</p>
+
+    <pre data-lang="asm"><span class="kw">xor</span>  <span class="reg">eax</span>, <span class="reg">eax</span>   <span class="cmt">; rax = 0 (가장 짧은 0 초기화)</span>
+<span class="kw">xor</span>  <span class="reg">rcx</span>, <span class="reg">rcx</span>   <span class="cmt">; rcx = 0</span></pre>
+
+    <h3>비교 명령어 — CMP와 TEST</h3>
+
+    <p>비교는 실제로 빼기/AND를 수행하지만, <strong>결과를 저장하지 않고 플래그만 바꿉니다</strong>. 다음 조건 점프 명령어가 이 플래그를 읽습니다.</p>
+
+    <div class="compare">
+      <div class="compare-box c-box">
+        <div class="compare-header">C 코드</div>
+        <pre><span class="kw">if</span> (a == b) { ... }
+<span class="kw">if</span> (a != 0) { ... }
+<span class="kw">if</span> (flags &amp; 0x1) { ... }</pre>
+      </div>
+      <div class="compare-box asm-box">
+        <div class="compare-header">어셈블리</div>
+        <pre><span class="kw">cmp</span>  <span class="reg">rax</span>, <span class="reg">rbx</span>  <span class="cmt">; a-b 계산, 플래그만 변경</span>
+<span class="kw">je</span>   .equal  <span class="cmt">; ZF=1이면 점프</span>
+<span class="kw">test</span> <span class="reg">rax</span>, <span class="reg">rax</span>  <span class="cmt">; rax & rax, ZF 설정</span>
+<span class="kw">jnz</span>  .nonzero
+<span class="kw">test</span> <span class="reg">rax</span>, <span class="num">0x1</span>  <span class="cmt">; 비트 체크</span>
+<span class="kw">jnz</span>  .bit_set</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────── Chapter 8 ─────────────────── -->
+
+  <section id="asm3" class="chapter">
+    <span class="chapter-num">Part 2 · Chapter 08</span>
+    <h2>메모리 접근 — 포인터의 어셈블리 버전</h2>
+    <p class="chapter-intro">C에서 포인터를 어렵게 느꼈다면, 어셈블리에서 메모리 접근 방식을 보면 오히려 명확하게 이해됩니다. 대괄호 <code>[ ]</code>가 C의 <span class="tt" data-tip="역참조(Dereference): 포인터 변수가 가리키는 주소의 실제 값을 읽어오는 것입니다.&#10;C에서 *p 라고 쓰면 p가 담고 있는 주소에 실제로 가서 값을 가져옵니다.&#10;어셈블리에서는 대괄호 []가 같은 역할을 합니다.">역참조(dereference)</span> <code>*</code>와 같습니다.</p>
+
+    <h3>대괄호 [ ] = C의 * (역참조)</h3>
+
+    <div class="compare">
+      <div class="compare-box c-box">
+        <div class="compare-header">C 코드</div>
+        <pre><span class="kw">int</span> x = <span class="num">10</span>;
+<span class="kw">int</span> *p = &amp;x;
+
+<span class="cmt">// 포인터로 읽기</span>
+<span class="kw">int</span> val = *p;
+
+<span class="cmt">// 포인터로 쓰기</span>
+*p = <span class="num">20</span>;</pre>
+      </div>
+      <div class="compare-box asm-box">
+        <div class="compare-header">어셈블리</div>
+        <pre><span class="cmt">; rbx = p (포인터, 주소를 가짐)</span>
+
+<span class="cmt">; 포인터로 읽기 (역참조)</span>
+<span class="kw">mov</span>  <span class="reg">rax</span>, [<span class="reg">rbx</span>]
+<span class="cmt">; = rax = *p</span>
+
+<span class="cmt">; 포인터로 쓰기</span>
+<span class="kw">mov</span>  <span class="kw">QWORD PTR</span> [<span class="reg">rbx</span>], <span class="num">20</span></pre>
+      </div>
+    </div>
+
+    <h3>메모리 주소 계산 공식</h3>
+
+    <p>Intel x86-64의 메모리 주소는 다음 공식으로 계산됩니다:</p>
+
+    <pre data-lang="형식">[base + index * scale + displacement]
+ 베이스    인덱스   배율(1,2,4,8)   오프셋(변위)</pre>
+
+    <div class="info-box note">
+      <div class="box-title">📌 오프셋(Offset)이란?</div>
+      <p style="margin:0;"><strong>오프셋(Offset)</strong>은 "기준 위치에서 얼마나 떨어져 있는가"입니다. 예를 들어 구조체의 두 번째 멤버는 시작 주소에서 4바이트 떨어진 곳(오프셋 4)에 있습니다. <strong>디스플레이스먼트(Displacement)</strong>는 어셈블리에서 같은 개념을 부르는 이름입니다.</p>
+    </div>
+
+    <table>
+      <tr><th>표현식</th><th>계산되는 주소</th><th>C에 대응</th></tr>
+      <tr><td><code>[rbx]</code></td><td>rbx</td><td><code>*p</code></td></tr>
+      <tr><td><code>[rbx + 8]</code></td><td>rbx + 8</td><td><code>*(p + 2)</code> (int 기준)</td></tr>
+      <tr><td><code>[rbx + rax*4]</code></td><td>rbx + rax*4</td><td><code>arr[i]</code> (int 배열)</td></tr>
+      <tr><td><code>[rbp - 8]</code></td><td>rbp - 8</td><td>로컬 변수</td></tr>
+      <tr><td><code>[rbx + rax*8 + 16]</code></td><td>rbx + rax*8 + 16</td><td>구조체 배열 접근</td></tr>
+    </table>
+
+    <h3>크기 지정자 — BYTE PTR, WORD PTR, DWORD PTR, QWORD PTR</h3>
+
+    <p>메모리에서 몇 바이트를 읽고 쓸지 명시해야 할 때가 있습니다. 레지스터 크기로 유추할 수 없을 때 특히 필요합니다.</p>
+
+    <div class="compare">
+      <div class="compare-box c-box">
+        <div class="compare-header">C 코드</div>
+        <pre><span class="kw">char</span>  *p1 = ...;
+<span class="kw">short</span> *p2 = ...;
+<span class="kw">int</span>   *p3 = ...;
+<span class="kw">long</span>  *p4 = ...;
+
+*p1 = <span class="num">0x41</span>;  <span class="cmt">// 1바이트</span>
+*p2 = <span class="num">0x1234</span>; <span class="cmt">// 2바이트</span>
+*p3 = <span class="num">0x5678</span>; <span class="cmt">// 4바이트</span>
+*p4 = <span class="num">0x9ABC</span>; <span class="cmt">// 8바이트</span></pre>
+      </div>
+      <div class="compare-box asm-box">
+        <div class="compare-header">어셈블리</div>
+        <pre><span class="cmt">; rbx = 주소</span>
+<span class="kw">mov</span> <span class="kw">BYTE PTR</span>  [<span class="reg">rbx</span>], <span class="num">0x41</span>
+<span class="kw">mov</span> <span class="kw">WORD PTR</span>  [<span class="reg">rbx</span>], <span class="num">0x1234</span>
+<span class="kw">mov</span> <span class="kw">DWORD PTR</span> [<span class="reg">rbx</span>], <span class="num">0x5678</span>
+<span class="kw">mov</span> <span class="kw">QWORD PTR</span> [<span class="reg">rbx</span>], <span class="num">0x9ABC</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────── Chapter 9 ─────────────────── -->
+
+  <section id="asm4" class="chapter">
+    <span class="chapter-num">Part 2 · Chapter 09</span>
+    <h2>플래그 레지스터와 조건 점프</h2>
+    <p class="chapter-intro">어셈블리에서 if문과 반복문은 플래그와 조건 점프 명령어로 만들어집니다. 이것이 어셈블리의 <span class="tt" data-tip="제어 흐름(Control Flow): 프로그램이 어떤 순서로 명령어를 실행하는가를 뜻합니다.&#10;조건에 따라 다른 코드를 실행하거나(if), 반복하거나(for/while), 함수를 호출하는 것이&#10;모두 제어 흐름의 변경입니다.">제어 흐름(Control Flow)</span>입니다.</p>
+
+    <h3>RFLAGS — 상태 플래그 레지스터</h3>
+
+    <p><strong>RFLAGS</strong>는 연산 결과의 "상태"를 기억하는 특별한 레지스터입니다. 각 비트가 하나의 플래그를 나타냅니다. <code>cmp</code>나 <code>add</code> 같은 연산 후 자동으로 갱신됩니다.</p>
+
+    <div class="flag-grid">
+      <div class="flag-card">
+        <div class="flag-name">ZF</div>
+        <div class="flag-full">Zero Flag</div>
+        <div class="flag-desc">연산 결과가 <strong>0</strong>이면 1. <code>cmp a, b</code>에서 a==b이면 두 값의 차가 0이므로 ZF=1.</div>
+      </div>
+      <div class="flag-card">
+        <div class="flag-name">CF</div>
+        <div class="flag-full">Carry Flag</div>
+        <div class="flag-desc">덧셈에서 <span class="tt" data-tip="올림수(Carry): 덧셈 결과가 표현 범위를 넘을 때 윗 자리로 올라가는 1입니다.&#10;예: 8비트 255 + 1 = 256인데, 256은 8비트로 표현 불가 → CF=1, 결과=0.">올림수(carry)</span> 발생 시, 또는 뺄셈에서 <span class="tt" data-tip="빌림(Borrow): 뺄셈 결과가 음수가 될 때 윗 자리에서 빌려오는 개념입니다.&#10;부호없는 숫자에서 작은 수에서 큰 수를 빼면 CF=1이 됩니다.">빌림(borrow)</span> 발생 시 1. 부호없는 비교에 사용.</div>
+      </div>
+      <div class="flag-card">
+        <div class="flag-name">SF</div>
+        <div class="flag-full">Sign Flag</div>
+        <div class="flag-desc">결과의 <span class="tt" data-tip="최상위 비트(MSB, Most Significant Bit): 이진수에서 가장 왼쪽에 있는 비트입니다.&#10;부호있는 정수에서 최상위 비트가 1이면 음수, 0이면 양수입니다.&#10;예: 1000 0000 = -128 (8비트 부호있는 정수).">최상위 비트(부호 비트)</span>와 같습니다. 음수면 SF=1.</div>
+      </div>
+      <div class="flag-card">
+        <div class="flag-name">OF</div>
+        <div class="flag-full">Overflow Flag</div>
+        <div class="flag-desc">부호있는 연산에서 <span class="tt" data-tip="오버플로우(Overflow): 연산 결과가 해당 데이터 타입이 표현할 수 있는 범위를 초과하는 것입니다.&#10;예: 8비트 부호있는 정수 최대값 127에 1을 더하면 -128이 됩니다 (OF=1).">오버플로우</span>(표현 범위 초과) 발생 시 1.</div>
+      </div>
+      <div class="flag-card">
+        <div class="flag-name">PF</div>
+        <div class="flag-full">Parity Flag</div>
+        <div class="flag-desc">결과의 하위 8비트에서 1인 비트 수가 <strong>짝수</strong>면 1. <span class="tt" data-tip="패리티(Parity): 데이터 전송 오류 검출에 쓰이던 개념입니다.&#10;현대 프로그래밍에서는 거의 사용되지 않지만&#10;일부 암호화 연산에서 가끔 등장합니다.">현대에는 잘 안 씁니다.</span></div>
+      </div>
+      <div class="flag-card">
+        <div class="flag-name">DF</div>
+        <div class="flag-full">Direction Flag</div>
+        <div class="flag-desc">문자열 명령어 방향. 0=증가, 1=감소. <span class="tt" data-tip="cld(Clear Direction Flag): DF를 0으로 설정합니다. rsi, rdi가 증가 방향으로 이동합니다.&#10;std(Set Direction Flag): DF를 1로 설정합니다. rsi, rdi가 감소 방향으로 이동합니다."><code>cld</code>/<code>std</code>로 설정.</span></div>
+      </div>
+    </div>
+
+    <h3>조건 점프 명령어 전체 목록</h3>
+
+    <table>
+      <tr><th>명령어</th><th>별칭</th><th>조건</th><th>플래그</th><th>C 조건</th></tr>
+      <tr><td><code>je</code></td><td><code>jz</code></td><td>같음 / 0</td><td>ZF=1</td><td><code>a == b</code></td></tr>
+      <tr><td><code>jne</code></td><td><code>jnz</code></td><td>같지 않음 / 0아님</td><td>ZF=0</td><td><code>a != b</code></td></tr>
+      <tr><td><code>jg</code></td><td><code>jnle</code></td><td>크다 (부호있음)</td><td>ZF=0, SF=OF</td><td><code>a &gt; b</code> (signed)</td></tr>
+      <tr><td><code>jge</code></td><td><code>jnl</code></td><td>크거나 같음 (부호있음)</td><td>SF=OF</td><td><code>a &gt;= b</code> (signed)</td></tr>
+      <tr><td><code>jl</code></td><td><code>jnge</code></td><td>작다 (부호있음)</td><td>SF≠OF</td><td><code>a &lt; b</code> (signed)</td></tr>
+      <tr><td><code>jle</code></td><td><code>jng</code></td><td>작거나 같음 (부호있음)</td><td>ZF=1 또는 SF≠OF</td><td><code>a &lt;= b</code> (signed)</td></tr>
+      <tr><td><code>ja</code></td><td><code>jnbe</code></td><td><span class="tt" data-tip="Above(위): 부호없는(unsigned) 비교에서 '크다'를 의미합니다.&#10;jg(부호있음)와 혼동하지 마세요.&#10;예: 0xFF는 부호없음으로 255, 부호있음으로 -1입니다.">Above (부호없음 &gt;)</span></td><td>CF=0, ZF=0</td><td><code>a &gt; b</code> (unsigned)</td></tr>
+      <tr><td><code>jb</code></td><td><code>jnae</code></td><td><span class="tt" data-tip="Below(아래): 부호없는(unsigned) 비교에서 '작다'를 의미합니다.&#10;jl(부호있음)과 혼동하지 마세요.">Below (부호없음 &lt;)</span></td><td>CF=1</td><td><code>a &lt; b</code> (unsigned)</td></tr>
+      <tr><td><code>jae</code></td><td><code>jnb</code></td><td>Above or Equal</td><td>CF=0</td><td><code>a &gt;= b</code> (unsigned)</td></tr>
+      <tr><td><code>jbe</code></td><td><code>jna</code></td><td>Below or Equal</td><td>CF=1 또는 ZF=1</td><td><code>a &lt;= b</code> (unsigned)</td></tr>
+      <tr><td><code>js</code></td><td>-</td><td>음수</td><td>SF=1</td><td>결과 &lt; 0</td></tr>
+      <tr><td><code>jns</code></td><td>-</td><td>양수 또는 0</td><td>SF=0</td><td>결과 &gt;= 0</td></tr>
+      <tr><td><code>jmp</code></td><td>-</td><td>무조건 점프</td><td>-</td><td><code>goto</code></td></tr>
+    </table>
+
+    <h3>C의 if-else를 어셈블리로</h3>
+
+    <div class="compare">
+      <div class="compare-box c-box">
+        <div class="compare-header">C 코드</div>
+        <pre><span class="kw">if</span> (x > <span class="num">0</span>) {
+    result = x * <span class="num">2</span>;
+} <span class="kw">else</span> {
+    result = -x;
+}</pre>
+      </div>
+      <div class="compare-box asm-box">
+        <div class="compare-header">어셈블리 (rdi=x, rax=result)</div>
+        <pre><span class="kw">cmp</span>   <span class="reg">rdi</span>, <span class="num">0</span>      <span class="cmt">; x - 0, 플래그 설정</span>
+<span class="kw">jle</span>   <span class="lbl">.else</span>       <span class="cmt">; x <= 0이면 else로</span>
+<span class="cmt">; if body</span>
+<span class="kw">lea</span>   <span class="reg">rax</span>, [<span class="reg">rdi</span>*<span class="num">2</span>] <span class="cmt">; result = x*2</span>
+<span class="kw">jmp</span>   <span class="lbl">.end</span>
+<span class="lbl">.else:</span>
+<span class="kw">mov</span>   <span class="reg">rax</span>, <span class="reg">rdi</span>    <span class="cmt">; result = x</span>
+<span class="kw">neg</span>   <span class="reg">rax</span>         <span class="cmt">; result = -x</span>
+<span class="lbl">.end:</span></pre>
+      </div>
+    </div>
+
+    <div class="info-box note">
+      <div class="box-title">📌 레이블(Label)이란?</div>
+      <p style="margin:0;"><strong>레이블(Label)</strong>은 코드의 특정 위치에 붙이는 이름표입니다. <code>.else:</code>, <code>.end:</code> 같이 콜론(:)으로 끝납니다. 점프 명령어가 이 이름을 목적지로 사용합니다. 실제 기계어에서는 주소로 변환됩니다.</p>
+    </div>
+
+    <h3>C의 for 루프를 어셈블리로</h3>
+
+    <div class="compare">
+      <div class="compare-box c-box">
+        <div class="compare-header">C 코드</div>
+        <pre><span class="kw">int</span> sum = <span class="num">0</span>;
+<span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i < <span class="num">10</span>; i++) {
+    sum += i;
+}</pre>
+      </div>
+      <div class="compare-box asm-box">
+        <div class="compare-header">어셈블리 (rax=sum, rcx=i)</div>
+        <pre><span class="kw">xor</span>  <span class="reg">eax</span>, <span class="reg">eax</span>   <span class="cmt">; sum = 0</span>
+<span class="kw">xor</span>  <span class="reg">ecx</span>, <span class="reg">ecx</span>   <span class="cmt">; i = 0</span>
+<span class="lbl">.loop:</span>
+<span class="kw">cmp</span>  <span class="reg">ecx</span>, <span class="num">10</span>    <span class="cmt">; i < 10?</span>
+<span class="kw">jge</span>  <span class="lbl">.end</span>       <span class="cmt">; i >= 10이면 탈출</span>
+<span class="kw">add</span>  <span class="reg">eax</span>, <span class="reg">ecx</span>   <span class="cmt">; sum += i</span>
+<span class="kw">inc</span>  <span class="reg">ecx</span>        <span class="cmt">; i++</span>
+<span class="kw">jmp</span>  <span class="lbl">.loop</span>
+<span class="lbl">.end:</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────── Chapter 10 ─────────────────── -->
+
+  <section id="asm5" class="chapter">
+    <span class="chapter-num">Part 2 · Chapter 10</span>
+    <h2>스택(Stack) 동작 상세</h2>
+    <p class="chapter-intro">스택은 함수 호출, 지역 변수, 리턴 주소를 관리하는 핵심 구조입니다. 스택을 완전히 이해하면 버퍼 오버플로우 공격도 이해됩니다.</p>
+
+    <h3>스택이란? — LIFO 자료구조</h3>
+
+    <div class="concept">
+      <div class="concept-term">LIFO <span class="en">(Last In, First Out)</span></div>
+      <p style="margin:0;">마지막에 넣은 것이 먼저 나옵니다. 책상에 쌓은 책처럼요. <code>push</code>로 맨 위에 놓고, <code>pop</code>으로 맨 위에서 꺼냅니다. <code>rsp</code>(스택 포인터)는 항상 현재 스택의 "맨 위"(가장 낮은 주소)를 가리킵니다. <span class="tt" data-tip="자료구조(Data Structure): 데이터를 효율적으로 저장하고 접근하기 위한 구조/형식입니다.&#10;배열, 연결 리스트, 스택, 큐, 트리 등이 있습니다.&#10;스택은 '마지막 입력이 먼저 출력'되는 LIFO 구조입니다.">LIFO는 자료구조의 일종</span>입니다.</p>
+    </div>
+
+    <h3>PUSH와 POP의 정확한 동작</h3>
+
+    <div class="compare">
+      <div class="compare-box c-box">
+        <div class="compare-header">PUSH rax 동작</div>
+        <pre><span class="cmt">// 등가 C 코드</span>
+rsp -= <span class="num">8</span>;        <span class="cmt">// 스택 포인터 감소</span>
+*(<span class="kw">long</span>*)rsp = rax; <span class="cmt">// 값 저장</span></pre>
+      </div>
+      <div class="compare-box asm-box">
+        <div class="compare-header">POP rax 동작</div>
+        <pre><span class="cmt">// 등가 C 코드</span>
+rax = *(<span class="kw">long</span>*)rsp; <span class="cmt">// 값 읽기</span>
+rsp += <span class="num">8</span>;         <span class="cmt">// 스택 포인터 증가</span></pre>
+      </div>
+    </div>
+
+    <p>스택은 <strong>높은 주소에서 낮은 주소로</strong> 자랍니다. <code>push</code>할수록 <code>rsp</code>는 작아집니다.</p>
+
+    <h3>스택 시각화</h3>
+
+    <div class="mem-diagram">
+      <div class="mem-row">
+        <div class="mem-addr">높은 주소<br>rsp+24</div>
+        <div class="mem-cell stack">0x0000000000000001 (push 1 후)</div>
+        <div class="mem-tag">먼저 push</div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr">rsp+16</div>
+        <div class="mem-cell stack">0x0000000000000002 (push 2 후)</div>
+        <div class="mem-tag"></div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr">rsp+8</div>
+        <div class="mem-cell stack">0x0000000000000003 (push 3 후)</div>
+        <div class="mem-tag"></div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr">rsp ←</div>
+        <div class="mem-cell stack" style="border-color: var(--accent); border-width: 2px;">0x0000000000000004 (가장 최근 push)</div>
+        <div class="mem-tag">스택 TOP</div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr">낮은 주소</div>
+        <div class="mem-cell free">……</div>
+        <div class="mem-tag"></div>
+      </div>
+    </div>
+
+    <h3>CALL과 RET — 함수 호출의 본질</h3>
+
+    <div class="concept">
+      <div class="concept-term">CALL 명령어</div>
+      <p style="margin:0;"><code>call func</code>는 두 가지 일을 합니다: ① 현재 rip(다음 명령어 주소)를 스택에 push, ② func 주소로 점프. 즉 <code>push rip; jmp func</code>와 같습니다. 스택에 저장된 이 주소를 <strong>리턴 주소(Return Address)</strong>라고 합니다. 함수가 끝난 후 돌아올 위치를 기억하는 것입니다.</p>
+    </div>
+
+    <div class="concept">
+      <div class="concept-term">RET 명령어</div>
+      <p style="margin:0;"><code>ret</code>는 스택 최상단 값을 rip에 넣고 rsp를 8 증가시킵니다. 즉 <code>pop rip</code>와 같습니다. call이 저장해둔 리턴 주소로 돌아갑니다.</p>
+    </div>
+
+    <div class="info-box danger">
+      <div class="box-title">🔴 보안: 버퍼 오버플로우의 원리</div>
+      <p style="margin:0;">스택에는 "로컬 변수"와 "리턴 주소"가 인접해 있습니다. 로컬 버퍼(예: 64바이트 배열)에 경계 검사 없이 데이터를 쓰면, 버퍼를 넘쳐서 리턴 주소를 덮어쓸 수 있습니다. ret 시 공격자가 원하는 주소로 점프됩니다. 이것이 고전적인 <strong>스택 기반 버퍼 오버플로우(Stack-based Buffer Overflow)</strong>입니다. 자세한 내용은 Chapter 20에서 다룹니다.</p>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════
+       PART 3 — 중급 문법
+  ════════════════════════════════════════════ -->
+
+  <section id="mid1" class="chapter">
+    <span class="chapter-num">Part 3 · Chapter 11</span>
+    <h2>함수 호출 규약 (Calling Convention)</h2>
+    <p class="chapter-intro">여러 함수가 통신하려면 약속이 필요합니다. "인수를 어디에 넣어서 넘길까?", "리턴값은 어디에?", "어떤 레지스터를 보존해야 하나?" 이 약속이 호출 규약입니다.</p>
+
+    <div class="info-box note">
+      <div class="box-title">📌 인수(Argument)와 매개변수(Parameter)의 차이</div>
+      <p style="margin:0;"><strong>매개변수(Parameter)</strong>: 함수를 정의할 때 쓰는 변수 이름입니다. <code>int add(int a, int b)</code>에서 a, b가 매개변수.<br>
+      <strong>인수(Argument)</strong>: 함수를 호출할 때 실제로 전달하는 값입니다. <code>add(3, 4)</code>에서 3, 4가 인수.</p>
+    </div>
+
+    <h3>System V AMD64 ABI — Linux/macOS의 규약</h3>
+
+    <p>Linux와 macOS는 <strong>System V AMD64 <span class="tt" data-tip="ABI(Application Binary Interface): 프로그램들이 기계어 수준에서 서로 통신하는 방법을 정한 규약입니다.&#10;API(Application Programming Interface)가 소스코드 수준의 약속이라면,&#10;ABI는 컴파일된 바이너리 수준의 약속입니다. 레지스터 사용 방법, 스택 구조, 데이터 크기 등이 포함됩니다.">ABI</span>(Application Binary Interface)</strong>를 따릅니다. Windows는 다릅니다(아래 참고). 리버싱에서 리눅스 바이너리를 많이 다루므로 이것을 먼저 외웁니다.</p>
+
+    <h4>인수(Argument) 전달 순서</h4>
+
+    <table>
+      <tr><th>인수 순서</th><th>레지스터</th><th>예: func(a,b,c,d,e,f)</th></tr>
+      <tr><td>1번째</td><td><code>rdi</code></td><td>a</td></tr>
+      <tr><td>2번째</td><td><code>rsi</code></td><td>b</td></tr>
+      <tr><td>3번째</td><td><code>rdx</code></td><td>c</td></tr>
+      <tr><td>4번째</td><td><code>rcx</code></td><td>d</td></tr>
+      <tr><td>5번째</td><td><code>r8</code></td><td>e</td></tr>
+      <tr><td>6번째</td><td><code>r9</code></td><td>f</td></tr>
+      <tr><td>7번째 이상</td><td>스택 (오른쪽→왼쪽 push)</td><td>g, h, ...</td></tr>
+    </table>
+
+    <h4>리턴값</h4>
+    <p>정수/<span class="tt" data-tip="포인터(Pointer): 메모리 주소를 담는 변수입니다.&#10;x86-64에서 포인터는 8바이트(64비트)입니다.&#10;C에서 int *p 라고 쓰면 p는 int가 있는 주소를 담는 포인터입니다.">포인터</span> 리턴값은 <code>rax</code>에, 128비트 리턴은 <code>rax:rdx</code>에 넣습니다. <span class="tt" data-tip="부동소수점(Floating Point): 소수점이 있는 실수를 표현하는 방법입니다.&#10;float(32비트), double(64비트)이 여기에 해당합니다.&#10;정수(integer)와 달리 별도의 FPU(부동소수점 처리 장치)로 계산합니다.">부동소수점</span> 리턴은 <code>xmm0</code>에 넣습니다.</p>
+
+    <h4>Caller-saved vs Callee-saved 레지스터</h4>
+
+    <div class="concept">
+      <div class="concept-term">Caller-saved <span class="en">(호출자가 저장)</span></div>
+      <p style="margin:0;">함수를 호출하기 전에 내가(caller가) 저장해야 하는 레지스터입니다. 피호출 함수가 마음대로 수정할 수 있습니다. <code>rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11</code>. <span class="tt" data-tip="Caller(호출자): 함수를 호출하는 쪽입니다.&#10;Callee(피호출자): 호출을 받는 함수입니다.&#10;예: main()이 add()를 호출하면 main=caller, add=callee.">Caller는 '부르는 쪽', Callee는 '불리는 쪽'입니다.</span></p>
+    </div>
+
+    <div class="concept">
+      <div class="concept-term">Callee-saved <span class="en">(피호출자가 저장)</span></div>
+      <p style="margin:0;">호출된 함수가 사용하기 전에 저장하고, 리턴 전에 복원해야 하는 레지스터입니다. 호출자는 이 레지스터들이 함수 호출 전후로 변하지 않는다고 믿을 수 있습니다. <code>rbx, rbp, r12, r13, r14, r15</code></p>
+    </div>
+
+    <div class="compare">
+      <div class="compare-box c-box">
+        <div class="compare-header">C 코드</div>
+        <pre><span class="kw">int</span> <span class="fn">add</span>(<span class="kw">int</span> a, <span class="kw">int</span> b) {
+    <span class="kw">return</span> a + b;
+}
+
+<span class="kw">int</span> <span class="fn">main</span>() {
+    <span class="kw">int</span> r = <span class="fn">add</span>(<span class="num">3</span>, <span class="num">4</span>);
+}</pre>
+      </div>
+      <div class="compare-box asm-box">
+        <div class="compare-header">어셈블리</div>
+        <pre><span class="lbl">add:</span>                   <span class="cmt">; int add(int a, int b)</span>
+    <span class="kw">lea</span>  <span class="reg">eax</span>, [<span class="reg">edi</span>+<span class="reg">esi</span>]  <span class="cmt">; a+b → eax (리턴값)</span>
+    <span class="kw">ret</span>
+
+<span class="lbl">main:</span>
+    <span class="kw">mov</span>  <span class="reg">edi</span>, <span class="num">3</span>          <span class="cmt">; 1번째 인수 a=3</span>
+    <span class="kw">mov</span>  <span class="reg">esi</span>, <span class="num">4</span>          <span class="cmt">; 2번째 인수 b=4</span>
+    <span class="kw">call</span> <span class="fn">add</span>             <span class="cmt">; 함수 호출</span>
+    <span class="cmt">; rax = 7 (리턴값)</span></pre>
+      </div>
+    </div>
+
+    <h3>Windows x64 호출 규약</h3>
+
+    <p>Windows는 다른 규약을 씁니다. <span class="tt" data-tip="CTF(Capture The Flag): 해킹 대회 형식입니다.&#10;문제를 풀어 숨겨진 '플래그(flag)' 문자열을 찾으면 점수를 얻습니다.&#10;리버싱, 취약점 분석, 암호화, 포렌식 등 다양한 분야의 문제가 출제됩니다.">CTF</span>나 Windows 바이너리를 리버싱할 때 알아야 합니다.</p>
+
+    <table>
+      <tr><th>인수 순서</th><th>Linux (System V)</th><th>Windows x64</th></tr>
+      <tr><td>1번째</td><td><code>rdi</code></td><td><code>rcx</code></td></tr>
+      <tr><td>2번째</td><td><code>rsi</code></td><td><code>rdx</code></td></tr>
+      <tr><td>3번째</td><td><code>rdx</code></td><td><code>r8</code></td></tr>
+      <tr><td>4번째</td><td><code>rcx</code></td><td><code>r9</code></td></tr>
+      <tr><td>특이사항</td><td>-</td><td><span class="tt" data-tip="Shadow Space(쉐도우 공간): Windows x64 호출 규약에서&#10;함수 호출 전에 스택에 반드시 32바이트를 미리 확보해야 합니다.&#10;피호출 함수가 레지스터 인수를 스택에 저장할 공간을 예약하는 것입니다.&#10;Linux에는 없는 개념입니다.">Shadow Space 32바이트 예약 필수</span></td></tr>
+    </table>
+  </section>
+
+  <!-- ─────────────────── Chapter 12 ─────────────────── -->
+
+  <section id="mid2" class="chapter">
+    <span class="chapter-num">Part 3 · Chapter 12</span>
+    <h2>스택 프레임 (Stack Frame)</h2>
+    <p class="chapter-intro">함수가 실행될 때 스택에서 자신만의 영역을 확보합니다. 이것이 스택 프레임입니다. 여기에 지역변수, 저장된 레지스터, 리턴 주소가 들어갑니다.</p>
+
+    <h3>스택 프레임 구조</h3>
+
+    <div class="mem-diagram">
+      <div class="mem-row">
+        <div class="mem-addr">높은 주소</div>
+        <div class="mem-cell stack">caller의 스택 프레임 영역 ...</div>
+        <div class="mem-tag"></div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr">rbp + 16</div>
+        <div class="mem-cell data">7번째 이상 인수 (스택으로 전달된 것)</div>
+        <div class="mem-tag">인수</div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr">rbp + 8</div>
+        <div class="mem-cell data" style="border-color: var(--accent2); border-width: 2px;">리턴 주소 (call이 push한 rip 값)</div>
+        <div class="mem-tag">★중요</div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr">rbp ←</div>
+        <div class="mem-cell stack" style="border-color: var(--accent3); border-width: 2px;">이전 rbp 값 (saved rbp)</div>
+        <div class="mem-tag">프레임 기준</div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr">rbp - 8</div>
+        <div class="mem-cell stack">지역변수 1 (long a)</div>
+        <div class="mem-tag">로컬변수</div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr">rbp - 16</div>
+        <div class="mem-cell stack">지역변수 2 (long b)</div>
+        <div class="mem-tag"></div>
+      </div>
+      <div class="mem-row">
+        <div class="mem-addr">rsp ←</div>
+        <div class="mem-cell stack">지역변수 3 ... (스택의 현재 최상단)</div>
+        <div class="mem-tag">스택 TOP</div>
+      </div>
+    </div>
+
+    <h3>함수 프롤로그(Prologue)와 에필로그(Epilogue)</h3>
+
+    <p>모든 함수는 시작과 끝에 정해진 패턴을 따릅니다. 이것을 <span class="tt" data-tip="프롤로그(Prologue): 함수 시작 부분의 준비 코드입니다.&#10;이전 rbp를 저장하고, rbp에 현재 rsp를 넣고, 지역변수 공간을 확보합니다.&#10;'프롤로그'는 원래 연극이나 소설의 '머리말'을 뜻하는 단어입니다.">프롤로그(시작 의식)</span>와 <span class="tt" data-tip="에필로그(Epilogue): 함수 끝 부분의 정리 코드입니다.&#10;스택 포인터를 복구하고, 저장한 rbp를 복원하고, ret으로 돌아갑니다.&#10;'에필로그'는 원래 연극이나 소설의 '맺음말'을 뜻하는 단어입니다.">에필로그(끝 의식)</span>라고 합니다. 리버싱에서 함수 경계를 찾을 때 이 패턴을 봅니다.</p>
+
+    <div class="compare">
+      <div class="compare-box c-box">
+        <div class="compare-header">C 함수</div>
+        <pre><span class="kw">long</span> <span class="fn">example</span>(<span class="kw">long</span> x) {
+    <span class="kw">long</span> a = x * <span class="num">2</span>;
+    <span class="kw">long</span> b = a + <span class="num">1</span>;
+    <span class="kw">return</span> b;
+}</pre>
+      </div>
+      <div class="compare-box asm-box">
+        <div class="compare-header">어셈블리 (rdi=x)</div>
+        <pre><span class="lbl">example:</span>
+    <span class="cmt">; ── 프롤로그 ──</span>
+    <span class="kw">push</span> <span class="reg">rbp</span>         <span class="cmt">; 이전 rbp 저장</span>
+    <span class="kw">mov</span>  <span class="reg">rbp</span>, <span class="reg">rsp</span>   <span class="cmt">; rbp = 현재 스택 위치</span>
+    <span class="kw">sub</span>  <span class="reg">rsp</span>, <span class="num">16</span>    <span class="cmt">; 로컬변수 공간 16바이트 확보</span>
+    <span class="cmt">; ── 함수 본문 ──</span>
+    <span class="kw">lea</span>  <span class="reg">rax</span>, [<span class="reg">rdi</span>*<span class="num">2</span>]
+    <span class="kw">mov</span>  [<span class="reg">rbp</span>-<span class="num">8</span>],  <span class="reg">rax</span>  <span class="cmt">; a = x*2</span>
+    <span class="kw">add</span>  <span class="reg">rax</span>, <span class="num">1</span>
+    <span class="kw">mov</span>  [<span class="reg">rbp</span>-<span class="num">16</span>], <span class="reg">rax</span>  <span class="cmt">; b = a+1</span>
+    <span class="kw">mov</span>  <span class="reg">rax</span>, [<span class="reg">rbp</span>-<span class="num">16</span>]  <span class="cmt">; 리턴값 준비</span>
+    <span class="cmt">; ── 에필로그 ──</span>
+    <span class="kw">leave</span>            <span class="cmt">; mov rsp,rbp; pop rbp</span>
+    <span class="kw">ret</span>              <span class="cmt">; 리턴 주소로 점프</span></pre>
+      </div>
+    </div>
+
+    <div class="info-box note">
+      <div class="box-title">📌 leave 명령어</div>
+      <p style="margin:0;"><code>leave</code>는 <code>mov rsp, rbp</code> + <code>pop rbp</code>를 합친 단축 명령어입니다. 에필로그에서 스택을 정리할 때 씁니다. <span class="tt" data-tip="enter 명령어: 프롤로그의 push rbp; mov rbp, rsp; sub rsp, N을 한 번에 처리합니다.&#10;이론적으로는 편리하지만, 현대 컴파일러는 성능상 이유로 거의 사용하지 않습니다."><code>enter</code> 명령어도 있지만 거의 사용 안 합니다.</span></p>
+    </div>
+
+    <h3>Frame Pointer Omission (FPO) — 최적화 시</h3>
+
+    <p>컴파일러가 <span class="tt" data-tip="최적화 레벨 -O2: gcc 컴파일러에서 최적화를 켜는 옵션입니다.&#10;-O0은 최적화 없음(디버깅용), -O1/O2/O3은 레벨을 높여가며 최적화합니다.&#10;최적화가 되면 코드가 빠르지만, 리버싱이 어려워집니다.">최적화(<code>-O2</code>)</span>를 하면 <code>rbp</code>를 프레임 포인터로 쓰지 않습니다. 대신 <code>rsp</code> 기준으로 지역변수를 접근합니다. 프롤로그에서 <code>push rbp; mov rbp, rsp</code>가 없어집니다. 리버싱에서 프레임이 없는 함수를 만날 수 있으니 알아두세요.</p>
+  </section>
+
+  <!-- ─────────────────── Chapter 13 ─────────────────── -->
+
+  <section id="mid3" class="chapter">
+    <span class="chapter-num">Part 3 · Chapter 13</span>
+    <h2>배열과 구조체 접근</h2>
+    <p class="chapter-intro">C의 배열과 구조체가 어셈블리에서 어떻게 표현되는지 알면, 리버싱 시 데이터 구조를 복원하는 데 큰 도움이 됩니다.</p>
+
+    <h3>배열 접근</h3>
+
+    <p>배열은 연속된 메모리 블록입니다. <code>arr[i]</code>는 <code>arr</code> 시작 주소 + <code>i * sizeof(element)</code>입니다.</p>
+
+    <div class="compare">
+      <div class="compare-box c-box">
+        <div class="compare-header">C 코드</div>
+        <pre><span class="kw">int</span> arr[<span class="num">5</span>] = {<span class="num">10</span>,<span class="num">20</span>,<span class="num">30</span>,<span class="num">40</span>,<span class="num">50</span>};
+<span class="kw">int</span> x = arr[<span class="num">2</span>];    <span class="cmt">// x = 30</span>
+arr[i] = <span class="num">99</span>;       <span class="cmt">// i번째 설정</span>
+<span class="kw">long</span> la[<span class="num">3</span>];
+la[i] = <span class="num">100</span>;       <span class="cmt">// 8바이트 원소</span></pre>
+      </div>
+      <div class="compare-box asm-box">
+        <div class="compare-header">어셈블리 (rbx=arr, rcx=i)</div>
+        <pre><span class="cmt">; int arr[]: 원소 4바이트</span>
+<span class="kw">mov</span>  <span class="reg">eax</span>, [<span class="reg">rbx</span> + <span class="num">2</span>*<span class="num">4</span>]   <span class="cmt">; arr[2]</span>
+<span class="kw">mov</span>  [<span class="reg">rbx</span> + <span class="reg">rcx</span>*<span class="num">4</span>], <span class="num">99</span>  <span class="cmt">; arr[i]=99</span>
+
+<span class="cmt">; long arr[]: 원소 8바이트</span>
+<span class="kw">mov</span>  <span class="kw">QWORD PTR</span> [<span class="reg">rbx</span> + <span class="reg">rcx</span>*<span class="num">8</span>], <span class="num">100</span></pre>
+      </div>
+    </div>
+
+    <h3>구조체 접근</h3>
+
+    <p>구조체는 멤버들이 순서대로 메모리에 배치됩니다. 각 멤버는 베이스 주소에 <span class="tt" data-tip="오프셋(Offset): 기준 주소에서 얼마나 떨어져 있는지를 나타내는 값입니다.&#10;구조체의 첫 번째 멤버는 오프셋 0, 두 번째 멤버는 첫 번째 멤버 크기만큼 떨어진 오프셋에 있습니다.">오프셋(offset)</span>으로 접근합니다.</p>
+
+    <div class="compare">
+      <div class="compare-box c-box">
+        <div class="compare-header">C 코드</div>
+        <pre><span class="kw">struct</span> Point {
+    <span class="kw">int</span>   x;    <span class="cmt">// offset 0, 4바이트</span>
+    <span class="kw">int</span>   y;    <span class="cmt">// offset 4, 4바이트</span>
+    <span class="kw">long</span>  z;    <span class="cmt">// offset 8, 8바이트</span>
+};             <span class="cmt">// 합계: 16바이트</span>
+
+<span class="kw">struct</span> Point p;
+p.x = <span class="num">10</span>;
+p.y = <span class="num">20</span>;
+p.z = <span class="num">30</span>;
+<span class="kw">int</span> a = p.x + p.y;</pre>
+      </div>
+      <div class="compare-box asm-box">
+        <div class="compare-header">어셈블리 (rbx=&amp;p)</div>
+        <pre><span class="cmt">; p.x = 10  (offset 0)</span>
+<span class="kw">mov</span>  <span class="kw">DWORD PTR</span> [<span class="reg">rbx</span>], <span class="num">10</span>
+<span class="cmt">; p.y = 20  (offset 4)</span>
+<span class="kw">mov</span>  <span class="kw">DWORD PTR</span> [<span class="reg">rbx</span>+<span class="num">4</span>], <span class="num">20</span>
+<span class="cmt">; p.z = 30  (offset 8)</span>
+<span class="kw">mov</span>  <span class="kw">QWORD PTR</span> [<span class="reg">rbx</span>+<span class="num">8</span>], <span class="num">30</span>
+
+<span class="cmt">; a = p.x + p.y</span>
+<span class="kw">mov</span>  <span class="reg">eax</span>, [<span class="reg">rbx</span>]      <span class="cmt">; p.x</span>
+<span class="kw">add</span>  <span class="reg">eax</span>, [<span class="reg">rbx</span>+<span class="num">4</span>]   <span class="cmt">; + p.y</span></pre>
+      </div>
+    </div>
+
+    <h3>구조체 패딩(Padding)</h3>
+
+    <p>컴파일러는 성능을 위해 멤버들 사이에 빈 바이트(패딩)를 넣습니다. <span class="tt" data-tip="정렬(Alignment): CPU가 메모리를 효율적으로 읽으려면&#10;데이터의 주소가 해당 데이터 크기의 배수여야 합니다.&#10;예: 4바이트 int는 4의 배수 주소(0, 4, 8, 12...)에 있어야 하고&#10;8바이트 long은 8의 배수 주소에 있어야 합니다.">정렬(Alignment)</span> 요구사항 때문입니다. 4바이트 int는 4의 배수 주소에, 8바이트 long은 8의 배수 주소에 있어야 합니다.</p>
+
+    <pre data-lang="c"><span class="kw">struct</span> BadLayout {
+    <span class="kw">char</span>  a;   <span class="cmt">// offset 0, 1바이트</span>
+               <span class="cmt">// 패딩 3바이트 (int 정렬 맞추기용)</span>
+    <span class="kw">int</span>   b;   <span class="cmt">// offset 4, 4바이트</span>
+    <span class="kw">char</span>  c;   <span class="cmt">// offset 8, 1바이트</span>
+               <span class="cmt">// 패딩 7바이트 (long 정렬 맞추기용)</span>
+    <span class="kw">long</span>  d;   <span class="cmt">// offset 16, 8바이트</span>
+};             <span class="cmt">// sizeof = 24 (char 3개뿐인데!)</span></pre>
+
+    <div class="info-box tip">
+      <div class="box-title">✅ 리버싱 팁</div>
+      <p style="margin:0;">구조체를 리버싱으로 복원할 때 오프셋 패턴을 보면 패딩을 고려해야 합니다. <span class="tt" data-tip="Ghidra의 Data Type Manager: Ghidra에서 구조체, 열거형 등 데이터 타입을&#10;직접 정의하고 관리하는 도구입니다. 리버싱한 구조체를 여기에 입력하면&#10;디스어셈블리 뷰에서 멤버 이름으로 자동으로 표시됩니다.">Ghidra의 Data Type Manager</span>에서 구조체를 정의할 때 패딩도 넣어줘야 정확한 분석이 됩니다.</p>
+    </div>
+  </section>
+
+  <!-- ─────────────────── Chapter 14 ─────────────────── -->
+
+  <section id="mid4" class="chapter">
+    <span class="chapter-num">Part 3 · Chapter 14</span>
+    <h2>문자열 조작 명령어</h2>
+    <p class="chapter-intro">x86에는 문자열(바이트 배열)을 다루는 전용 명령어가 있습니다. <code>memcpy</code>, <code>memset</code>, <code>strlen</code> 같은 함수들이 내부적으로 이 명령어를 쓸 수 있습니다.</p>
+
+    <div class="info-box note">
+      <div class="box-title">📌 memcpy, memset, strlen이란?</div>
+      <p style="margin:0;"><strong>memcpy(dst, src, n)</strong>: src에서 dst로 n바이트를 복사합니다 (메모리 복사).<br>
+      <strong>memset(ptr, val, n)</strong>: ptr부터 n바이트를 모두 val로 채웁니다 (메모리 채우기). 보통 0으로 초기화할 때 사용.<br>
+      <strong>strlen(str)</strong>: 문자열 str의 길이를 반환합니다. 널 문자(<code>\0</code>)가 나올 때까지 셉니다.</p>
+    </div>
+
+    <h3>REP — 반복 실행 접두사</h3>
+
+    <div class="concept">
+      <div class="concept-term">REP 접두사</div>
+      <p style="margin:0;"><span class="tt" data-tip="접두사(Prefix): 명령어 앞에 붙여서 동작을 수정하는 특수 바이트입니다.&#10;rep는 '반복(Repeat)'의 약자이며, 뒤에 오는 명령어를 rcx번 반복합니다.">접두사</span>는 명령어 앞에 붙여서 동작을 수정합니다. <code>rep</code>는 명령어 앞에 붙여서 <code>rcx</code>번 반복합니다. <code>rcx</code>가 0이 될 때까지 명령어를 실행하고, 매 실행마다 <code>rcx--</code>합니다. <code>repe</code>(ZF=1인 동안)와 <code>repne</code>(ZF=0인 동안)도 있습니다.</p>
+    </div>
+
+    <h3>주요 문자열 명령어</h3>
+
+    <table>
+      <tr><th>명령어</th><th>동작</th><th>C 유사 함수</th></tr>
+      <tr><td><code>movsb/w/d/q</code></td><td>[rsi] → [rdi], rsi++, rdi++ (또는 DF=1이면 --)</td><td><code>memcpy</code> 한 원소</td></tr>
+      <tr><td><code>rep movsb</code></td><td>rcx바이트 복사 (rsi→rdi)</td><td><code>memcpy(rdi, rsi, rcx)</code></td></tr>
+      <tr><td><code>stosb/w/d/q</code></td><td>al/ax/eax/rax → [rdi], rdi++</td><td><code>memset</code> 한 원소</td></tr>
+      <tr><td><code>rep stosb</code></td><td>rcx바이트를 al로 채움</td><td><code>memset(rdi, al, rcx)</code></td></tr>
+      <tr><td><code>scasb/w/d/q</code></td><td>al − [rdi], ZF 설정, rdi++</td><td>검색/비교</td></tr>
+      <tr><td><code>repne scasb</code></td><td>ZF=0인 동안(al≠[rdi]) 반복</td><td><code>strlen</code> 구현 가능</td></tr>
+      <tr><td><code>cmpsb/w/d/q</code></td><td>[rsi] − [rdi], 플래그 설정</td><td><code>memcmp</code> 한 원소</td></tr>
+    </table>
+
+    <div class="info-box note">
+      <div class="box-title">📌 접미사 b/w/d/q의 의미</div>
+      <p style="margin:0;"><strong>b</strong> = byte (1바이트), <strong>w</strong> = word (2바이트), <strong>d</strong> = dword (4바이트), <strong>q</strong> = qword (8바이트). <code>movsb</code>는 1바이트씩, <code>movsq</code>는 8바이트씩 복사합니다.</p>
+    </div>
+
+    <div class="compare">
+      <div class="compare-box c-box">
+        <div class="compare-header">C: strlen 구현</div>
+        <pre><span class="kw">size_t</span> <span class="fn">strlen</span>(<span class="kw">const char</span> *s) {
+    <span class="kw">const char</span> *p = s;
+    <span class="kw">while</span> (*p != <span class="num">'\0'</span>) p++;
+    <span class="kw">return</span> p - s;
+}</pre>
+      </div>
+      <div class="compare-box asm-box">
+        <div class="compare-header">어셈블리 (rdi=s)</div>
+        <pre><span class="lbl">strlen:</span>
+    <span class="kw">mov</span>  <span class="reg">rcx</span>, -<span class="num">1</span>     <span class="cmt">; 최대 길이 (-1 = 매우 큰 수)</span>
+    <span class="kw">xor</span>  <span class="reg">al</span>, <span class="reg">al</span>      <span class="cmt">; al = 0 (널문자)</span>
+    <span class="kw">cld</span>              <span class="cmt">; DF=0 (증가방향)</span>
+    <span class="kw">repne scasb</span>      <span class="cmt">; al≠[rdi]인 동안 반복</span>
+    <span class="cmt">; rcx = -(len+2)</span>
+    <span class="kw">not</span>  <span class="reg">rcx</span>         <span class="cmt">; 비트반전</span>
+    <span class="kw">dec</span>  <span class="reg">rcx</span>         <span class="cmt">; -1 (널문자 빼기)</span>
+    <span class="kw">mov</span>  <span class="reg">rax</span>, <span class="reg">rcx</span>    <span class="cmt">; 리턴값</span>
+    <span class="kw">ret</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────── Chapter 15 ─────────────────── -->
+
+  <section id="mid5" class="chapter">
+    <span class="chapter-num">Part 3 · Chapter 15</span>
+    <h2>시스템 콜 (System Call)</h2>
+    <p class="chapter-intro">운영체제 서비스를 직접 요청하는 방법입니다. C의 표준 라이브러리 함수들(printf, fopen 등)은 결국 시스템 콜로 구현됩니다.</p>
+
+    <h3>시스템 콜이란?</h3>
+
+    <p>유저 프로그램에서 커널 기능(파일 읽기, 프로세스 생성, 소켓 통신 등)을 요청할 때 씁니다. x86-64 Linux에서는 <code>syscall</code> 명령어 하나로 커널로 전환됩니다.</p>
+
+    <h3>시스템 콜 규약 (Linux x86-64)</h3>
+
+    <table>
+      <tr><th>역할</th><th>레지스터</th><th>비고</th></tr>
+      <tr><td>시스템 콜 번호</td><td><code>rax</code></td><td>어떤 기능을 쓸지</td></tr>
+      <tr><td>1번째 인수</td><td><code>rdi</code></td><td>함수 호출과 같음</td></tr>
+      <tr><td>2번째 인수</td><td><code>rsi</code></td><td></td></tr>
+      <tr><td>3번째 인수</td><td><code>rdx</code></td><td></td></tr>
+      <tr><td>4번째 인수</td><td><code>r10</code></td><td>함수 호출(rcx)과 <strong>다름</strong>!</td></tr>
+      <tr><td>5번째 인수</td><td><code>r8</code></td><td></td></tr>
+      <tr><td>6번째 인수</td><td><code>r9</code></td><td></td></tr>
+      <tr><td>리턴값</td><td><code>rax</code></td><td>음수면 오류 코드</td></tr>
+    </table>
+
+    <h3>주요 시스템 콜 번호 (Linux x86-64)</h3>
+
+    <table>
+      <tr><th>번호</th><th>이름</th><th>기능</th><th>C 함수</th></tr>
+      <tr><td>0</td><td><code>read</code></td><td>파일/소켓에서 읽기</td><td><code>read(fd, buf, count)</code></td></tr>
+      <tr><td>1</td><td><code>write</code></td><td>파일/소켓에 쓰기</td><td><code>write(fd, buf, count)</code></td></tr>
+      <tr><td>2</td><td><code>open</code></td><td>파일 열기</td><td><code>open(path, flags)</code></td></tr>
+      <tr><td>3</td><td><code>close</code></td><td>파일 닫기</td><td><code>close(fd)</code></td></tr>
+      <tr><td>9</td><td><code>mmap</code></td><td><span class="tt" data-tip="mmap(Memory Map): 파일이나 익명 메모리를 프로세스 주소 공간에 직접 매핑합니다.&#10;파일을 읽지 않고 메모리처럼 접근하거나, 실행 가능한 메모리를 할당할 때 씁니다.&#10;ROP 익스플로잇에서 셸코드 실행 메모리 확보에도 사용됩니다.">메모리 맵</span></td><td><code>mmap(...)</code></td></tr>
+      <tr><td>11</td><td><code>munmap</code></td><td>메모리 맵 해제</td><td><code>munmap(...)</code></td></tr>
+      <tr><td>57</td><td><code>fork</code></td><td><span class="tt" data-tip="fork(): 현재 프로세스를 복제해서 새 자식 프로세스를 만듭니다.&#10;부모와 자식은 코드를 공유하지만 메모리는 독립됩니다.&#10;리턴값: 부모 프로세스에는 자식 PID, 자식 프로세스에는 0을 반환합니다.">프로세스 복제</span></td><td><code>fork()</code></td></tr>
+      <tr><td>59</td><td><code>execve</code></td><td><span class="tt" data-tip="execve(): 현재 프로세스를 새로운 프로그램으로 교체해서 실행합니다.&#10;ROP 공격에서 /bin/sh를 실행하는 최종 목표가 바로 execve('/bin/sh', ...)입니다.&#10;성공하면 새 프로그램으로 대체되어 리턴하지 않습니다.">프로그램 실행</span></td><td><code>execve(path, argv, envp)</code></td></tr>
+      <tr><td>60</td><td><code>exit</code></td><td>프로세스 종료</td><td><code>exit(code)</code></td></tr>
+      <tr><td>102</td><td><code>getuid</code></td><td><span class="tt" data-tip="UID(User ID): 리눅스에서 각 사용자를 구분하는 숫자입니다.&#10;root는 UID=0, 일반 사용자는 1000 이상입니다.&#10;권한 상승 공격(Privilege Escalation)에서 getuid()로 현재 권한을 확인합니다.">사용자 ID 얻기</span></td><td><code>getuid()</code></td></tr>
+    </table>
+
+    <h3>Hello World — 순수 어셈블리</h3>
+
+    <pre data-lang="asm (nasm)"><span class="cmt">; hello.asm — NASM 문법, Linux x86-64</span>
+<span class="cmt">; NASM(Netwide Assembler): 대표적인 x86 어셈블러 중 하나입니다.</span>
+section .data
+    msg db "Hello, World!", <span class="num">0x0a</span>  <span class="cmt">; 문자열 + 줄바꿈(0x0a = '\n')</span>
+    len equ $ - msg               <span class="cmt">; $ = 현재 위치, len = 문자열 길이</span>
+
+section .text
+    global _start    <span class="cmt">; 프로그램 시작점 선언 (_start가 main 역할)</span>
+
+_start:
+    <span class="cmt">; write(1, msg, len)</span>
+    <span class="kw">mov</span>  <span class="reg">rax</span>, <span class="num">1</span>       <span class="cmt">; syscall: write (번호 1)</span>
+    <span class="kw">mov</span>  <span class="reg">rdi</span>, <span class="num">1</span>       <span class="cmt">; fd = 1 (stdout, 표준출력)</span>
+    <span class="kw">mov</span>  <span class="reg">rsi</span>, msg     <span class="cmt">; 버퍼 주소</span>
+    <span class="kw">mov</span>  <span class="reg">rdx</span>, len     <span class="cmt">; 길이</span>
+    <span class="kw">syscall</span>
+
+    <span class="cmt">; exit(0)</span>
+    <span class="kw">mov</span>  <span class="reg">rax</span>, <span class="num">60</span>      <span class="cmt">; syscall: exit (번호 60)</span>
+    <span class="kw">xor</span>  <span class="reg">rdi</span>, <span class="reg">rdi</span>    <span class="cmt">; 종료코드 0</span>
+    <span class="kw">syscall</span></pre>
+
+    <div class="info-box note">
+      <div class="box-title">📌 fd(File Descriptor)란?</div>
+      <p style="margin:0;"><strong>fd(File Descriptor, 파일 서술자)</strong>는 열린 파일을 가리키는 숫자입니다. 리눅스에서는 파일, 소켓, 파이프 모두 fd로 다룹니다. 기본적으로 0=표준입력(stdin), 1=표준출력(stdout), 2=표준에러(stderr)입니다. <code>write(1, ...)</code>은 "화면(stdout)에 써라"는 뜻입니다.</p>
+    </div>
+
+    <h4>컴파일 및 실행 방법</h4>
+    <pre data-lang="bash">nasm -f elf64 hello.asm -o hello.o
+<span class="cmt"># nasm: 어셈블러 프로그램. -f elf64: 64비트 Linux 실행 파일 형식</span>
+<span class="cmt"># -o hello.o: 오브젝트 파일로 출력</span>
+
+ld hello.o -o hello
+<span class="cmt"># ld: 링커(Linker). 오브젝트 파일을 실행 가능한 파일로 연결합니다.</span>
+
+./hello
+<span class="cmt"># 출력: Hello, World!</span></pre>
+
+    <div class="concept">
+      <div class="concept-term">링킹(Linking) <span class="en">— 링커(Linker)가 하는 일</span></div>
+      <p style="margin:0;"><strong>링킹(Linking)</strong>은 컴파일된 여러 <span class="tt" data-tip="오브젝트 파일(.o): 소스 파일 하나를 컴파일한 결과물입니다.&#10;기계어 코드가 있지만 아직 실행 불가능합니다. 다른 파일의 함수를 참조하는 부분이 미완성 상태입니다.&#10;링커가 여러 오브젝트 파일을 합쳐서 최종 실행 파일을 만듭니다.">오브젝트 파일(.o)</span>과 <span class="tt" data-tip="라이브러리(Library): 자주 쓰이는 함수들을 묶어놓은 파일입니다.&#10;예: printf, malloc 등이 C 표준 라이브러리(libc)에 있습니다.&#10;정적 링킹은 라이브러리를 실행 파일에 포함시키고,&#10;동적 링킹은 실행 시 운영체제가 로드합니다.">라이브러리</span>를 합쳐 실행 가능한 파일을 만드는 과정입니다. <code>ld</code>가 링커입니다. 리버싱에서 <code>ldd ./binary</code> 명령으로 바이너리가 어떤 라이브러리에 의존하는지 볼 수 있습니다.</p>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════
+       PART 4 — 고급 문법
+  ════════════════════════════════════════════ -->
+
+  <section id="adv1" class="chapter">
+    <span class="chapter-num">Part 4 · Chapter 16</span>
+    <h2>컴파일러 최적화 패턴</h2>
+    <p class="chapter-intro">실제 바이너리를 리버싱하면 사람이 직접 짠 어셈블리와 달리 이상하게 생긴 코드들이 나옵니다. 이것들은 컴파일러 최적화의 결과입니다. 패턴을 알면 원래 C 코드를 추론할 수 있습니다.</p>
+
+    <h3>나눗셈 → 곱셈+시프트 변환</h3>
+
+    <p>나눗셈(<code>idiv</code>)은 매우 느린 명령어입니다. 컴파일러는 상수로 나누는 경우 곱셈과 시프트로 대체합니다.</p>
+
+    <div class="compare">
+      <div class="compare-box c-box">
+        <div class="compare-header">C 코드 (원본 의도)</div>
+        <pre><span class="kw">int</span> x = n / <span class="num">7</span>;</pre>
+      </div>
+      <div class="compare-box asm-box">
+        <div class="compare-header">컴파일러가 생성한 코드</div>
+        <pre><span class="cmt">; n / 7 최적화</span>
+<span class="kw">mov</span>   <span class="reg">eax</span>, <span class="reg">edi</span>         <span class="cmt">; n</span>
+<span class="kw">mov</span>   <span class="reg">ecx</span>, <span class="num">0x92492493</span>  <span class="cmt">; 마법의 상수(Magic Number)</span>
+<span class="kw">imul</span>  <span class="reg">ecx</span>              <span class="cmt">; edx:eax = n * 상수</span>
+<span class="kw">add</span>   <span class="reg">edx</span>, <span class="reg">edi</span>
+<span class="kw">sar</span>   <span class="reg">edx</span>, <span class="num">2</span>            <span class="cmt">; 오른쪽 시프트</span>
+<span class="kw">sar</span>   <span class="reg">edi</span>, <span class="num">31</span>           <span class="cmt">; 부호 처리</span>
+<span class="kw">sub</span>   <span class="reg">edx</span>, <span class="reg">edi</span>
+<span class="cmt">; edx = n / 7</span></pre>
+      </div>
+    </div>
+
+    <div class="info-box tip">
+      <div class="box-title">✅ 리버싱 팁</div>
+      <p style="margin:0;">이런 "<span class="tt" data-tip="마법의 상수(Magic Number/Constant): 수학적 이유로 나눗셈을 곱셈으로 바꿀 때 사용하는 특별한 숫자입니다.&#10;예: 7로 나누기 위해 0x92492493을 곱하고 시프트합니다.&#10;이 값은 2^35 / 7에 가까운 값으로 계산됩니다.">마법의 상수</span>" 패턴을 보면 나눗셈입니다. 온라인 도구 "MagicDivider Calculator"나 Ghidra의 <span class="tt" data-tip="디컴파일러(Decompiler): 기계어/어셈블리를 고수준 언어(C 유사 코드)로 변환해주는 도구입니다.&#10;디스어셈블러(Disassembler)가 기계어 → 어셈블리라면,&#10;디컴파일러는 기계어 → C 코드입니다. Ghidra에 내장된 디컴파일러가 대표적입니다.">디컴파일러</span>가 자동으로 원래 나눗셈으로 복원해줍니다.</p>
+    </div>
+
+    <h3>모듈로(%) 최적화</h3>
+
+    <div class="compare">
+      <div class="compare-box c-box">
+        <div class="compare-header">C 코드</div>
+        <pre><span class="cmt">// 2의 거듭제곱으로 나누기</span>
+<span class="kw">int</span> x = n % <span class="num">8</span>; <span class="cmt">// 8=2^3</span>
+<span class="kw">int</span> y = n % <span class="num">16</span>;</pre>
+      </div>
+      <div class="compare-box asm-box">
+        <div class="compare-header">최적화된 어셈블리</div>
+        <pre><span class="cmt">; n % 8 = n & 7 (2^3 - 1 = 0b0111)</span>
+<span class="cmt">; AND로 하위 3비트만 남기면 0~7 반복 = 나머지와 같음</span>
+<span class="kw">and</span>
