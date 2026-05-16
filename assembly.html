@@ -2225,20 +2225,7 @@ ld hello.o -o hello
       <p style="margin:0;">이런 "<span class="tt" data-tip="마법의 상수(Magic Number/Constant): 수학적 이유로 나눗셈을 곱셈으로 바꿀 때 사용하는 특별한 숫자입니다.&#10;예: 7로 나누기 위해 0x92492493을 곱하고 시프트합니다.&#10;이 값은 2^35 / 7에 가까운 값으로 계산됩니다.">마법의 상수</span>" 패턴을 보면 나눗셈입니다. 온라인 도구 "MagicDivider Calculator"나 Ghidra의 <span class="tt" data-tip="디컴파일러(Decompiler): 기계어/어셈블리를 고수준 언어(C 유사 코드)로 변환해주는 도구입니다.&#10;디스어셈블러(Disassembler)가 기계어 → 어셈블리라면,&#10;디컴파일러는 기계어 → C 코드입니다. Ghidra에 내장된 디컴파일러가 대표적입니다.">디컴파일러</span>가 자동으로 원래 나눗셈으로 복원해줍니다.</p>
     </div>
 
-    <h3>모듈로(%) 최적화</h3>
-
-    <div class="compare">
-      <div class="compare-box c-box">
-        <div class="compare-header">C 코드</div>
-        <pre><span class="cmt">// 2의 거듭제곱으로 나누기</span>
-<span class="kw">int</span> x = n % <span class="num">8</span>; <span class="cmt">// 8=2^3</span>
-<span class="kw">int</span> y = n % <span class="num">16</span>;</pre>
-      </div>
-      <div class="compare-box asm-box">
-        <div class="compare-header">최적화된 어셈블리</div>
-        <pre><span class="cmt">; n % 8 = n & 7 (2^3 - 1 = 0b0111)</span>
-<span class="cmt">; AND로 하위 3비트만 남기면 0~7 반복 = 나머지와 같음</span>
-<span class="kw">and</span>    <h3>모듈로(%) 최적화</h3>
+    h3>모듈로(%) 최적화</h3>
 
     <div class="compare">
       <div class="compare-box c-box">
