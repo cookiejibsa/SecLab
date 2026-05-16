@@ -1349,7 +1349,7 @@ gcc hello.o -o hello -no-pie</pre></p>
   <!-- ─────────────────── Chapter 7 ─────────────────── -->
 
   <section id="asm2" class="chapter">
-    <span class="chapter-num">Part 2 · Chapter 07</span>
+    <span class="chapter-num">Part 2 · Chapter 08</span>
     <h2>기본 명령어</h2>
     <p class="chapter-intro">어셈블리 명령어는 수백 개가 있지만, 실제 코드의 80%는 여기 나오는 명령어들로 이루어집니다.<br>각 명령어를 C와 1:1로 대응시켜 이해합시다.</p>
 
@@ -1499,7 +1499,7 @@ a = -a;</pre>
   <!-- ─────────────────── Chapter 8 ─────────────────── -->
 
   <section id="asm3" class="chapter">
-    <span class="chapter-num">Part 2 · Chapter 11</span>
+    <span class="chapter-num">Part 2 · Chapter 09</span>
     <h2>메모리 접근 — 포인터의 어셈블리 버전</h2>
     <p class="chapter-intro">C에서 포인터를 어렵게 느꼈다면, 어셈블리에서 메모리 접근 방식을 보면 오히려 명확하게 이해됩니다.<br>대괄호 <code>[ ]</code>가 C의 <span class="tt" data-tip="역참조(Dereference): 포인터 변수가 가리키는 주소의 실제 값을 읽어오는 것입니다.&#10;C에서 *p 라고 쓰면 p가 담고 있는 주소에 실제로 가서 값을 가져옵니다.&#10;어셈블리에서는 대괄호 []가 같은 역할을 합니다.">역참조(dereference)</span> <code>*</code>와 같습니다.</p>
 
@@ -1582,7 +1582,7 @@ a = -a;</pre>
   <!-- ─────────────────── Chapter 9 ─────────────────── -->
 
   <section id="asm4" class="chapter">
-    <span class="chapter-num">Part 2 · Chapter 09</span>
+    <span class="chapter-num">Part 2 · Chapter 10</span>
     <h2>플래그 레지스터와 조건 점프</h2>
     <p class="chapter-intro">어셈블리에서 if문과 반복문은 플래그와 조건 점프 명령어로 만들어집니다.<br>이것이 어셈블리의 <span class="tt" data-tip="제어 흐름(Control Flow): 프로그램이 어떤 순서로 명령어를 실행하는가를 뜻합니다.&#10;조건에 따라 다른 코드를 실행하거나(if), 반복하거나(for/while), 함수를 호출하는 것이&#10;모두 제어 흐름의 변경입니다.">제어 흐름(Control Flow)</span>입니다.</p>
 
@@ -1700,7 +1700,7 @@ a = -a;</pre>
   <!-- ─────────────────── Chapter 10 ─────────────────── -->
 
   <section id="asm5" class="chapter">
-    <span class="chapter-num">Part 2 · Chapter 10</span>
+    <span class="chapter-num">Part 2 · Chapter 11</span>
     <h2>스택(Stack) 동작 상세</h2>
     <p class="chapter-intro">스택은 함수 호출, 지역 변수, 리턴 주소를 관리하는 핵심 구조입니다.<br>스택을 완전히 이해하면 버퍼 오버플로우 공격도 이해됩니다.</p>
 
@@ -1783,7 +1783,7 @@ rsp += <span class="num">8</span>;         <span class="cmt">// 스택 포인터
   ════════════════════════════════════════════ -->
 
   <section id="mid1" class="chapter">
-    <span class="chapter-num">Part 3 · Chapter 16</span>
+    <span class="chapter-num">Part 3 · Chapter 12</span>
     <h2>함수 호출 규약 (Calling Convention)</h2>
     <p class="chapter-intro">여러 함수가 통신하려면 약속이 필요합니다.<br>"인수를 어디에 넣어서 넘길까?", "리턴값은 어디에?", "어떤 레지스터를 보존해야 하나?" 이 약속이 호출 규약입니다.</p>
 
@@ -1867,7 +1867,7 @@ rsp += <span class="num">8</span>;         <span class="cmt">// 스택 포인터
   <!-- ─────────────────── Chapter 12 ─────────────────── -->
 
   <section id="mid2" class="chapter">
-    <span class="chapter-num">Part 3 · Chapter 12</span>
+    <span class="chapter-num">Part 3 · Chapter 13</span>
     <h2>스택 프레임 (Stack Frame)</h2>
     <p class="chapter-intro">함수가 실행될 때 스택에서 자신만의 영역을 확보합니다. 이것이 스택 프레임입니다.<br>여기에 지역변수, 저장된 레지스터, 리턴 주소가 들어갑니다.</p>
 
@@ -1956,7 +1956,7 @@ rsp += <span class="num">8</span>;         <span class="cmt">// 스택 포인터
   <!-- ─────────────────── Chapter 13 ─────────────────── -->
 
   <section id="mid3" class="chapter">
-    <span class="chapter-num">Part 3 · Chapter 13</span>
+    <span class="chapter-num">Part 3 · Chapter 14</span>
     <h2>배열과 구조체 접근</h2>
     <p class="chapter-intro">C의 배열과 구조체가 어셈블리에서 어떻게 표현되는지 알면, 리버싱 시 데이터 구조를 복원하는 데 큰 도움이 됩니다.</p>
 
@@ -2040,7 +2040,7 @@ p.z = <span class="num">30</span>;
   <!-- ─────────────────── Chapter 14 ─────────────────── -->
 
   <section id="mid4" class="chapter">
-    <span class="chapter-num">Part 3 · Chapter 14</span>
+    <span class="chapter-num">Part 3 · Chapter 15</span>
     <h2>문자열 조작 명령어</h2>
     <p class="chapter-intro">x86에는 문자열(바이트 배열)을 다루는 전용 명령어가 있습니다.<br><code>memcpy</code>, <code>memset</code>, <code>strlen</code> 같은 함수들이 내부적으로 이 명령어를 쓸 수 있습니다.</p>
 
@@ -2104,7 +2104,7 @@ p.z = <span class="num">30</span>;
   <!-- ─────────────────── Chapter 15 ─────────────────── -->
 
   <section id="mid5" class="chapter">
-    <span class="chapter-num">Part 3 · Chapter 15</span>
+    <span class="chapter-num">Part 3 · Chapter 16</span>
     <h2>시스템 콜 (System Call)</h2>
     <p class="chapter-intro">운영체제 서비스를 직접 요청하는 방법입니다.<br>C의 표준 라이브러리 함수들(printf, fopen 등)은 결국 시스템 콜로 구현됩니다.</p>
 
