@@ -416,28 +416,73 @@
     display: flex; align-items: center; color: var(--text-dim);
   }
 
-  /* ─── STEP LIST ─── */
-  .steps { counter-reset: step; list-style: none; margin: 20px 0 28px; }
-  .steps li { counter-increment: step; display: flex; gap: 16px; margin-bottom: 20px; align-items: flex-start; }
-  .steps li::before {
-    content: counter(step);
-    min-width: 32px; height: 32px;
-    background: var(--accent); color: var(--bg);
-    font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px;
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0; margin-top: 2px;
-  }
+/* ─── STEP LIST ─── */
+.steps {
+  counter-reset: step;
+  list-style: none;
+  margin: 20px 0 28px;
+  padding: 0;
 
-  /* ─── FLAG GRID ─── */
-  .flag-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 12px; margin: 20px 0 28px;
-  }
-  .flag-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
-  .flag-name { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
-  .flag-full { font-size: 12px; color: var(--accent2); font-family: 'Space Grotesk', sans-serif; margin-bottom: 6px; }
-  .flag-desc { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-auto-rows: 1fr;
+  row-gap: 16px;
+}
+
+.steps li {
+  counter-increment: step;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  box-sizing: border-box;
+}
+
+.steps li::before {
+  content: counter(step);
+  min-width: 32px; height: 32px;
+  background: var(--accent); color: var(--bg);
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 2px;
+}
+
+/* ─── FLAG GRID ─── */
+.flag-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);   /* 3열 고정 */
+  grid-template-rows: repeat(2, 1fr);      /* 2행 균등 높이 */
+  gap: 12px;
+  margin: 20px 0 28px;
+}
+
+.flag-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  box-sizing: border-box;
+}
+
+.flag-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.flag-full {
+  font-size: 12px;
+  color: var(--accent2);
+  font-family: 'Space Grotesk', sans-serif;
+  margin-bottom: 6px;
+}
+
+.flag-desc {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
 
   /* ─── CONCEPT BOX ─── */
   .concept {
@@ -2195,7 +2240,7 @@ ld hello.o -o hello
   <section id="adv1" class="chapter">
     <span class="chapter-num">Part 4 · Chapter 17</span>
     <h2>컴파일러 최적화 패턴</h2>
-    <p class="chapter-intro">실제 바이너리를 리버싱하면 사람이 직접 짠 어셈블리와 달리 이상하게 생긴 코드들이 나옵니다. 이것들은 컴파일러 최적화의 결과입니다. 패턴을 알면 원래 C 코드를 추론할 수 있습니다.</p>
+    <p class="chapter-intro">실제 바이너리를 리버싱하면 사람이 직접 짠 어셈블리와 달리 이상하게 생긴 코드들이 나옵니다. 이것들은 컴파일러 최적화의 결과입니다.<br>패턴을 알면 원래 C 코드를 추론할 수 있습니다.</p>
 
     <h3>나눗셈 → 곱셈+시프트 변환</h3>
 
@@ -2225,7 +2270,7 @@ ld hello.o -o hello
       <p style="margin:0;">이런 "<span class="tt" data-tip="마법의 상수(Magic Number/Constant): 수학적 이유로 나눗셈을 곱셈으로 바꿀 때 사용하는 특별한 숫자입니다.&#10;예: 7로 나누기 위해 0x92492493을 곱하고 시프트합니다.&#10;이 값은 2^35 / 7에 가까운 값으로 계산됩니다.">마법의 상수</span>" 패턴을 보면 나눗셈입니다. 온라인 도구 "MagicDivider Calculator"나 Ghidra의 <span class="tt" data-tip="디컴파일러(Decompiler): 기계어/어셈블리를 고수준 언어(C 유사 코드)로 변환해주는 도구입니다.&#10;디스어셈블러(Disassembler)가 기계어 → 어셈블리라면,&#10;디컴파일러는 기계어 → C 코드입니다. Ghidra에 내장된 디컴파일러가 대표적입니다.">디컴파일러</span>가 자동으로 원래 나눗셈으로 복원해줍니다.</p>
     </div>
 
-    h3>모듈로(%) 최적화</h3>
+    <h3>모듈로(%) 최적화</h3>
 
     <div class="compare">
       <div class="compare-box c-box">
@@ -2347,7 +2392,7 @@ ld hello.o -o hello
   <section id="adv2" class="chapter">
     <span class="chapter-num">Part 4 · Chapter 18</span>
     <h2>SIMD 명령어 기초</h2>
-    <p class="chapter-intro">SIMD는 하나의 명령어로 여러 데이터를 동시에 처리합니다. 멀티미디어, 암호화, AI 연산에서 자주 나오며, 최신 바이너리를 리버싱할 때 반드시 마주칩니다.</p>
+    <p class="chapter-intro">SIMD는 하나의 명령어로 여러 데이터를 동시에 처리합니다.<br>멀티미디어, 암호화, AI 연산에서 자주 나오며, 최신 바이너리를 리버싱할 때 반드시 마주칩니다.</p>
 
     <h3>SIMD란?</h3>
 
@@ -2623,7 +2668,7 @@ Pair <span class="fn">make_pair</span>(<span class="kw">long</span> x) {
   <section id="adv4" class="chapter">
     <span class="chapter-num">Part 4 · Chapter 20</span>
     <h2>리버스 엔지니어링 실전 기법</h2>
-    <p class="chapter-intro">이제 실제 리버싱에서 쓰는 기술들을 다룹니다. 바이너리를 분석하는 사고 프로세스, 도구 사용법, 그리고 실전에서 바로 쓸 수 있는 노하우를 정리합니다.</p>
+    <p class="chapter-intro">이제 실제 리버싱에서 쓰는 기술들을 다룹니다.<br>바이너리를 분석하는 사고 프로세스, 도구 사용법, 그리고 실전에서 바로 쓸 수 있는 노하우를 정리합니다.</p>
 
     <h3>정적 분석 vs 동적 분석</h3>
 
@@ -2810,7 +2855,7 @@ x/s $rsi     <span class="cmt"># 2번째 인자 (비교 대상 = 정답)</span><
   <section id="adv5" class="chapter">
     <span class="chapter-num">Part 4 · Chapter 21</span>
     <h2>보안 취약점과 보호 기법</h2>
-    <p class="chapter-intro">어셈블리를 배우는 핵심 목적 중 하나입니다. 보안 취약점이 어셈블리 레벨에서 어떻게 생겨나는지, 그리고 현대 OS가 어떻게 방어하는지를 이해합니다.</p>
+    <p class="chapter-intro">어셈블리를 배우는 핵심 목적 중 하나입니다.<br>보안 취약점이 어셈블리 레벨에서 어떻게 생겨나는지, 그리고 현대 OS가 어떻게 방어하는지를 이해합니다.</p>
 
     <h3>버퍼(Buffer)란?</h3>
 
@@ -2832,7 +2877,7 @@ x/s $rsi     <span class="cmt"># 2번째 인자 (비교 대상 = 정답)</span><
     <div class="mem-diagram">
       <div class="mem-row">
         <div class="mem-addr">높은 주소<br>rbp+8</div>
-        <div class="mem-cell data" style="border-color: var(--accent2); border-width:2px;">리턴 주소 ← ★ 덮어쓰기 목표!</div>
+        <div class="mem-cell data" style="border-color: var(--accent2); border-width:2px;">리턴 주소 ← 덮어쓰기 목표!</div>
         <div class="mem-tag">★ 공격</div>
       </div>
       <div class="mem-row">
