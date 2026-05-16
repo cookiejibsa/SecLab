@@ -1,0 +1,6378 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>x86_64 Linux Syscall Cheat Sheet</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #08090b;
+        --bg2: #0d0f12;
+        --bg3: #131619;
+        --bg4: #191d21;
+        --border: #1e2227;
+        --border2: #272d34;
+        --text: #dde4ec;
+        --text2: #8b929e;
+        --text3: #555d68;
+        --accent: #4d9de0;
+        --accent2: #1e5799;
+        --green: #39c96e;
+        --yellow: #e2b84a;
+        --orange: #e8834a;
+        --red: #e05252;
+        --purple: #a07de8;
+        --cyan: #40d4b5;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Syne", sans-serif;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          radial-gradient(
+            ellipse 80% 50% at 20% -10%,
+            rgba(77, 157, 224, 0.07) 0%,
+            transparent 60%
+          ),
+          radial-gradient(
+            ellipse 60% 40% at 80% 110%,
+            rgba(57, 201, 110, 0.05) 0%,
+            transparent 60%
+          );
+        pointer-events: none;
+        z-index: 0;
+      }
+      .wrapper {
+        position: relative;
+        z-index: 1;
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 0 28px 100px;
+      }
+      header {
+        padding: 48px 0 32px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 26px;
+      }
+      .chip {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--accent);
+        background: rgba(77, 157, 224, 0.1);
+        border: 1px solid rgba(77, 157, 224, 0.25);
+        padding: 4px 10px;
+        border-radius: 3px;
+        text-transform: uppercase;
+      }
+      h1 {
+        font-size: clamp(30px, 5vw, 52px);
+        font-weight: 800;
+        letter-spacing: -1.5px;
+        line-height: 2;
+        margin-top: 14px;
+      }
+      h1 em {
+        font-style: normal;
+        color: var(--accent);
+      }
+      .hdr-sub {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12.5px;
+        color: var(--text3);
+        margin-top: 10px;
+        line-height: 1.9;
+      }
+      .hdr-sub b {
+        color: var(--orange);
+      }
+      .hdr-pills {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+      }
+      .pill {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--text3);
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .pdot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+        flex-shrink: 0;
+      }
+      .pdot.g {
+        color: var(--green);
+      }
+      .pdot.b {
+        color: var(--accent);
+      }
+      .pdot.o {
+        color: var(--orange);
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        margin-top: 50px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .search-wrap {
+        position: relative;
+        flex: 1;
+        min-width: 220px;
+      }
+      .s-ico {
+        position: absolute;
+        left: 13px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text3);
+        font-size: 15px;
+        pointer-events: none;
+      }
+      #search {
+        width: 100%;
+        background: var(--bg3);
+        border: 1px solid var(--border2);
+        border-radius: 7px;
+        padding: 10px 14px 10px 38px;
+        color: var(--text);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        outline: none;
+        transition:
+          border-color 0.18s,
+          box-shadow 0.18s;
+      }
+      #search::placeholder {
+        color: var(--text3);
+      }
+      #search:focus {
+        border-color: var(--accent2);
+        box-shadow: 0 0 0 3px rgba(30, 87, 153, 0.2);
+      }
+      .tbtn-wrap {
+        display: flex;
+        background: var(--bg3);
+        border: 1px solid var(--border2);
+        border-radius: 7px;
+        overflow: hidden;
+      }
+      .tbtn {
+        padding: 10px 20px;
+        font-family: "Syne", sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text2);
+        background: none;
+        border: none;
+        cursor: pointer;
+        transition: all 0.18s;
+        white-space: nowrap;
+        position: relative;
+      }
+      .tbtn.on {
+        color: var(--text);
+        background: var(--bg4);
+      }
+      .tbtn.on::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 8px;
+        right: 8px;
+        height: 2px;
+        background: var(--accent);
+        border-radius: 2px;
+      }
+      .cbadge {
+        display: inline-block;
+        font-size: 10px;
+        padding: 1px 7px;
+        background: var(--bg4);
+        border: 1px solid var(--border2);
+        border-radius: 10px;
+        margin-left: 6px;
+        color: var(--text3);
+        vertical-align: middle;
+      }
+      .tbtn.on .cbadge {
+        background: rgba(77, 157, 224, 0.15);
+        border-color: rgba(77, 157, 224, 0.3);
+        color: var(--accent);
+      }
+      .cats {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+      }
+      .ccat {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        border: 1px solid var(--border2);
+        background: var(--bg3);
+        color: var(--text2);
+        cursor: pointer;
+        transition: all 0.15s;
+        letter-spacing: 0.5px;
+      }
+      .ccat:hover,
+      .ccat.on {
+        border-color: var(--accent2);
+        color: var(--accent);
+        background: rgba(77, 157, 224, 0.1);
+      }
+      .stats {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--text3);
+        margin-top: 50px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .stats strong {
+        color: var(--accent);
+        font-size: 13px;
+      }
+      .tbl-wrap {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--bg2);
+      }
+      .tbl-head {
+        display: grid;
+        grid-template-columns: 58px 150px 0.8fr 420px 78px;
+        background: var(--bg3);
+        border-bottom: 1px solid var(--border);
+      }
+      .th {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 1.2px;
+        text-transform: uppercase;
+        color: var(--text3);
+        padding: 11px 16px;
+        border-right: 1px solid var(--border);
+      }
+      .th:last-child {
+        border-right: none;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 58px 150px 0.8fr 420px 78px;
+        border-bottom: 1px solid var(--border);
+        transition: background 0.12s;
+      }
+      .row:last-child {
+        border-bottom: none;
+      }
+      .row:hover {
+        background: rgba(255, 255, 255, 0.025);
+      }
+      .cell {
+        padding: 12px 16px;
+        font-size: 13px;
+        display: flex;
+        align-items: flex-start;
+        border-right: 1px solid var(--border);
+      }
+      .cell:last-child {
+        border-right: none;
+      }
+      .cnr {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--text3);
+      }
+      .cname {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--accent);
+        flex-direction: column;
+        gap: 4px;
+      }
+      .hot-pill {
+        font-size: 9px;
+        padding: 1px 6px;
+        letter-spacing: 0.5px;
+        background: rgba(57, 201, 110, 0.1);
+        border: 1px solid rgba(57, 201, 110, 0.35);
+        color: var(--green);
+        border-radius: 3px;
+        display: inline-block;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .cdesc {
+        color: var(--text2);
+        font-size: 12.5px;
+        line-height: 1.6;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .cargs {
+        flex-direction: column;
+        gap: 3px;
+        align-items: flex-start;
+      }
+      .arg-row {
+        display: grid;
+        grid-template-columns: 38px 14px 92px 1fr;
+        align-items: start;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        line-height: 1.55;
+      }
+      .ar-reg {
+        color: var(--orange);
+        font-weight: 600;
+        min-width: 30px;
+        flex-shrink: 0;
+      }
+      .ar-arr {
+        color: var(--border2);
+        margin: 0 4px;
+        flex-shrink: 0;
+      }
+      .ar-nm {
+        color: var(--cyan);
+        font-weight: 500;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .ar-desc {
+        color: var(--text3);
+        font-size: 10.5px;
+        line-height: 1.4;
+      }
+      .no-args {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        color: var(--text3);
+        font-style: italic;
+      }
+      .ccat-cell {
+        justify-content: center;
+        align-items: center;
+      }
+      .cat-badge {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        letter-spacing: 0.5px;
+        font-weight: 500;
+        text-align: center;
+        white-space: nowrap;
+      }
+      .cat-io {
+        background: rgba(64, 212, 181, 0.1);
+        border: 1px solid rgba(64, 212, 181, 0.3);
+        color: #40d4b5;
+      }
+      .cat-fs {
+        background: rgba(77, 157, 224, 0.1);
+        border: 1px solid rgba(77, 157, 224, 0.3);
+        color: #4d9de0;
+      }
+      .cat-proc {
+        background: rgba(232, 131, 74, 0.1);
+        border: 1px solid rgba(232, 131, 74, 0.3);
+        color: #e8834a;
+      }
+      .cat-mem {
+        background: rgba(160, 125, 232, 0.1);
+        border: 1px solid rgba(160, 125, 232, 0.3);
+        color: #a07de8;
+      }
+      .cat-net {
+        background: rgba(226, 184, 74, 0.1);
+        border: 1px solid rgba(226, 184, 74, 0.3);
+        color: #e2b84a;
+      }
+      .cat-sig {
+        background: rgba(224, 82, 82, 0.1);
+        border: 1px solid rgba(224, 82, 82, 0.3);
+        color: #e05252;
+      }
+      .cat-sys {
+        background: rgba(139, 146, 158, 0.1);
+        border: 1px solid rgba(139, 146, 158, 0.3);
+        color: #8b929e;
+      }
+      .cat-time {
+        background: rgba(57, 201, 110, 0.1);
+        border: 1px solid rgba(57, 201, 110, 0.3);
+        color: #39c96e;
+      }
+      .cat-ipc {
+        background: rgba(120, 80, 200, 0.1);
+        border: 1px solid rgba(120, 80, 200, 0.3);
+        color: #7850c8;
+      }
+      .cat-sched {
+        background: rgba(121, 184, 255, 0.1);
+        border: 1px solid rgba(121, 184, 255, 0.3);
+        color: #79b8ff;
+      }
+      mark {
+        background: rgba(226, 184, 74, 0.28);
+        color: var(--yellow);
+        border-radius: 2px;
+        padding: 0 2px;
+      }
+      .empty {
+        text-align: center;
+        padding: 60px;
+        color: var(--text3);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        display: none;
+      }
+      .note-box {
+        background: rgba(77, 157, 224, 0.06);
+        border: 1px solid rgba(77, 157, 224, 0.2);
+        border-radius: 7px;
+        padding: 12px 16px;
+        margin-bottom: 20px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--text3);
+        line-height: 1.7;
+      }
+      .note-box b {
+        color: var(--accent);
+      }
+      @media (max-width: 960px) {
+        .tbl-head {
+          display: none;
+        }
+        .row {
+          grid-template-columns: 1fr;
+          padding: 14px 16px;
+          gap: 7px;
+        }
+        .cell {
+          padding: 2px 0;
+          border-right: none;
+        }
+        .ccat-cell {
+          justify-content: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <div><span class="chip">x86_64 · Linux Kernel</span></div>
+        <h1>Syscall <em>Cheat Sheet</em></h1>
+        <div class="hdr-sub">
+          <b>rax</b> = 번호 &nbsp;→&nbsp; <b>syscall</b> 명령어 &nbsp;|&nbsp;
+          인자 순서: <b>rdi rsi rdx r10 r8 r9</b> &nbsp;|&nbsp; 반환값 →
+          <b>rax</b> (음수면 <b>-errno</b>)
+        </div>
+        <div class="hdr-pills">
+          <div class="pill">
+            <div class="pdot g"></div>
+            Linux 6.x · amd64
+          </div>
+          <div class="pill">
+            <div class="pdot b"></div>
+            <span id="total-cnt">0</span>개 syscall 수록
+          </div>
+          <div class="pill">
+            <div class="pdot o"></div>
+            ★ HOT = 실무에서 자주 쓰는 syscall
+          </div>
+        </div>
+      </header>
+
+      <div class="note-box">
+        <b>ℹ 번호 체계:</b> 공식 <code>syscall_64.tbl</code> 기준 —
+        <b>0~334</b> (기존 native), <b>335~364</b> (공통 syscall 블록 1),
+        <b>424~452</b> (공통 syscall 블록 2). 365~423은 커널 테이블에
+        <b>미할당(unassigned)</b> 번호로, 실제로 존재하지 않습니다. 총 유효
+        syscall 수: <b>394개</b> (453은 잘못 알려진 수치).
+      </div>
+
+      <div class="controls">
+        <div class="search-wrap">
+          <span class="s-ico">⌕</span>
+          <input
+            type="text"
+            id="search"
+            placeholder="이름, 번호, 설명, 인자 검색…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <div class="tbtn-wrap">
+          <button class="tbtn on" id="btn-hot" onclick="setMode('hot')">
+            ★ 자주 쓰는 것만 <span class="cbadge" id="hot-cnt">-</span>
+          </button>
+          <button class="tbtn" id="btn-all" onclick="setMode('all')">
+            전체 보기 <span class="cbadge" id="all-cnt">-</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="cats" id="cats"></div>
+
+      <div class="stats">
+        <span>표시: <strong id="show-cnt">0</strong>개</span>
+        <span id="mode-lbl" style="color: var(--text3)">자주 쓰는 syscall</span>
+      </div>
+
+      <div class="tbl-wrap">
+        <div class="tbl-head">
+          <div class="th">NR</div>
+          <div class="th">NAME</div>
+          <div class="th">설명</div>
+          <div class="th">인자 (레지스터 → 이름 : 설명)</div>
+          <div class="th">분류</div>
+        </div>
+        <div id="tbody"></div>
+        <div class="empty" id="empty">결과 없음</div>
+      </div>
+    </div>
+    <script>
+      const SYSCALLS = [
+        {
+          nr: 0,
+          name: "read",
+          hot: true,
+          cat: "io",
+          desc: "파일 디스크립터에서 데이터를 읽어 버퍼에 저장한다.",
+          args: [
+            ["rdi", "fd", "읽을 파일 디스크립터 (0=stdin, 1=stdout, 2=stderr)"],
+            ["rsi", "buf *", "읽은 데이터를 저장할 사용자 공간 버퍼 포인터"],
+            ["rdx", "count", "최대 읽을 바이트 수"],
+          ],
+        },
+        {
+          nr: 1,
+          name: "write",
+          hot: true,
+          cat: "io",
+          desc: "파일 디스크립터에 버퍼의 데이터를 쓴다.",
+          args: [
+            ["rdi", "fd", "쓸 대상 파일 디스크립터"],
+            ["rsi", "buf *", "쓸 데이터가 담긴 버퍼 포인터"],
+            ["rdx", "count", "쓸 바이트 수"],
+          ],
+        },
+        {
+          nr: 2,
+          name: "open",
+          hot: true,
+          cat: "fs",
+          desc: "파일이나 디바이스를 열고 새 fd를 반환한다.",
+          args: [
+            ["rdi", "pathname *", "열 파일의 경로 문자열 포인터"],
+            [
+              "rsi",
+              "flags",
+              "O_RDONLY(0)/O_WRONLY(1)/O_RDWR(2)/O_CREAT/O_TRUNC/O_APPEND 등 플래그 조합",
+            ],
+            [
+              "rdx",
+              "mode",
+              "O_CREAT 시 생성할 파일 권한 비트 (예: 0644). 없으면 무시됨",
+            ],
+          ],
+        },
+        {
+          nr: 3,
+          name: "close",
+          hot: true,
+          cat: "fs",
+          desc: "파일 디스크립터를 닫고 관련 커널 자원을 해제한다.",
+          args: [["rdi", "fd", "닫을 파일 디스크립터"]],
+        },
+        {
+          nr: 4,
+          name: "stat",
+          hot: false,
+          cat: "fs",
+          desc: "경로에 해당하는 파일의 메타데이터를 stat 구조체에 채운다. 심볼릭 링크는 추적함.",
+          args: [
+            ["rdi", "pathname *", "조회할 파일 경로 문자열"],
+            [
+              "rsi",
+              "statbuf *",
+              "결과를 저장할 struct stat 포인터 (크기, 권한, inode, 시간 등)",
+            ],
+          ],
+        },
+        {
+          nr: 5,
+          name: "fstat",
+          hot: false,
+          cat: "fs",
+          desc: "열린 fd 기준으로 파일 메타데이터를 가져온다.",
+          args: [
+            ["rdi", "fd", "정보를 조회할 열린 파일 디스크립터"],
+            ["rsi", "statbuf *", "결과를 저장할 struct stat 포인터"],
+          ],
+        },
+        {
+          nr: 6,
+          name: "lstat",
+          hot: false,
+          cat: "fs",
+          desc: "심볼릭 링크 자체의 메타데이터를 반환한다 (링크 대상을 추적하지 않음).",
+          args: [
+            [
+              "rdi",
+              "pathname *",
+              "조회할 경로 (심볼릭 링크이면 링크 자체 정보)",
+            ],
+            ["rsi", "statbuf *", "결과를 저장할 struct stat 포인터"],
+          ],
+        },
+        {
+          nr: 7,
+          name: "poll",
+          hot: false,
+          cat: "io",
+          desc: "여러 fd에서 지정 이벤트가 발생할 때까지 대기한다.",
+          args: [
+            [
+              "rdi",
+              "fds *",
+              "struct pollfd 배열 포인터 (fd, events=감시이벤트, revents=발생이벤트)",
+            ],
+            ["rsi", "nfds", "fds 배열의 원소 개수 (감시할 fd 수)"],
+            [
+              "rdx",
+              "timeout",
+              "대기 최대 시간(밀리초). -1=무한대기, 0=즉시반환",
+            ],
+          ],
+        },
+        {
+          nr: 8,
+          name: "lseek",
+          hot: true,
+          cat: "io",
+          desc: "fd의 파일 읽기/쓰기 오프셋을 이동한다.",
+          args: [
+            ["rdi", "fd", "오프셋을 변경할 파일 디스크립터"],
+            ["rsi", "offset", "이동할 바이트 값 (음수 가능, whence 기준)"],
+            [
+              "rdx",
+              "whence",
+              "기준점: SEEK_SET(0)=파일시작, SEEK_CUR(1)=현재위치, SEEK_END(2)=파일끝",
+            ],
+          ],
+        },
+        {
+          nr: 9,
+          name: "mmap",
+          hot: true,
+          cat: "mem",
+          desc: "파일 또는 익명 메모리를 프로세스 가상 주소공간에 매핑한다.",
+          args: [
+            ["rdi", "addr", "매핑 희망 시작 주소. NULL이면 커널이 자동 선택"],
+            ["rsi", "length", "매핑할 바이트 수 (페이지 크기 단위로 반올림됨)"],
+            [
+              "rdx",
+              "prot",
+              "접근 권한 조합: PROT_READ(1)/PROT_WRITE(2)/PROT_EXEC(4)/PROT_NONE(0)",
+            ],
+            [
+              "r10",
+              "flags",
+              "MAP_SHARED(1)/MAP_PRIVATE(2)/MAP_ANONYMOUS(0x20)/MAP_FIXED 등",
+            ],
+            ["r8", "fd", "매핑할 파일 fd. MAP_ANONYMOUS이면 -1"],
+            [
+              "r9",
+              "offset",
+              "파일 내 매핑 시작 오프셋 (반드시 페이지 경계 정렬)",
+            ],
+          ],
+        },
+        {
+          nr: 10,
+          name: "mprotect",
+          hot: false,
+          cat: "mem",
+          desc: "메모리 영역의 접근 보호 속성을 변경한다.",
+          args: [
+            ["rdi", "addr", "변경할 메모리 시작 주소 (페이지 경계 정렬 필요)"],
+            ["rsi", "len", "변경할 바이트 수"],
+            [
+              "rdx",
+              "prot",
+              "새 보호 속성: PROT_READ/PROT_WRITE/PROT_EXEC/PROT_NONE 조합",
+            ],
+          ],
+        },
+        {
+          nr: 11,
+          name: "munmap",
+          hot: true,
+          cat: "mem",
+          desc: "mmap으로 매핑한 메모리 영역을 해제한다.",
+          args: [
+            ["rdi", "addr", "해제할 매핑의 시작 주소"],
+            ["rsi", "length", "해제할 바이트 수"],
+          ],
+        },
+        {
+          nr: 12,
+          name: "brk",
+          hot: false,
+          cat: "mem",
+          desc: "프로세스 힙의 끝 주소(program break)를 설정한다. glibc malloc 내부에서 사용.",
+          args: [["rdi", "addr", "새 힙 끝 주소. 0이면 현재 값만 반환"]],
+        },
+        {
+          nr: 13,
+          name: "rt_sigaction",
+          hot: false,
+          cat: "sig",
+          desc: "특정 시그널의 처리 방식(핸들러, 마스크, 플래그)을 설정하거나 조회한다.",
+          args: [
+            [
+              "rdi",
+              "signum",
+              "설정할 시그널 번호 (SIGINT=2, SIGTERM=15, SIGSEGV=11 등)",
+            ],
+            [
+              "rsi",
+              "act *",
+              "새 핸들러 struct sigaction 포인터. NULL이면 조회만 수행",
+            ],
+            [
+              "rdx",
+              "oldact *",
+              "이전 설정을 저장할 struct sigaction 포인터. 불필요시 NULL",
+            ],
+            ["r10", "sigsetsize", "sigset_t 크기 (x86_64에서 보통 8)"],
+          ],
+        },
+        {
+          nr: 14,
+          name: "rt_sigprocmask",
+          hot: false,
+          cat: "sig",
+          desc: "차단(블록)할 시그널 집합을 변경하거나 현재 마스크를 조회한다.",
+          args: [
+            [
+              "rdi",
+              "how",
+              "SIG_BLOCK(0)=추가차단, SIG_UNBLOCK(1)=차단해제, SIG_SETMASK(2)=완전교체",
+            ],
+            [
+              "rsi",
+              "set *",
+              "변경할 시그널 집합 sigset_t 포인터. NULL이면 변경 없이 조회만",
+            ],
+            ["rdx", "oldset *", "이전 마스크를 저장할 포인터. 불필요시 NULL"],
+            ["r10", "sigsetsize", "sigset_t 크기 (보통 8)"],
+          ],
+        },
+        {
+          nr: 15,
+          name: "rt_sigreturn",
+          hot: false,
+          cat: "sig",
+          desc: "시그널 핸들러 실행 후 복귀할 때 커널이 자동으로 호출하는 내부 syscall. 직접 호출 금지.",
+          args: [],
+        },
+        {
+          nr: 16,
+          name: "ioctl",
+          hot: true,
+          cat: "io",
+          desc: "디바이스나 특수 파일에 장치별 제어 명령을 보낸다.",
+          args: [
+            ["rdi", "fd", "제어할 파일 디스크립터 (터미널, 소켓, 디바이스 등)"],
+            [
+              "rsi",
+              "request",
+              "장치별 요청 코드 (예: TIOCGWINSZ=터미널크기, FIONBIO=논블로킹 등)",
+            ],
+            ["rdx", "arg", "요청에 따라 다른 추가 인자. 포인터 또는 정수값"],
+          ],
+        },
+        {
+          nr: 17,
+          name: "pread64",
+          hot: false,
+          cat: "io",
+          desc: "지정한 파일 오프셋에서 읽기. fd의 현재 오프셋을 변경하지 않는다.",
+          args: [
+            ["rdi", "fd", "읽을 파일 디스크립터"],
+            ["rsi", "buf *", "읽은 데이터를 저장할 버퍼"],
+            ["rdx", "count", "읽을 바이트 수"],
+            ["r10", "offset", "파일 내 읽기 시작 오프셋 (fd 오프셋 무관)"],
+          ],
+        },
+        {
+          nr: 18,
+          name: "pwrite64",
+          hot: false,
+          cat: "io",
+          desc: "지정 오프셋에 쓰기. fd의 현재 오프셋을 변경하지 않는다.",
+          args: [
+            ["rdi", "fd", "쓸 파일 디스크립터"],
+            ["rsi", "buf *", "쓸 데이터가 담긴 버퍼"],
+            ["rdx", "count", "쓸 바이트 수"],
+            ["r10", "offset", "파일 내 쓰기 시작 오프셋"],
+          ],
+        },
+        {
+          nr: 19,
+          name: "readv",
+          hot: false,
+          cat: "io",
+          desc: "여러 버퍼(scatter)에 분산하여 한 번의 syscall로 읽는다.",
+          args: [
+            ["rdi", "fd", "읽을 파일 디스크립터"],
+            [
+              "rsi",
+              "iov *",
+              "struct iovec 배열 포인터. 각 원소: {iov_base=버퍼주소, iov_len=크기}",
+            ],
+            ["rdx", "iovcnt", "iovec 배열의 원소 개수"],
+          ],
+        },
+        {
+          nr: 20,
+          name: "writev",
+          hot: false,
+          cat: "io",
+          desc: "여러 버퍼(gather)를 모아 한 번의 syscall로 쓴다.",
+          args: [
+            ["rdi", "fd", "쓸 파일 디스크립터"],
+            ["rsi", "iov *", "struct iovec 배열 포인터"],
+            ["rdx", "iovcnt", "iovec 배열의 원소 개수"],
+          ],
+        },
+        {
+          nr: 21,
+          name: "access",
+          hot: false,
+          cat: "fs",
+          desc: "프로세스의 실제 UID/GID 기준으로 파일 접근 가능 여부를 확인한다.",
+          args: [
+            ["rdi", "pathname *", "확인할 파일 경로"],
+            [
+              "rsi",
+              "mode",
+              "F_OK(0)=존재확인, R_OK(4)=읽기, W_OK(2)=쓰기, X_OK(1)=실행 조합",
+            ],
+          ],
+        },
+        {
+          nr: 22,
+          name: "pipe",
+          hot: true,
+          cat: "io",
+          desc: "단방향 파이프를 생성한다. 프로세스 간 통신(IPC)에 사용.",
+          args: [
+            [
+              "rdi",
+              "pipefd[2] *",
+              "fd 2개를 저장할 int 배열: pipefd[0]=읽기 끝, pipefd[1]=쓰기 끝",
+            ],
+          ],
+        },
+        {
+          nr: 23,
+          name: "select",
+          hot: false,
+          cat: "io",
+          desc: "여러 fd 집합을 감시하며 이벤트 발생을 대기한다. (구형, epoll 권장)",
+          args: [
+            ["rdi", "nfds", "감시할 fd 번호 최댓값 + 1"],
+            [
+              "rsi",
+              "readfds *",
+              "읽기 대기할 fd 집합 fd_set 포인터 (NULL 가능)",
+            ],
+            ["rdx", "writefds *", "쓰기 대기할 fd 집합 (NULL 가능)"],
+            ["r10", "exceptfds *", "예외 조건 대기 fd 집합 (NULL 가능)"],
+            [
+              "r8",
+              "timeout *",
+              "struct timeval 포인터. NULL=무한대기, {0,0}=즉시반환",
+            ],
+          ],
+        },
+        {
+          nr: 24,
+          name: "sched_yield",
+          hot: false,
+          cat: "sched",
+          desc: "CPU를 자발적으로 양보하여 다른 프로세스/스레드가 실행되게 한다.",
+          args: [],
+        },
+        {
+          nr: 25,
+          name: "mremap",
+          hot: false,
+          cat: "mem",
+          desc: "기존 mmap 매핑의 크기를 변경하거나 주소를 이동한다.",
+          args: [
+            ["rdi", "old_address", "재매핑할 기존 매핑의 시작 주소"],
+            ["rsi", "old_size", "기존 매핑 크기 (바이트)"],
+            ["rdx", "new_size", "변경할 새 크기"],
+            [
+              "r10",
+              "flags",
+              "MREMAP_MAYMOVE(1)=이동허용, MREMAP_FIXED(2)=특정주소로 강제 이동",
+            ],
+            ["r8", "new_address", "MREMAP_FIXED 플래그 사용 시 새 주소"],
+          ],
+        },
+        {
+          nr: 26,
+          name: "msync",
+          hot: false,
+          cat: "mem",
+          desc: "mmap된 메모리 영역을 파일과 동기화(플러시)한다.",
+          args: [
+            ["rdi", "addr", "동기화할 매핑 시작 주소 (페이지 경계 정렬)"],
+            ["rsi", "length", "동기화할 바이트 수"],
+            [
+              "rdx",
+              "flags",
+              "MS_SYNC(동기식 즉시)/MS_ASYNC(비동기)/MS_INVALIDATE(캐시 무효화)",
+            ],
+          ],
+        },
+        {
+          nr: 27,
+          name: "mincore",
+          hot: false,
+          cat: "mem",
+          desc: "메모리 페이지가 물리 RAM에 존재하는지(캐시됐는지) 확인한다.",
+          args: [
+            ["rdi", "addr", "확인할 메모리 시작 주소 (페이지 경계 정렬)"],
+            ["rsi", "length", "확인할 바이트 수"],
+            [
+              "rdx",
+              "vec *",
+              "결과 저장 배열: 페이지마다 1바이트, bit0=1이면 물리RAM에 있음",
+            ],
+          ],
+        },
+        {
+          nr: 28,
+          name: "madvise",
+          hot: false,
+          cat: "mem",
+          desc: "메모리 사용 패턴 힌트를 커널에 전달해 I/O를 최적화한다.",
+          args: [
+            ["rdi", "addr", "힌트를 줄 메모리 시작 주소 (페이지 경계 정렬)"],
+            ["rsi", "length", "힌트 적용할 바이트 수"],
+            [
+              "rdx",
+              "advice",
+              "MADV_NORMAL/SEQUENTIAL/RANDOM/WILLNEED/DONTNEED/FREE/HUGEPAGE 등",
+            ],
+          ],
+        },
+        {
+          nr: 29,
+          name: "shmget",
+          hot: false,
+          cat: "ipc",
+          desc: "System V 공유 메모리 세그먼트를 생성하거나 기존 것을 가져온다.",
+          args: [
+            ["rdi", "key", "IPC 키 값. IPC_PRIVATE(0)이면 새 세그먼트 생성"],
+            [
+              "rsi",
+              "size",
+              "공유 메모리 크기 (바이트). 기존 접근 시 무시 가능",
+            ],
+            [
+              "rdx",
+              "shmflg",
+              "IPC_CREAT|IPC_EXCL 등 플래그 + 접근 권한 (예: IPC_CREAT|0666)",
+            ],
+          ],
+        },
+        {
+          nr: 30,
+          name: "shmat",
+          hot: false,
+          cat: "ipc",
+          desc: "공유 메모리 세그먼트를 프로세스 주소공간에 붙인다(attach).",
+          args: [
+            ["rdi", "shmid", "shmget으로 얻은 공유 메모리 ID"],
+            [
+              "rsi",
+              "shmaddr *",
+              "붙일 주소. NULL이면 커널이 적절한 주소 자동 선택",
+            ],
+            [
+              "rdx",
+              "shmflg",
+              "SHM_RDONLY(읽기전용)/SHM_REMAP/SHM_RND(주소 정렬) 등",
+            ],
+          ],
+        },
+        {
+          nr: 31,
+          name: "shmctl",
+          hot: false,
+          cat: "ipc",
+          desc: "공유 메모리 세그먼트에 제어 연산을 수행한다.",
+          args: [
+            ["rdi", "shmid", "제어할 공유 메모리 ID"],
+            [
+              "rsi",
+              "cmd",
+              "IPC_STAT(정보조회)/IPC_SET(설정변경)/IPC_RMID(삭제) 등",
+            ],
+            ["rdx", "buf *", "struct shmid_ds 포인터. IPC_RMID이면 NULL"],
+          ],
+        },
+        {
+          nr: 32,
+          name: "dup",
+          hot: true,
+          cat: "io",
+          desc: "기존 fd를 복제하여 새 fd를 반환한다. 두 fd가 같은 파일 설명을 가리킨다.",
+          args: [["rdi", "oldfd", "복제할 원본 파일 디스크립터"]],
+        },
+        {
+          nr: 33,
+          name: "dup2",
+          hot: true,
+          cat: "io",
+          desc: "oldfd를 newfd 번호로 복제한다. newfd가 이미 열려있으면 먼저 닫는다.",
+          args: [
+            ["rdi", "oldfd", "복제할 원본 fd"],
+            [
+              "rsi",
+              "newfd",
+              "복제본이 될 fd 번호. 이미 열려있으면 자동으로 닫힘",
+            ],
+          ],
+        },
+        {
+          nr: 34,
+          name: "pause",
+          hot: false,
+          cat: "sig",
+          desc: "시그널이 도달하거나 시그널 핸들러가 반환할 때까지 프로세스를 정지한다.",
+          args: [],
+        },
+        {
+          nr: 35,
+          name: "nanosleep",
+          hot: true,
+          cat: "time",
+          desc: "나노초 단위 정밀도로 슬립한다. 시그널로 중단 가능.",
+          args: [
+            [
+              "rdi",
+              "req *",
+              "struct timespec 포인터: tv_sec(초) + tv_nsec(나노초, 0~999999999)",
+            ],
+            [
+              "rsi",
+              "rem *",
+              "시그널로 중단 시 남은 시간 저장할 struct timespec. 불필요시 NULL",
+            ],
+          ],
+        },
+        {
+          nr: 36,
+          name: "getitimer",
+          hot: false,
+          cat: "time",
+          desc: "현재 설정된 인터벌 타이머 값을 가져온다.",
+          args: [
+            [
+              "rdi",
+              "which",
+              "ITIMER_REAL(0)/ITIMER_VIRTUAL(1)/ITIMER_PROF(2) 중 하나",
+            ],
+            [
+              "rsi",
+              "curr_value *",
+              "현재 타이머 값을 저장할 struct itimerval 포인터",
+            ],
+          ],
+        },
+        {
+          nr: 37,
+          name: "alarm",
+          hot: false,
+          cat: "sig",
+          desc: "지정 초 후에 SIGALRM을 현재 프로세스에 보낸다.",
+          args: [
+            [
+              "rdi",
+              "seconds",
+              "SIGALRM을 보낼 때까지의 초. 0이면 예약된 알람 취소",
+            ],
+          ],
+        },
+        {
+          nr: 38,
+          name: "setitimer",
+          hot: false,
+          cat: "time",
+          desc: "주기적으로 시그널을 발생시키는 인터벌 타이머를 설정한다.",
+          args: [
+            [
+              "rdi",
+              "which",
+              "ITIMER_REAL(SIGALRM)/ITIMER_VIRTUAL(SIGVTALRM)/ITIMER_PROF(SIGPROF)",
+            ],
+            [
+              "rsi",
+              "new_value *",
+              "새 타이머: it_value=첫 발생까지 시간, it_interval=이후 반복 주기",
+            ],
+            [
+              "rdx",
+              "old_value *",
+              "이전 설정을 저장할 struct itimerval 포인터. 불필요시 NULL",
+            ],
+          ],
+        },
+        {
+          nr: 39,
+          name: "getpid",
+          hot: true,
+          cat: "proc",
+          desc: "현재 프로세스의 프로세스 ID(PID)를 반환한다.",
+          args: [],
+        },
+        {
+          nr: 40,
+          name: "sendfile",
+          hot: false,
+          cat: "io",
+          desc: "커널 공간에서 두 fd 사이에 데이터를 복사한다 (zero-copy, 유저공간 거치지 않음).",
+          args: [
+            ["rdi", "out_fd", "데이터를 쓸 대상 fd (소켓 또는 파일)"],
+            ["rsi", "in_fd", "데이터를 읽을 원본 fd (반드시 mmap 가능한 파일)"],
+            [
+              "rdx",
+              "offset *",
+              "읽기 시작 오프셋 포인터. NULL이면 in_fd의 현재 오프셋 사용",
+            ],
+            ["r10", "count", "전송할 바이트 수"],
+          ],
+        },
+        {
+          nr: 41,
+          name: "socket",
+          hot: true,
+          cat: "net",
+          desc: "통신을 위한 소켓을 생성하고 fd를 반환한다.",
+          args: [
+            [
+              "rdi",
+              "domain",
+              "주소 체계: AF_INET(2=IPv4), AF_INET6(10=IPv6), AF_UNIX(1=로컬)",
+            ],
+            [
+              "rsi",
+              "type",
+              "소켓 유형: SOCK_STREAM(1=TCP), SOCK_DGRAM(2=UDP), SOCK_RAW(3=원시)",
+            ],
+            ["rdx", "protocol", "프로토콜 번호. 0이면 type에 맞게 자동 선택"],
+          ],
+        },
+        {
+          nr: 42,
+          name: "connect",
+          hot: true,
+          cat: "net",
+          desc: "소켓을 원격 주소에 연결한다 (TCP의 경우 3-way handshake 시작).",
+          args: [
+            ["rdi", "sockfd", "연결할 소켓 fd"],
+            [
+              "rsi",
+              "addr *",
+              "대상 주소 struct sockaddr 포인터 (IPv4: sockaddr_in, IPv6: sockaddr_in6)",
+            ],
+            ["rdx", "addrlen", "addr 구조체의 크기 (바이트)"],
+          ],
+        },
+        {
+          nr: 43,
+          name: "accept",
+          hot: true,
+          cat: "net",
+          desc: "listen 중인 소켓에서 새 연결 요청을 수락하고 새 fd를 반환한다.",
+          args: [
+            ["rdi", "sockfd", "listen() 호출된 상태의 소켓 fd"],
+            [
+              "rsi",
+              "addr *",
+              "클라이언트 주소를 저장할 struct sockaddr 포인터. 불필요시 NULL",
+            ],
+            [
+              "rdx",
+              "addrlen *",
+              "addr 구조체 크기를 담은 포인터. addr이 NULL이면 NULL",
+            ],
+          ],
+        },
+        {
+          nr: 44,
+          name: "sendto",
+          hot: false,
+          cat: "net",
+          desc: "소켓으로 메시지를 전송한다. 비연결형(UDP)에서 목적지 주소 지정 가능.",
+          args: [
+            ["rdi", "sockfd", "전송할 소켓 fd"],
+            ["rsi", "buf *", "전송할 데이터 버퍼"],
+            ["rdx", "len", "전송할 바이트 수"],
+            [
+              "r10",
+              "flags",
+              "MSG_DONTWAIT(비블로킹)/MSG_NOSIGNAL(SIGPIPE억제)/MSG_MORE 등",
+            ],
+            ["r8", "dest_addr *", "UDP 목적지 주소. TCP 연결 소켓이면 NULL"],
+            ["r9", "addrlen", "dest_addr 구조체 크기. dest_addr이 NULL이면 0"],
+          ],
+        },
+        {
+          nr: 45,
+          name: "recvfrom",
+          hot: false,
+          cat: "net",
+          desc: "소켓에서 메시지를 수신한다. UDP의 경우 송신자 주소도 얻는다.",
+          args: [
+            ["rdi", "sockfd", "수신할 소켓 fd"],
+            ["rsi", "buf *", "수신 데이터를 저장할 버퍼"],
+            ["rdx", "len", "버퍼 크기 (바이트)"],
+            [
+              "r10",
+              "flags",
+              "MSG_WAITALL/MSG_PEEK(소비없이복사)/MSG_DONTWAIT 등",
+            ],
+            ["r8", "src_addr *", "송신자 주소 저장 포인터. 불필요시 NULL"],
+            [
+              "r9",
+              "addrlen *",
+              "src_addr 크기를 담은 포인터. src_addr이 NULL이면 NULL",
+            ],
+          ],
+        },
+        {
+          nr: 46,
+          name: "sendmsg",
+          hot: false,
+          cat: "net",
+          desc: "struct msghdr를 이용해 보조 데이터(ancillary data)와 함께 메시지를 전송한다.",
+          args: [
+            ["rdi", "sockfd", "전송할 소켓 fd"],
+            [
+              "rsi",
+              "msg *",
+              "struct msghdr 포인터 (msg_name, msg_iov, msg_control 등 포함)",
+            ],
+            ["rdx", "flags", "MSG_DONTWAIT/MSG_NOSIGNAL 등"],
+          ],
+        },
+        {
+          nr: 47,
+          name: "recvmsg",
+          hot: false,
+          cat: "net",
+          desc: "struct msghdr를 이용해 보조 데이터까지 포함해 메시지를 수신한다.",
+          args: [
+            ["rdi", "sockfd", "수신할 소켓 fd"],
+            [
+              "rsi",
+              "msg *",
+              "struct msghdr 포인터. 수신 후 msg_flags 필드가 채워짐",
+            ],
+            ["rdx", "flags", "MSG_WAITALL/MSG_TRUNC/MSG_DONTWAIT 등"],
+          ],
+        },
+        {
+          nr: 48,
+          name: "shutdown",
+          hot: false,
+          cat: "net",
+          desc: "소켓의 송신, 수신 또는 양방향을 부분 종료한다.",
+          args: [
+            ["rdi", "sockfd", "종료할 소켓 fd"],
+            [
+              "rsi",
+              "how",
+              "SHUT_RD(0)=수신종료, SHUT_WR(1)=송신종료, SHUT_RDWR(2)=양방향종료",
+            ],
+          ],
+        },
+        {
+          nr: 49,
+          name: "bind",
+          hot: true,
+          cat: "net",
+          desc: "소켓에 로컬 IP 주소와 포트 번호를 바인딩한다.",
+          args: [
+            ["rdi", "sockfd", "바인딩할 소켓 fd"],
+            [
+              "rsi",
+              "addr *",
+              "바인딩할 로컬 주소 struct sockaddr 포인터 (IP+포트 지정)",
+            ],
+            [
+              "rdx",
+              "addrlen",
+              "addr 구조체 크기 (sizeof(struct sockaddr_in) 등)",
+            ],
+          ],
+        },
+        {
+          nr: 50,
+          name: "listen",
+          hot: true,
+          cat: "net",
+          desc: "소켓을 수동 연결 대기(passive) 상태로 전환한다.",
+          args: [
+            ["rdi", "sockfd", "대기 상태로 전환할 소켓 fd"],
+            ["rsi", "backlog", "accept 전 대기 큐에 쌓을 수 있는 최대 연결 수"],
+          ],
+        },
+        {
+          nr: 51,
+          name: "getsockname",
+          hot: false,
+          cat: "net",
+          desc: "소켓에 바인딩된 로컬 주소와 포트를 가져온다.",
+          args: [
+            ["rdi", "sockfd", "조회할 소켓 fd"],
+            ["rsi", "addr *", "결과를 저장할 struct sockaddr 포인터"],
+            [
+              "rdx",
+              "addrlen *",
+              "입력: addr 버퍼 크기, 출력: 실제 크기를 저장하는 포인터",
+            ],
+          ],
+        },
+        {
+          nr: 52,
+          name: "getpeername",
+          hot: false,
+          cat: "net",
+          desc: "연결된 원격 피어의 주소와 포트를 가져온다.",
+          args: [
+            ["rdi", "sockfd", "연결된 소켓 fd"],
+            ["rsi", "addr *", "원격 주소를 저장할 struct sockaddr 포인터"],
+            ["rdx", "addrlen *", "입력: 버퍼 크기, 출력: 실제 크기"],
+          ],
+        },
+        {
+          nr: 53,
+          name: "socketpair",
+          hot: false,
+          cat: "net",
+          desc: "서로 연결된 소켓 쌍을 생성한다. 프로세스 간 통신에 유용.",
+          args: [
+            ["rdi", "domain", "AF_UNIX 등 주소 체계 (보통 AF_UNIX(1) 사용)"],
+            ["rsi", "type", "SOCK_STREAM/SOCK_DGRAM 등"],
+            ["rdx", "protocol", "프로토콜 번호 (보통 0)"],
+            ["r10", "sv[2] *", "생성된 fd 쌍을 저장할 int[2] 배열"],
+          ],
+        },
+        {
+          nr: 54,
+          name: "setsockopt",
+          hot: true,
+          cat: "net",
+          desc: "소켓 옵션을 설정한다. 포트 재사용, 타임아웃, 버퍼 크기 등.",
+          args: [
+            ["rdi", "sockfd", "설정할 소켓 fd"],
+            [
+              "rsi",
+              "level",
+              "SOL_SOCKET(1)=소켓레벨, IPPROTO_TCP(6)/IPPROTO_IP(0) 등",
+            ],
+            [
+              "rdx",
+              "optname",
+              "SO_REUSEADDR(2)/SO_KEEPALIVE(9)/SO_RCVBUF/TCP_NODELAY(1) 등",
+            ],
+            [
+              "r10",
+              "optval *",
+              "설정할 값 포인터 (예: int 1=활성화, 0=비활성화)",
+            ],
+            ["r8", "optlen", "optval이 가리키는 값의 크기 (바이트)"],
+          ],
+        },
+        {
+          nr: 55,
+          name: "getsockopt",
+          hot: false,
+          cat: "net",
+          desc: "소켓 옵션의 현재 값을 가져온다.",
+          args: [
+            ["rdi", "sockfd", "조회할 소켓 fd"],
+            ["rsi", "level", "SOL_SOCKET/IPPROTO_TCP 등 프로토콜 레벨"],
+            ["rdx", "optname", "조회할 옵션 이름"],
+            ["r10", "optval *", "값을 저장할 버퍼 포인터"],
+            [
+              "r8",
+              "optlen *",
+              "입력: 버퍼 크기, 출력: 실제 값 크기를 저장하는 포인터",
+            ],
+          ],
+        },
+        {
+          nr: 56,
+          name: "clone",
+          hot: false,
+          cat: "proc",
+          desc: "새 프로세스나 스레드를 생성한다. fork와 pthread_create의 기반 syscall.",
+          args: [
+            [
+              "rdi",
+              "flags",
+              "공유할 자원: CLONE_VM(메모리)/CLONE_FS/CLONE_FILES/CLONE_THREAD 등",
+            ],
+            ["rsi", "stack", "자식의 스택 포인터. NULL이면 COW 방식으로 복사"],
+            [
+              "rdx",
+              "ptid *",
+              "CLONE_PARENT_SETTID 시 부모 TID를 저장할 포인터",
+            ],
+            ["r10", "ctid *", "CLONE_CHILD_SETTID 시 자식 TID를 저장할 포인터"],
+            [
+              "r8",
+              "regs *",
+              "자식의 초기 CPU 레지스터 상태 (아키텍처마다 구조 다름)",
+            ],
+          ],
+        },
+        {
+          nr: 57,
+          name: "fork",
+          hot: true,
+          cat: "proc",
+          desc: "현재 프로세스의 완전한 복사본(자식 프로세스)을 생성한다. 자식에게 0 반환.",
+          args: [],
+        },
+        {
+          nr: 58,
+          name: "vfork",
+          hot: false,
+          cat: "proc",
+          desc: "부모를 일시 정지시키고 주소공간을 공유하며 자식을 생성한다. execve/exit 전까지 부모 차단.",
+          args: [],
+        },
+        {
+          nr: 59,
+          name: "execve",
+          hot: true,
+          cat: "proc",
+          desc: "새 프로그램을 로드하여 현재 프로세스 이미지를 완전히 교체한다.",
+          args: [
+            ["rdi", "pathname *", "실행할 프로그램 경로 (절대 또는 상대 경로)"],
+            [
+              "rsi",
+              "argv[] *",
+              "인수 문자열 포인터 배열. NULL로 종료. argv[0]은 관례상 프로그램명",
+            ],
+            [
+              "rdx",
+              "envp[] *",
+              "환경 변수 문자열 포인터 배열. NULL로 종료. KEY=VALUE 형식",
+            ],
+          ],
+        },
+        {
+          nr: 60,
+          name: "exit",
+          hot: true,
+          cat: "proc",
+          desc: "현재 스레드만 종료한다. atexit 핸들러 호출 안 함. 전체 종료는 exit_group 사용.",
+          args: [["rdi", "error_code", "종료 상태 코드 (0=성공, 1~255=오류)"]],
+        },
+        {
+          nr: 61,
+          name: "wait4",
+          hot: false,
+          cat: "proc",
+          desc: "자식 프로세스의 상태 변화(종료, 정지 등)를 기다린다.",
+          args: [
+            [
+              "rdi",
+              "pid",
+              "대기할 PID. -1=임의자식, 0=같은그룹, 양수=특정PID, 음수=프로세스그룹",
+            ],
+            [
+              "rsi",
+              "wstatus *",
+              "자식 종료 상태를 저장할 int 포인터. WEXITSTATUS/WIFSIGNALED 매크로로 해석",
+            ],
+            [
+              "rdx",
+              "options",
+              "WNOHANG(블로킹안함)/WUNTRACED(정지된자식포함)/WCONTINUED 조합",
+            ],
+            [
+              "r10",
+              "rusage *",
+              "자식 리소스 사용량 저장 포인터. 불필요시 NULL",
+            ],
+          ],
+        },
+        {
+          nr: 62,
+          name: "kill",
+          hot: true,
+          cat: "sig",
+          desc: "프로세스 또는 프로세스 그룹에 시그널을 보낸다.",
+          args: [
+            [
+              "rdi",
+              "pid",
+              "대상 PID. -1=모든프로세스, 0=같은그룹, 음수=해당프로세스그룹",
+            ],
+            [
+              "rsi",
+              "sig",
+              "보낼 시그널 번호 (SIGTERM=15, SIGKILL=9, SIGINT=2, SIGSTOP=19 등)",
+            ],
+          ],
+        },
+        {
+          nr: 63,
+          name: "uname",
+          hot: false,
+          cat: "sys",
+          desc: "시스템 이름, 릴리즈 버전, 아키텍처 등 정보를 가져온다.",
+          args: [
+            [
+              "rdi",
+              "buf *",
+              "struct utsname 포인터 (sysname, nodename, release, version, machine 필드 각 65바이트)",
+            ],
+          ],
+        },
+        {
+          nr: 64,
+          name: "semget",
+          hot: false,
+          cat: "ipc",
+          desc: "System V 세마포어 집합(배열)을 생성하거나 기존 것의 ID를 가져온다.",
+          args: [
+            ["rdi", "key", "IPC 키. IPC_PRIVATE(0)이면 새 세마포어 집합 생성"],
+            ["rsi", "nsems", "세마포어 집합의 원소 개수 (기존 접근 시 0 가능)"],
+            [
+              "rdx",
+              "semflg",
+              "IPC_CREAT(없으면생성)|IPC_EXCL 등 플래그 + 권한 (예: IPC_CREAT|0666)",
+            ],
+          ],
+        },
+        {
+          nr: 65,
+          name: "semop",
+          hot: false,
+          cat: "ipc",
+          desc: "세마포어 집합에 P(감소)/V(증가) 연산을 수행한다.",
+          args: [
+            ["rdi", "semid", "semget으로 얻은 세마포어 집합 ID"],
+            [
+              "rsi",
+              "sops *",
+              "struct sembuf 배열 포인터: {sem_num=번호, sem_op=증감값, sem_flg}",
+            ],
+            ["rdx", "nsops", "sops 배열 원소 수 (실행할 연산 수)"],
+          ],
+        },
+        {
+          nr: 66,
+          name: "semctl",
+          hot: false,
+          cat: "ipc",
+          desc: "세마포어 집합에 제어/조회 연산을 수행한다.",
+          args: [
+            ["rdi", "semid", "세마포어 집합 ID"],
+            [
+              "rsi",
+              "semnum",
+              "연산할 세마포어 번호 (0부터 시작, IPC_STAT 등에서는 0)",
+            ],
+            [
+              "rdx",
+              "cmd",
+              "GETVAL/SETVAL/GETPID/IPC_RMID/IPC_STAT/IPC_SET 등 명령",
+            ],
+            [
+              "r10",
+              "arg",
+              "cmd에 따라 union semun 값: int, struct semid_ds *, unsigned short * 등",
+            ],
+          ],
+        },
+        {
+          nr: 67,
+          name: "shmdt",
+          hot: false,
+          cat: "ipc",
+          desc: "프로세스 주소공간에서 공유 메모리 세그먼트를 분리(detach)한다.",
+          args: [
+            [
+              "rdi",
+              "shmaddr *",
+              "shmat()으로 attach한 공유 메모리의 시작 주소",
+            ],
+          ],
+        },
+        {
+          nr: 68,
+          name: "msgget",
+          hot: false,
+          cat: "ipc",
+          desc: "System V 메시지 큐를 생성하거나 기존 것의 ID를 가져온다.",
+          args: [
+            ["rdi", "key", "IPC 키. IPC_PRIVATE이면 새 메시지 큐 생성"],
+            [
+              "rsi",
+              "msgflg",
+              "IPC_CREAT|IPC_EXCL 등 플래그 + 권한 (예: IPC_CREAT|0666)",
+            ],
+          ],
+        },
+        {
+          nr: 69,
+          name: "msgsnd",
+          hot: false,
+          cat: "ipc",
+          desc: "메시지 큐에 메시지를 보낸다.",
+          args: [
+            ["rdi", "msqid", "msgget으로 얻은 메시지 큐 ID"],
+            [
+              "rsi",
+              "msgp *",
+              "struct msgbuf 포인터: {mtype=양수타입, mtext=데이터}",
+            ],
+            [
+              "rdx",
+              "msgsz",
+              "메시지 텍스트(mtext) 크기 (바이트, mtype 4바이트 제외)",
+            ],
+            ["r10", "msgflg", "IPC_NOWAIT(블로킹안함)/MSG_COPY 등 플래그"],
+          ],
+        },
+        {
+          nr: 70,
+          name: "msgrcv",
+          hot: false,
+          cat: "ipc",
+          desc: "메시지 큐에서 메시지를 받는다.",
+          args: [
+            ["rdi", "msqid", "메시지 큐 ID"],
+            ["rsi", "msgp *", "수신 버퍼 struct msgbuf 포인터"],
+            ["rdx", "msgsz", "수신 버퍼 크기 (바이트)"],
+            [
+              "r10",
+              "msgtyp",
+              "수신할 메시지 타입. 0=아무거나, 양수=특정타입, 음수=그이하타입",
+            ],
+            [
+              "r8",
+              "msgflg",
+              "IPC_NOWAIT/MSG_NOERROR(크기초과시자름)/MSG_EXCEPT 등",
+            ],
+          ],
+        },
+        {
+          nr: 71,
+          name: "msgctl",
+          hot: false,
+          cat: "ipc",
+          desc: "메시지 큐에 제어 연산을 수행한다.",
+          args: [
+            ["rdi", "msqid", "제어할 메시지 큐 ID"],
+            [
+              "rsi",
+              "cmd",
+              "IPC_STAT(정보조회)/IPC_SET(설정변경)/IPC_RMID(큐삭제) 중 하나",
+            ],
+            ["rdx", "buf *", "struct msqid_ds 포인터. IPC_RMID이면 NULL"],
+          ],
+        },
+        {
+          nr: 72,
+          name: "fcntl",
+          hot: true,
+          cat: "io",
+          desc: "파일 디스크립터 속성 제어. 플래그 변경, 잠금, 비동기 설정 등.",
+          args: [
+            ["rdi", "fd", "제어할 파일 디스크립터"],
+            [
+              "rsi",
+              "cmd",
+              "F_GETFL/F_SETFL(파일상태플래그), F_GETFD/F_SETFD(FD_CLOEXEC), F_SETLK(잠금) 등",
+            ],
+            [
+              "rdx",
+              "arg",
+              "cmd에 따라 다름: F_SETFL이면 O_NONBLOCK|O_APPEND 등 플래그 값",
+            ],
+          ],
+        },
+        {
+          nr: 73,
+          name: "flock",
+          hot: false,
+          cat: "fs",
+          desc: "파일 전체에 권고(advisory) 잠금을 설정하거나 해제한다.",
+          args: [
+            ["rdi", "fd", "잠글 파일 디스크립터"],
+            [
+              "rsi",
+              "operation",
+              "LOCK_SH(공유잠금)/LOCK_EX(배타잠금)/LOCK_UN(해제) + LOCK_NB(비블로킹) 조합",
+            ],
+          ],
+        },
+        {
+          nr: 74,
+          name: "fsync",
+          hot: false,
+          cat: "fs",
+          desc: "fd의 데이터와 메타데이터를 모두 디스크에 강제 플러시한다.",
+          args: [["rdi", "fd", "동기화할 파일 디스크립터"]],
+        },
+        {
+          nr: 75,
+          name: "fdatasync",
+          hot: false,
+          cat: "fs",
+          desc: "메타데이터(mtime 등) 제외, 파일 데이터만 디스크에 플러시한다. fsync보다 빠름.",
+          args: [["rdi", "fd", "동기화할 파일 디스크립터"]],
+        },
+        {
+          nr: 76,
+          name: "truncate",
+          hot: false,
+          cat: "fs",
+          desc: "파일 크기를 지정 길이로 조절한다. 작으면 자르고, 크면 0으로 채운다.",
+          args: [
+            ["rdi", "path *", "크기 변경할 파일 경로"],
+            ["rsi", "length", "새 파일 크기 (바이트)"],
+          ],
+        },
+        {
+          nr: 77,
+          name: "ftruncate",
+          hot: false,
+          cat: "fs",
+          desc: "열린 fd 기준으로 파일 크기를 변경한다. 쓰기 권한 필요.",
+          args: [
+            [
+              "rdi",
+              "fd",
+              "크기 변경할 파일 디스크립터 (쓰기 모드로 열려있어야 함)",
+            ],
+            ["rsi", "length", "새 파일 크기 (바이트)"],
+          ],
+        },
+        {
+          nr: 78,
+          name: "getdents",
+          hot: false,
+          cat: "fs",
+          desc: "디렉터리 항목을 struct linux_dirent 배열로 읽는다. (구형, getdents64 권장)",
+          args: [
+            ["rdi", "fd", "열린 디렉터리 fd (O_RDONLY로 opendir한 fd)"],
+            ["rsi", "dirp *", "결과를 저장할 버퍼 포인터"],
+            [
+              "rdx",
+              "count",
+              "버퍼 크기 (바이트). 최소 struct linux_dirent 하나 들어갈 크기",
+            ],
+          ],
+        },
+        {
+          nr: 79,
+          name: "getcwd",
+          hot: false,
+          cat: "fs",
+          desc: "현재 작업 디렉터리의 절대 경로를 버퍼에 저장한다.",
+          args: [
+            ["rdi", "buf *", "경로를 저장할 문자열 버퍼"],
+            ["rsi", "size", "버퍼 크기 (바이트). PATH_MAX+1 이상 권장"],
+          ],
+        },
+        {
+          nr: 80,
+          name: "chdir",
+          hot: false,
+          cat: "fs",
+          desc: "현재 프로세스의 작업 디렉터리를 변경한다.",
+          args: [["rdi", "path *", "변경할 디렉터리 경로 (절대 또는 상대)"]],
+        },
+        {
+          nr: 81,
+          name: "fchdir",
+          hot: false,
+          cat: "fs",
+          desc: "열린 fd가 가리키는 디렉터리로 작업 디렉터리를 변경한다.",
+          args: [["rdi", "fd", "디렉터리를 가리키는 열린 fd"]],
+        },
+        {
+          nr: 82,
+          name: "rename",
+          hot: false,
+          cat: "fs",
+          desc: "파일이나 디렉터리의 이름 또는 위치를 변경한다. 같은 파일시스템이어야 함.",
+          args: [
+            ["rdi", "oldpath *", "현재 파일/디렉터리 경로"],
+            ["rsi", "newpath *", "새 경로. 이미 존재하면 원자적으로 교체"],
+          ],
+        },
+        {
+          nr: 83,
+          name: "mkdir",
+          hot: false,
+          cat: "fs",
+          desc: "새 디렉터리를 생성한다.",
+          args: [
+            ["rdi", "pathname *", "생성할 디렉터리 경로"],
+            ["rsi", "mode", "권한 비트 (예: 0755). 실제 권한은 umask 적용"],
+          ],
+        },
+        {
+          nr: 84,
+          name: "rmdir",
+          hot: false,
+          cat: "fs",
+          desc: "비어있는 디렉터리를 삭제한다. 비어있지 않으면 ENOTEMPTY.",
+          args: [["rdi", "pathname *", "삭제할 빈 디렉터리 경로"]],
+        },
+        {
+          nr: 85,
+          name: "creat",
+          hot: false,
+          cat: "fs",
+          desc: "파일을 생성하거나 기존 파일을 비운다. open(O_CREAT|O_WRONLY|O_TRUNC, mode) 동일.",
+          args: [
+            ["rdi", "pathname *", "생성/비울 파일 경로"],
+            ["rsi", "mode", "파일 생성 권한 (예: 0644)"],
+          ],
+        },
+        {
+          nr: 86,
+          name: "link",
+          hot: false,
+          cat: "fs",
+          desc: "기존 파일에 새 하드 링크를 생성한다. 같은 파일시스템이어야 함.",
+          args: [
+            ["rdi", "oldpath *", "원본 파일 경로"],
+            ["rsi", "newpath *", "새 하드 링크 경로"],
+          ],
+        },
+        {
+          nr: 87,
+          name: "unlink",
+          hot: false,
+          cat: "fs",
+          desc: "파일의 디렉터리 항목(이름)을 삭제한다. 링크 수가 0이 되면 파일 삭제.",
+          args: [["rdi", "pathname *", "삭제할 파일 경로"]],
+        },
+        {
+          nr: 88,
+          name: "symlink",
+          hot: false,
+          cat: "fs",
+          desc: "target 경로를 가리키는 심볼릭 링크를 생성한다.",
+          args: [
+            [
+              "rdi",
+              "target *",
+              "링크가 가리킬 대상 경로 문자열 (상대/절대 모두 가능)",
+            ],
+            ["rsi", "linkpath *", "생성할 심볼릭 링크 파일 경로"],
+          ],
+        },
+        {
+          nr: 89,
+          name: "readlink",
+          hot: false,
+          cat: "fs",
+          desc: "심볼릭 링크가 가리키는 경로 문자열을 읽는다. NULL 종료 없음 주의.",
+          args: [
+            ["rdi", "pathname *", "읽을 심볼릭 링크 경로"],
+            ["rsi", "buf *", "결과 경로를 저장할 버퍼 (NULL 종료 없이 채워짐)"],
+            ["rdx", "bufsiz", "버퍼 크기 (PATH_MAX 이상 권장)"],
+          ],
+        },
+        {
+          nr: 90,
+          name: "chmod",
+          hot: false,
+          cat: "fs",
+          desc: "파일의 권한 비트를 변경한다. 소유자 또는 root만 가능.",
+          args: [
+            ["rdi", "filename *", "권한 변경할 파일 경로"],
+            [
+              "rsi",
+              "mode",
+              "새 권한 비트 (예: 0755=rwxr-xr-x, 0644=rw-r--r--)",
+            ],
+          ],
+        },
+        {
+          nr: 91,
+          name: "fchmod",
+          hot: false,
+          cat: "fs",
+          desc: "열린 fd 파일의 권한을 변경한다.",
+          args: [
+            ["rdi", "fd", "권한을 변경할 파일 디스크립터"],
+            ["rsi", "mode", "새 권한 비트 (예: 0600)"],
+          ],
+        },
+        {
+          nr: 92,
+          name: "chown",
+          hot: false,
+          cat: "fs",
+          desc: "파일의 소유자(UID)와 그룹(GID)을 변경한다.",
+          args: [
+            ["rdi", "filename *", "소유자/그룹을 변경할 파일 경로"],
+            ["rsi", "user", "새 소유자 UID. -1이면 현재 소유자 유지"],
+            ["rdx", "group", "새 그룹 GID. -1이면 현재 그룹 유지"],
+          ],
+        },
+        {
+          nr: 93,
+          name: "fchown",
+          hot: false,
+          cat: "fs",
+          desc: "열린 fd 기준으로 파일 소유자와 그룹을 변경한다.",
+          args: [
+            ["rdi", "fd", "변경할 파일 디스크립터"],
+            ["rsi", "user", "새 소유자 UID. -1이면 변경 없음"],
+            ["rdx", "group", "새 그룹 GID. -1이면 변경 없음"],
+          ],
+        },
+        {
+          nr: 94,
+          name: "lchown",
+          hot: false,
+          cat: "fs",
+          desc: "심볼릭 링크 자체의 소유자/그룹을 변경한다 (링크 대상을 따라가지 않음).",
+          args: [
+            ["rdi", "filename *", "변경할 심볼릭 링크 경로"],
+            ["rsi", "user", "새 소유자 UID. -1이면 변경 없음"],
+            ["rdx", "group", "새 그룹 GID. -1이면 변경 없음"],
+          ],
+        },
+        {
+          nr: 95,
+          name: "umask",
+          hot: false,
+          cat: "fs",
+          desc: "파일/디렉터리 생성 시 적용되는 권한 마스크를 설정한다.",
+          args: [
+            [
+              "rdi",
+              "mask",
+              "새 umask 값 (예: 022이면 그룹/기타 쓰기 비트 차단)",
+            ],
+          ],
+        },
+        {
+          nr: 96,
+          name: "gettimeofday",
+          hot: true,
+          cat: "time",
+          desc: "현재 시각을 마이크로초 단위로 가져온다. clock_gettime 권장.",
+          args: [
+            [
+              "rdi",
+              "tv *",
+              "struct timeval 포인터: {tv_sec=초, tv_usec=마이크로초}",
+            ],
+            ["rsi", "tz *", "시간대 구조체 포인터. 현재는 무시됨. NULL 전달"],
+          ],
+        },
+        {
+          nr: 97,
+          name: "getrlimit",
+          hot: false,
+          cat: "sys",
+          desc: "프로세스의 리소스 제한 값을 가져온다.",
+          args: [
+            [
+              "rdi",
+              "resource",
+              "RLIMIT_NOFILE(7)/RLIMIT_STACK(3)/RLIMIT_AS(9)/RLIMIT_CORE(4) 등",
+            ],
+            [
+              "rsi",
+              "rlim *",
+              "struct rlimit 포인터: {rlim_cur=현재제한, rlim_max=최대제한(하드)}",
+            ],
+          ],
+        },
+        {
+          nr: 98,
+          name: "getrusage",
+          hot: false,
+          cat: "sys",
+          desc: "프로세스나 자식의 리소스 사용 통계를 가져온다.",
+          args: [
+            [
+              "rdi",
+              "who",
+              "RUSAGE_SELF(0=현재)/RUSAGE_CHILDREN(-1=자식)/RUSAGE_THREAD(1=현재스레드)",
+            ],
+            [
+              "rsi",
+              "usage *",
+              "struct rusage 포인터 (CPU시간, 최대RSS, I/O횟수, 컨텍스트스위치 등)",
+            ],
+          ],
+        },
+        {
+          nr: 99,
+          name: "sysinfo",
+          hot: false,
+          cat: "sys",
+          desc: "시스템 전체 메모리, 스왑, 부하평균, 업타임 등을 가져온다.",
+          args: [
+            [
+              "rdi",
+              "info *",
+              "struct sysinfo 포인터 (uptime, loads, totalram, freeram, procs 등)",
+            ],
+          ],
+        },
+        {
+          nr: 100,
+          name: "times",
+          hot: false,
+          cat: "time",
+          desc: "현재 프로세스와 자식들의 CPU 시간(클럭틱 단위)을 가져온다.",
+          args: [
+            [
+              "rdi",
+              "buf *",
+              "struct tms 포인터 (tms_utime/stime=본인, tms_cutime/cstime=자식)",
+            ],
+          ],
+        },
+        {
+          nr: 101,
+          name: "ptrace",
+          hot: false,
+          cat: "proc",
+          desc: "다른 프로세스를 추적/제어한다. gdb, strace 등 디버거가 사용.",
+          args: [
+            [
+              "rdi",
+              "request",
+              "PTRACE_TRACEME/ATTACH/DETACH/PEEKDATA/POKEDATA/CONT/GETREGS/SYSCALL 등",
+            ],
+            ["rsi", "pid", "추적/제어할 대상 PID"],
+            ["rdx", "addr", "PEEK/POKE 시 읽기/쓰기할 대상 주소"],
+            ["r10", "data", "POKE 시 쓸 값 또는 결과 저장 포인터"],
+          ],
+        },
+        {
+          nr: 102,
+          name: "getuid",
+          hot: false,
+          cat: "proc",
+          desc: "현재 프로세스의 실제(real) UID를 반환한다.",
+          args: [],
+        },
+        {
+          nr: 103,
+          name: "syslog",
+          hot: false,
+          cat: "sys",
+          desc: "커널 로그 버퍼(dmesg)를 읽거나 설정한다. CAP_SYS_ADMIN 필요.",
+          args: [
+            [
+              "rdi",
+              "type",
+              "SYSLOG_ACTION_READ(2)/SYSLOG_ACTION_READ_ALL(3)/SYSLOG_ACTION_CLEAR(5) 등",
+            ],
+            ["rsi", "bufp *", "로그를 저장할 버퍼 포인터 (읽기 동작 시)"],
+            ["rdx", "len", "버퍼 크기 또는 읽을 바이트 수"],
+          ],
+        },
+        {
+          nr: 104,
+          name: "getgid",
+          hot: false,
+          cat: "proc",
+          desc: "현재 프로세스의 실제(real) GID를 반환한다.",
+          args: [],
+        },
+        {
+          nr: 105,
+          name: "setuid",
+          hot: false,
+          cat: "proc",
+          desc: "프로세스의 실제/유효/저장 UID를 설정한다. root는 임의값, 비루트는 자신의 UID만.",
+          args: [["rdi", "uid", "설정할 새 UID"]],
+        },
+        {
+          nr: 106,
+          name: "setgid",
+          hot: false,
+          cat: "proc",
+          desc: "프로세스의 실제/유효/저장 GID를 설정한다.",
+          args: [["rdi", "gid", "설정할 새 GID"]],
+        },
+        {
+          nr: 107,
+          name: "geteuid",
+          hot: false,
+          cat: "proc",
+          desc: "프로세스의 유효(effective) UID를 반환한다. 권한 검사에 실제 사용되는 UID.",
+          args: [],
+        },
+        {
+          nr: 108,
+          name: "getegid",
+          hot: false,
+          cat: "proc",
+          desc: "프로세스의 유효(effective) GID를 반환한다.",
+          args: [],
+        },
+        {
+          nr: 109,
+          name: "setpgid",
+          hot: false,
+          cat: "proc",
+          desc: "프로세스의 프로세스 그룹 ID를 설정한다. 잡(job) 제어에 사용.",
+          args: [
+            ["rdi", "pid", "변경할 프로세스 PID. 0이면 현재 프로세스"],
+            ["rsi", "pgid", "새 프로세스 그룹 ID. 0이면 pid와 동일하게 설정"],
+          ],
+        },
+        {
+          nr: 110,
+          name: "getppid",
+          hot: false,
+          cat: "proc",
+          desc: "현재 프로세스의 부모 프로세스 PID를 반환한다.",
+          args: [],
+        },
+        {
+          nr: 111,
+          name: "getpgrp",
+          hot: false,
+          cat: "proc",
+          desc: "현재 프로세스의 프로세스 그룹 ID를 반환한다.",
+          args: [],
+        },
+        {
+          nr: 112,
+          name: "setsid",
+          hot: false,
+          cat: "proc",
+          desc: "새 세션을 생성하고 호출 프로세스를 세션 리더로 만든다. 데몬화(daemonize)에 사용.",
+          args: [],
+        },
+        {
+          nr: 113,
+          name: "setreuid",
+          hot: false,
+          cat: "proc",
+          desc: "실제(real) UID와 유효(effective) UID를 각각 설정한다.",
+          args: [
+            ["rdi", "ruid", "새 실제 UID. -1이면 변경 없음"],
+            ["rsi", "euid", "새 유효 UID. -1이면 변경 없음"],
+          ],
+        },
+        {
+          nr: 114,
+          name: "setregid",
+          hot: false,
+          cat: "proc",
+          desc: "실제 GID와 유효 GID를 각각 설정한다.",
+          args: [
+            ["rdi", "rgid", "새 실제 GID. -1이면 변경 없음"],
+            ["rsi", "egid", "새 유효 GID. -1이면 변경 없음"],
+          ],
+        },
+        {
+          nr: 115,
+          name: "getgroups",
+          hot: false,
+          cat: "proc",
+          desc: "현재 프로세스의 보조 그룹 GID 목록을 가져온다.",
+          args: [
+            [
+              "rdi",
+              "size",
+              "gidset 배열의 최대 크기. 0이면 현재 그룹 수만 반환",
+            ],
+            ["rsi", "list *", "GID를 저장할 gid_t 배열 포인터"],
+          ],
+        },
+        {
+          nr: 116,
+          name: "setgroups",
+          hot: false,
+          cat: "proc",
+          desc: "프로세스의 보조 그룹 GID 목록을 설정한다. CAP_SETGID 필요.",
+          args: [
+            ["rdi", "size", "설정할 그룹 수 (NGROUPS_MAX 이하)"],
+            ["rsi", "list *", "gid_t 배열 포인터"],
+          ],
+        },
+        {
+          nr: 117,
+          name: "setresuid",
+          hot: false,
+          cat: "proc",
+          desc: "실제/유효/저장된(saved-set) UID를 모두 한 번에 설정한다.",
+          args: [
+            ["rdi", "ruid", "새 실제 UID. -1이면 변경 없음"],
+            ["rsi", "euid", "새 유효 UID. -1이면 변경 없음"],
+            ["rdx", "suid", "새 저장 UID. -1이면 변경 없음"],
+          ],
+        },
+        {
+          nr: 118,
+          name: "getresuid",
+          hot: false,
+          cat: "proc",
+          desc: "실제/유효/저장된 UID를 모두 가져온다.",
+          args: [
+            ["rdi", "ruid *", "실제 UID를 저장할 포인터"],
+            ["rsi", "euid *", "유효 UID를 저장할 포인터"],
+            ["rdx", "suid *", "저장 UID를 저장할 포인터"],
+          ],
+        },
+        {
+          nr: 119,
+          name: "setresgid",
+          hot: false,
+          cat: "proc",
+          desc: "실제/유효/저장된 GID를 모두 한 번에 설정한다.",
+          args: [
+            ["rdi", "rgid", "새 실제 GID. -1이면 변경 없음"],
+            ["rsi", "egid", "새 유효 GID. -1이면 변경 없음"],
+            ["rdx", "sgid", "새 저장 GID. -1이면 변경 없음"],
+          ],
+        },
+        {
+          nr: 120,
+          name: "getresgid",
+          hot: false,
+          cat: "proc",
+          desc: "실제/유효/저장된 GID를 모두 가져온다.",
+          args: [
+            ["rdi", "rgid *", "실제 GID를 저장할 포인터"],
+            ["rsi", "egid *", "유효 GID를 저장할 포인터"],
+            ["rdx", "sgid *", "저장 GID를 저장할 포인터"],
+          ],
+        },
+        {
+          nr: 121,
+          name: "getpgid",
+          hot: false,
+          cat: "proc",
+          desc: "지정 PID의 프로세스 그룹 ID를 반환한다.",
+          args: [["rdi", "pid", "조회할 PID. 0이면 현재 프로세스"]],
+        },
+        {
+          nr: 122,
+          name: "setfsuid",
+          hot: false,
+          cat: "proc",
+          desc: "파일시스템 접근 권한 검사에 사용하는 UID를 설정한다.",
+          args: [["rdi", "fsuid", "새 파일시스템 UID"]],
+        },
+        {
+          nr: 123,
+          name: "setfsgid",
+          hot: false,
+          cat: "proc",
+          desc: "파일시스템 접근 권한 검사에 사용하는 GID를 설정한다.",
+          args: [["rdi", "fsgid", "새 파일시스템 GID"]],
+        },
+        {
+          nr: 124,
+          name: "getsid",
+          hot: false,
+          cat: "proc",
+          desc: "지정 PID의 세션 ID를 반환한다.",
+          args: [["rdi", "pid", "조회할 PID. 0이면 현재 프로세스"]],
+        },
+        {
+          nr: 125,
+          name: "capget",
+          hot: false,
+          cat: "sys",
+          desc: "프로세스의 권한 능력(capability) 집합을 가져온다.",
+          args: [
+            [
+              "rdi",
+              "hdrp *",
+              "struct __user_cap_header_data 포인터 (version 필드 + pid)",
+            ],
+            [
+              "rsi",
+              "datap *",
+              "struct __user_cap_data_data 포인터 (effective, permitted, inheritable)",
+            ],
+          ],
+        },
+        {
+          nr: 126,
+          name: "capset",
+          hot: false,
+          cat: "sys",
+          desc: "프로세스의 capability 집합을 설정한다. CAP_SETPCAP 필요.",
+          args: [
+            ["rdi", "hdrp *", "struct __user_cap_header_data 포인터"],
+            ["rsi", "datap *", "struct __user_cap_data_data 포인터"],
+          ],
+        },
+        {
+          nr: 127,
+          name: "rt_sigpending",
+          hot: false,
+          cat: "sig",
+          desc: "현재 블록되어 대기 중인(pending) 시그널 집합을 가져온다.",
+          args: [
+            ["rdi", "set *", "대기 시그널을 저장할 sigset_t 포인터"],
+            ["rsi", "sigsetsize", "sigset_t 크기 (보통 8)"],
+          ],
+        },
+        {
+          nr: 128,
+          name: "rt_sigtimedwait",
+          hot: false,
+          cat: "sig",
+          desc: "특정 시그널이 도달하기를 타임아웃과 함께 동기적으로 기다린다.",
+          args: [
+            ["rdi", "uthese *", "기다릴 시그널 집합 sigset_t 포인터"],
+            [
+              "rsi",
+              "uinfo *",
+              "수신된 시그널 정보를 저장할 siginfo_t 포인터 (NULL 가능)",
+            ],
+            [
+              "rdx",
+              "uts *",
+              "최대 대기 시간 struct timespec 포인터 (NULL이면 무한)",
+            ],
+            ["r10", "sigsetsize", "sigset_t 크기 (보통 8)"],
+          ],
+        },
+        {
+          nr: 129,
+          name: "rt_sigqueueinfo",
+          hot: false,
+          cat: "sig",
+          desc: "프로세스에 siginfo_t 데이터와 함께 시그널을 보낸다.",
+          args: [
+            ["rdi", "pid", "시그널을 보낼 대상 PID"],
+            ["rsi", "sig", "보낼 시그널 번호"],
+            [
+              "rdx",
+              "uinfo *",
+              "전달할 siginfo_t 포인터 (si_code는 SI_QUEUE 이상이어야 함)",
+            ],
+          ],
+        },
+        {
+          nr: 130,
+          name: "rt_sigsuspend",
+          hot: false,
+          cat: "sig",
+          desc: "시그널 마스크를 임시 교체한 뒤 시그널이 올 때까지 대기한다.",
+          args: [
+            ["rdi", "unewset *", "대기하는 동안 임시 적용할 sigset_t 포인터"],
+            ["rsi", "sigsetsize", "sigset_t 크기 (보통 8)"],
+          ],
+        },
+        {
+          nr: 131,
+          name: "sigaltstack",
+          hot: false,
+          cat: "sig",
+          desc: "시그널 핸들러 실행에 사용할 대체 스택을 설정한다. 스택 오버플로우 핸들링에 필요.",
+          args: [
+            [
+              "rdi",
+              "ss *",
+              "새 대체 스택 struct stack_t 포인터: {ss_sp=스택주소, ss_flags, ss_size}",
+            ],
+            ["rsi", "old_ss *", "이전 설정을 저장할 포인터. 불필요시 NULL"],
+          ],
+        },
+        {
+          nr: 132,
+          name: "utime",
+          hot: false,
+          cat: "fs",
+          desc: "파일의 접근 시간과 수정 시간을 설정한다. utimensat 권장.",
+          args: [
+            ["rdi", "filename *", "변경할 파일 경로"],
+            [
+              "rsi",
+              "times *",
+              "struct utimbuf 포인터 {actime, modtime}. NULL이면 현재 시각",
+            ],
+          ],
+        },
+        {
+          nr: 133,
+          name: "mknod",
+          hot: false,
+          cat: "fs",
+          desc: "파일시스템 노드(파일, 디바이스, named pipe, 소켓)를 생성한다.",
+          args: [
+            ["rdi", "filename *", "생성할 노드 경로"],
+            [
+              "rsi",
+              "mode",
+              "파일 타입(S_IFREG/S_IFCHR/S_IFBLK/S_IFIFO/S_IFSOCK) + 권한 비트",
+            ],
+            [
+              "rdx",
+              "dev",
+              "문자/블록 디바이스의 장치 번호 (major/minor). 일반 파일이면 0",
+            ],
+          ],
+        },
+        {
+          nr: 134,
+          name: "uselib",
+          hot: false,
+          cat: "sys",
+          desc: "(구형) 공유 라이브러리를 직접 로드한다. 현대 시스템에서는 사용 안 함.",
+          args: [["rdi", "library *", "로드할 공유 라이브러리 파일 경로"]],
+        },
+        {
+          nr: 135,
+          name: "personality",
+          hot: false,
+          cat: "sys",
+          desc: "프로세스 실행 도메인(personality)을 설정한다. 호환성 레이어 구현에 사용.",
+          args: [
+            [
+              "rdi",
+              "persona",
+              "새 personality 값. 0xffffffff(-1)이면 현재 값만 조회하고 변경 없음",
+            ],
+          ],
+        },
+        {
+          nr: 136,
+          name: "ustat",
+          hot: false,
+          cat: "fs",
+          desc: "(구형) 마운트된 파일시스템 통계를 가져온다. statfs 사용 권장.",
+          args: [
+            ["rdi", "dev", "파일시스템의 디바이스 번호"],
+            ["rsi", "ubuf *", "struct ustat 포인터 (f_tfree, f_tinode 등)"],
+          ],
+        },
+        {
+          nr: 137,
+          name: "statfs",
+          hot: false,
+          cat: "fs",
+          desc: "파일시스템 통계(총 블록 수, 여유 공간, 파일시스템 유형 등)를 가져온다.",
+          args: [
+            ["rdi", "path *", "통계를 조회할 파일시스템 내 임의 경로"],
+            [
+              "rsi",
+              "buf *",
+              "struct statfs 포인터 (f_type, f_bsize, f_blocks, f_bfree 등)",
+            ],
+          ],
+        },
+        {
+          nr: 138,
+          name: "fstatfs",
+          hot: false,
+          cat: "fs",
+          desc: "열린 fd가 속한 파일시스템의 통계를 가져온다.",
+          args: [
+            ["rdi", "fd", "파일시스템 내 임의 열린 fd"],
+            ["rsi", "buf *", "struct statfs 포인터"],
+          ],
+        },
+        {
+          nr: 139,
+          name: "sysfs",
+          hot: false,
+          cat: "sys",
+          desc: "(구형) 파일시스템 유형 식별자 정보를 가져온다.",
+          args: [
+            ["rdi", "option", "1=이름→인덱스, 2=인덱스→이름, 3=마운트된FS수"],
+            ["rsi", "arg1", "option에 따라 파일시스템 이름 또는 인덱스"],
+            ["rdx", "arg2", "option=2 시 결과 문자열 저장 버퍼"],
+          ],
+        },
+        {
+          nr: 140,
+          name: "getpriority",
+          hot: false,
+          cat: "sched",
+          desc: "프로세스/프로세스그룹/사용자의 nice 우선순위를 가져온다.",
+          args: [
+            [
+              "rdi",
+              "which",
+              "PRIO_PROCESS(0)/PRIO_PGRP(1)/PRIO_USER(2) 중 하나",
+            ],
+            ["rsi", "who", "조회할 PID/PGID/UID. 0이면 현재 프로세스"],
+          ],
+        },
+        {
+          nr: 141,
+          name: "setpriority",
+          hot: false,
+          cat: "sched",
+          desc: "nice 우선순위를 설정한다. 낮을수록 높은 우선순위 (-20=최고 ~ 19=최저).",
+          args: [
+            ["rdi", "which", "PRIO_PROCESS(0)/PRIO_PGRP(1)/PRIO_USER(2)"],
+            ["rsi", "who", "설정할 PID/PGID/UID. 0이면 현재 프로세스"],
+            ["rdx", "prio", "새 nice 값 (-20~19)"],
+          ],
+        },
+        {
+          nr: 142,
+          name: "sched_setparam",
+          hot: false,
+          cat: "sched",
+          desc: "실시간 스케줄링 파라미터를 설정한다.",
+          args: [
+            ["rdi", "pid", "설정할 PID. 0이면 현재 프로세스"],
+            [
+              "rsi",
+              "param *",
+              "struct sched_param 포인터: {sched_priority=우선순위값}",
+            ],
+          ],
+        },
+        {
+          nr: 143,
+          name: "sched_getparam",
+          hot: false,
+          cat: "sched",
+          desc: "스케줄링 파라미터를 가져온다.",
+          args: [
+            ["rdi", "pid", "조회할 PID. 0이면 현재 프로세스"],
+            ["rsi", "param *", "struct sched_param 포인터 (결과 저장)"],
+          ],
+        },
+        {
+          nr: 144,
+          name: "sched_setscheduler",
+          hot: false,
+          cat: "sched",
+          desc: "프로세스의 스케줄링 정책과 파라미터를 설정한다.",
+          args: [
+            ["rdi", "pid", "설정할 PID. 0이면 현재 프로세스"],
+            [
+              "rsi",
+              "policy",
+              "SCHED_OTHER(0)/SCHED_FIFO(1)/SCHED_RR(2)/SCHED_BATCH(3)/SCHED_IDLE(5)/SCHED_DEADLINE(6)",
+            ],
+            [
+              "rdx",
+              "param *",
+              "struct sched_param 포인터: FIFO/RR이면 sched_priority=1~99",
+            ],
+          ],
+        },
+        {
+          nr: 145,
+          name: "sched_getscheduler",
+          hot: false,
+          cat: "sched",
+          desc: "프로세스의 현재 스케줄링 정책을 반환한다.",
+          args: [["rdi", "pid", "조회할 PID. 0이면 현재 프로세스"]],
+        },
+        {
+          nr: 146,
+          name: "sched_get_priority_max",
+          hot: false,
+          cat: "sched",
+          desc: "지정 스케줄링 정책에서 허용되는 최대 우선순위를 반환한다.",
+          args: [
+            ["rdi", "policy", "SCHED_FIFO/SCHED_RR이면 99, SCHED_OTHER면 0"],
+          ],
+        },
+        {
+          nr: 147,
+          name: "sched_get_priority_min",
+          hot: false,
+          cat: "sched",
+          desc: "지정 스케줄링 정책의 최소 우선순위를 반환한다.",
+          args: [
+            ["rdi", "policy", "SCHED_FIFO/SCHED_RR이면 1, SCHED_OTHER면 0"],
+          ],
+        },
+        {
+          nr: 148,
+          name: "sched_rr_get_interval",
+          hot: false,
+          cat: "sched",
+          desc: "SCHED_RR 정책의 타임슬라이스 간격을 가져온다.",
+          args: [
+            ["rdi", "pid", "조회할 PID. 0이면 현재 프로세스"],
+            [
+              "rsi",
+              "tp *",
+              "타임슬라이스 간격을 저장할 struct timespec 포인터",
+            ],
+          ],
+        },
+        {
+          nr: 149,
+          name: "mlock",
+          hot: false,
+          cat: "mem",
+          desc: "메모리 영역을 물리 메모리에 고정시켜 스왑아웃을 방지한다.",
+          args: [
+            ["rdi", "addr", "고정할 메모리 시작 주소 (페이지 경계 정렬)"],
+            ["rsi", "len", "고정할 바이트 수"],
+          ],
+        },
+        {
+          nr: 150,
+          name: "munlock",
+          hot: false,
+          cat: "mem",
+          desc: "mlock으로 고정된 메모리 영역의 고정을 해제한다.",
+          args: [
+            ["rdi", "addr", "고정 해제할 메모리 시작 주소"],
+            ["rsi", "len", "해제할 바이트 수"],
+          ],
+        },
+        {
+          nr: 151,
+          name: "mlockall",
+          hot: false,
+          cat: "mem",
+          desc: "프로세스의 현재 또는 미래의 모든 메모리를 물리 RAM에 고정한다.",
+          args: [
+            [
+              "rdi",
+              "flags",
+              "MCL_CURRENT(현재 매핑 전부 고정)/MCL_FUTURE(앞으로 생길 매핑도 고정) 조합",
+            ],
+          ],
+        },
+        {
+          nr: 152,
+          name: "munlockall",
+          hot: false,
+          cat: "mem",
+          desc: "프로세스 전체 메모리 고정을 한 번에 해제한다.",
+          args: [],
+        },
+        {
+          nr: 153,
+          name: "vhangup",
+          hot: false,
+          cat: "sys",
+          desc: "현재 제어 터미널에 가상 행업(hangup) 신호를 보낸다. 로그아웃 처리에 사용.",
+          args: [],
+        },
+        {
+          nr: 154,
+          name: "modify_ldt",
+          hot: false,
+          cat: "sys",
+          desc: "x86 LDT(Local Descriptor Table)를 읽거나 수정한다. 세그먼트 기반 TLS에 사용.",
+          args: [
+            [
+              "rdi",
+              "func",
+              "0=읽기(get), 1=쓰기(set), 2=읽기(64비트용), 0x11=쓰기(64비트용)",
+            ],
+            [
+              "rsi",
+              "ptr *",
+              "struct user_desc 포인터 (읽기 시 결과 버퍼, 쓰기 시 입력)",
+            ],
+            ["rdx", "bytecount", "ptr 버퍼 크기"],
+          ],
+        },
+        {
+          nr: 155,
+          name: "pivot_root",
+          hot: false,
+          cat: "fs",
+          desc: "루트 파일시스템을 다른 파일시스템으로 교체한다. 컨테이너 초기화에 사용.",
+          args: [
+            ["rdi", "new_root *", "새 루트로 사용할 마운트된 경로"],
+            [
+              "rsi",
+              "put_old *",
+              "기존 루트를 이동시킬 경로 (new_root 아래에 있어야 함)",
+            ],
+          ],
+        },
+        {
+          nr: 156,
+          name: "_sysctl",
+          hot: false,
+          cat: "sys",
+          desc: "(구형, 제거됨) 커널 파라미터를 읽거나 쓴다. /proc/sys를 통해 접근 권장.",
+          args: [["rdi", "args *", "struct __sysctl_args 포인터"]],
+        },
+        {
+          nr: 157,
+          name: "prctl",
+          hot: false,
+          cat: "proc",
+          desc: "프로세스나 스레드의 다양한 속성을 제어한다.",
+          args: [
+            [
+              "rdi",
+              "option",
+              "PR_SET_NAME/PR_GET_NAME/PR_SET_DUMPABLE/PR_SET_NO_NEW_PRIVS/PR_SET_SECCOMP 등",
+            ],
+            [
+              "rsi",
+              "arg2",
+              "옵션에 따라 값 또는 포인터 (예: PR_SET_NAME이면 이름 문자열 포인터)",
+            ],
+            ["rdx", "arg3", "옵션에 따라 추가 인자"],
+            ["r10", "arg4", "옵션에 따라 추가 인자"],
+            ["r8", "arg5", "옵션에 따라 추가 인자"],
+          ],
+        },
+        {
+          nr: 158,
+          name: "arch_prctl",
+          hot: false,
+          cat: "proc",
+          desc: "x86_64 아키텍처 전용 스레드 상태를 설정한다. TLS(FS_BASE) 설정에 주로 사용.",
+          args: [
+            [
+              "rdi",
+              "code",
+              "ARCH_SET_FS/ARCH_GET_FS/ARCH_SET_GS/ARCH_GET_GS 중 하나",
+            ],
+            [
+              "rsi",
+              "addr",
+              "ARCH_SET_*이면 설정할 주소 값, ARCH_GET_*이면 결과 저장 포인터",
+            ],
+          ],
+        },
+        {
+          nr: 159,
+          name: "adjtimex",
+          hot: false,
+          cat: "time",
+          desc: "커널 시간 파라미터(NTP 클럭 보정 등)를 조회하거나 수정한다.",
+          args: [
+            [
+              "rdi",
+              "buf *",
+              "struct timex 포인터 (modes, offset, freq, maxerror, esterror 등 필드)",
+            ],
+          ],
+        },
+        {
+          nr: 160,
+          name: "setrlimit",
+          hot: false,
+          cat: "sys",
+          desc: "프로세스 리소스 제한 값을 설정한다.",
+          args: [
+            [
+              "rdi",
+              "resource",
+              "RLIMIT_NOFILE/RLIMIT_CORE/RLIMIT_STACK/RLIMIT_AS 등",
+            ],
+            [
+              "rsi",
+              "rlim *",
+              "struct rlimit 포인터: {rlim_cur=소프트한도, rlim_max=하드한도}",
+            ],
+          ],
+        },
+        {
+          nr: 161,
+          name: "chroot",
+          hot: false,
+          cat: "fs",
+          desc: "프로세스의 루트 디렉터리를 변경한다 (chroot jail). CAP_SYS_CHROOT 필요.",
+          args: [["rdi", "path *", "새 루트로 사용할 디렉터리 경로"]],
+        },
+        {
+          nr: 162,
+          name: "sync",
+          hot: false,
+          cat: "fs",
+          desc: "모든 파일시스템의 버퍼 캐시를 디스크에 동기화한다. 완료 전에 반환 가능.",
+          args: [],
+        },
+        {
+          nr: 163,
+          name: "acct",
+          hot: false,
+          cat: "sys",
+          desc: "BSD 스타일 프로세스 어카운팅(종료 시 정보 기록)을 활성화/비활성화한다.",
+          args: [
+            [
+              "rdi",
+              "filename *",
+              "어카운팅 데이터를 기록할 파일 경로. NULL이면 비활성화",
+            ],
+          ],
+        },
+        {
+          nr: 164,
+          name: "settimeofday",
+          hot: false,
+          cat: "time",
+          desc: "시스템 시계를 설정한다. CAP_SYS_TIME 필요.",
+          args: [
+            [
+              "rdi",
+              "tv *",
+              "새 시각 struct timeval 포인터. NULL이면 시각 변경 안 함",
+            ],
+            ["rsi", "tz *", "시간대 구조체 포인터. 현재는 무시됨. NULL 권장"],
+          ],
+        },
+        {
+          nr: 165,
+          name: "mount",
+          hot: false,
+          cat: "fs",
+          desc: "파일시스템을 마운트한다. CAP_SYS_ADMIN 필요.",
+          args: [
+            [
+              "rdi",
+              "source *",
+              '마운트할 디바이스 경로 또는 소스 (tmpfs면 "tmpfs" 등 문자열)',
+            ],
+            ["rsi", "target *", "마운트 포인트 디렉터리 경로"],
+            [
+              "rdx",
+              "filesystemtype *",
+              "파일시스템 유형 문자열 (ext4, xfs, tmpfs, proc 등)",
+            ],
+            [
+              "r10",
+              "mountflags",
+              "MS_RDONLY/MS_NOSUID/MS_NODEV/MS_BIND/MS_REMOUNT 등 플래그",
+            ],
+            [
+              "r8",
+              "data *",
+              '파일시스템별 추가 마운트 옵션 문자열 (예: "size=100m,mode=755")',
+            ],
+          ],
+        },
+        {
+          nr: 166,
+          name: "umount2",
+          hot: false,
+          cat: "fs",
+          desc: "마운트된 파일시스템을 언마운트한다.",
+          args: [
+            ["rdi", "target *", "언마운트할 마운트 포인트 경로"],
+            [
+              "rsi",
+              "flags",
+              "MNT_FORCE(강제)/MNT_DETACH(지연)/MNT_EXPIRE(유휴시제거)/UMOUNT_NOFOLLOW 조합",
+            ],
+          ],
+        },
+        {
+          nr: 167,
+          name: "swapon",
+          hot: false,
+          cat: "mem",
+          desc: "스왑 파티션 또는 파일을 활성화한다. CAP_SYS_ADMIN 필요.",
+          args: [
+            ["rdi", "specialfile *", "스왑 파티션 경로 또는 스왑 파일 경로"],
+            [
+              "rsi",
+              "swap_flags",
+              "SWAP_FLAG_PREFER(우선순위높임)/SWAP_FLAG_DISCARD 등",
+            ],
+          ],
+        },
+        {
+          nr: 168,
+          name: "swapoff",
+          hot: false,
+          cat: "mem",
+          desc: "활성화된 스왑 파티션 또는 파일을 비활성화한다.",
+          args: [["rdi", "specialfile *", "비활성화할 스왑 파티션/파일 경로"]],
+        },
+        {
+          nr: 169,
+          name: "reboot",
+          hot: false,
+          cat: "sys",
+          desc: "시스템을 재부팅하거나 전원을 끈다. CAP_SYS_BOOT 필요.",
+          args: [
+            ["rdi", "magic", "고정값 LINUX_REBOOT_MAGIC1(0xfee1dead)"],
+            ["rsi", "magic2", "고정값 LINUX_REBOOT_MAGIC2(672274793) 중 하나"],
+            [
+              "rdx",
+              "cmd",
+              "LINUX_REBOOT_CMD_RESTART/HALT/POWER_OFF/KEXEC 등 동작",
+            ],
+            [
+              "r10",
+              "arg *",
+              "LINUX_REBOOT_CMD_RESTART2 등에서 사용하는 추가 문자열 포인터",
+            ],
+          ],
+        },
+        {
+          nr: 170,
+          name: "sethostname",
+          hot: false,
+          cat: "sys",
+          desc: "시스템 호스트명을 설정한다. CAP_SYS_ADMIN 필요.",
+          args: [
+            ["rdi", "name *", "새 호스트명 문자열 포인터 (NULL 종료 불필요)"],
+            ["rsi", "len", "호스트명 문자열 길이 (HOST_NAME_MAX=64 이하)"],
+          ],
+        },
+        {
+          nr: 171,
+          name: "setdomainname",
+          hot: false,
+          cat: "sys",
+          desc: "NIS/YP 도메인명을 설정한다. CAP_SYS_ADMIN 필요.",
+          args: [
+            ["rdi", "name *", "새 도메인명 문자열 포인터"],
+            ["rsi", "len", "문자열 길이"],
+          ],
+        },
+        {
+          nr: 172,
+          name: "iopl",
+          hot: false,
+          cat: "sys",
+          desc: "프로세스의 I/O 권한 레벨을 변경한다. 직접 포트 I/O 접근용. CAP_SYS_RAWIO 필요.",
+          args: [
+            [
+              "rdi",
+              "level",
+              "새 I/O 권한 레벨 (0~3). 3이면 전체 포트 접근 가능",
+            ],
+          ],
+        },
+        {
+          nr: 173,
+          name: "ioperm",
+          hot: false,
+          cat: "sys",
+          desc: "특정 I/O 포트에 대한 접근 권한을 설정한다. CAP_SYS_RAWIO 필요.",
+          args: [
+            ["rdi", "from", "접근 설정 시작 포트 번호 (0~0x3ff)"],
+            ["rsi", "num", "설정할 포트 개수"],
+            ["rdx", "turn_on", "1이면 허용, 0이면 차단"],
+          ],
+        },
+        {
+          nr: 174,
+          name: "create_module",
+          hot: false,
+          cat: "sys",
+          desc: "(제거됨, 커널 2.6+) 로드 가능한 커널 모듈을 위한 공간을 할당했던 구형 syscall.",
+          args: [],
+        },
+        {
+          nr: 175,
+          name: "init_module",
+          hot: false,
+          cat: "sys",
+          desc: "커널 모듈을 메모리에 로드한다 (insmod). CAP_SYS_MODULE 필요.",
+          args: [
+            [
+              "rdi",
+              "module_image *",
+              "로드할 모듈 ELF 이미지가 담긴 버퍼 포인터",
+            ],
+            ["rsi", "len", "module_image 버퍼 크기 (바이트)"],
+            [
+              "rdx",
+              "param_values *",
+              '모듈 파라미터 문자열 (예: "debug=1 size=100")',
+            ],
+          ],
+        },
+        {
+          nr: 176,
+          name: "delete_module",
+          hot: false,
+          cat: "sys",
+          desc: "로드된 커널 모듈을 언로드한다 (rmmod). CAP_SYS_MODULE 필요.",
+          args: [
+            ["rdi", "name *", "언로드할 모듈 이름 문자열 포인터"],
+            [
+              "rsi",
+              "flags",
+              "O_NONBLOCK(비블로킹)/O_TRUNC(의존무시강제제거) 등",
+            ],
+          ],
+        },
+        {
+          nr: 177,
+          name: "get_kernel_syms",
+          hot: false,
+          cat: "sys",
+          desc: "(제거됨) 구형 커널 심볼 테이블을 가져오는 syscall.",
+          args: [
+            [
+              "rdi",
+              "table *",
+              "struct kernel_sym 배열 포인터. NULL이면 심볼 수만 반환",
+            ],
+          ],
+        },
+        {
+          nr: 178,
+          name: "query_module",
+          hot: false,
+          cat: "sys",
+          desc: "(제거됨) 로드된 커널 모듈 정보를 조회했던 구형 syscall.",
+          args: [],
+        },
+        {
+          nr: 179,
+          name: "quotactl",
+          hot: false,
+          cat: "fs",
+          desc: "파일시스템 디스크 쿼터(사용량 제한)를 제어한다.",
+          args: [
+            [
+              "rdi",
+              "cmd",
+              "Q_QUOTAON/Q_QUOTAOFF/Q_GETQUOTA/Q_SETQUOTA/Q_GETINFO 등 명령",
+            ],
+            [
+              "rsi",
+              "special *",
+              "쿼터를 관리할 파일시스템 경로 (예: /dev/sda1)",
+            ],
+            ["rdx", "id", "대상 UID 또는 GID (USRQUOTA=UID, GRPQUOTA=GID)"],
+            ["r10", "addr *", "struct dqblk/dqinfo 포인터 (조회/설정 데이터)"],
+          ],
+        },
+        {
+          nr: 180,
+          name: "nfsservctl",
+          hot: false,
+          cat: "sys",
+          desc: "(제거됨, 커널 3.1+) NFS 서버 제어용 구형 syscall.",
+          args: [],
+        },
+        {
+          nr: 181,
+          name: "getpmsg",
+          hot: false,
+          cat: "io",
+          desc: "(미구현) STREAMS 메시지를 가져오는 syscall. 항상 ENOSYS 반환.",
+          args: [],
+        },
+        {
+          nr: 182,
+          name: "putpmsg",
+          hot: false,
+          cat: "io",
+          desc: "(미구현) STREAMS 메시지를 보내는 syscall. 항상 ENOSYS 반환.",
+          args: [],
+        },
+        {
+          nr: 183,
+          name: "afs_syscall",
+          hot: false,
+          cat: "sys",
+          desc: "(미구현) AFS 분산 파일시스템 syscall. 항상 ENOSYS 반환.",
+          args: [],
+        },
+        {
+          nr: 184,
+          name: "tuxcall",
+          hot: false,
+          cat: "sys",
+          desc: "(미구현) TUX 커널 웹 서버용 syscall. 항상 ENOSYS 반환.",
+          args: [],
+        },
+        {
+          nr: 185,
+          name: "security",
+          hot: false,
+          cat: "sys",
+          desc: "(미구현) 보안 관련 예약 syscall. 항상 ENOSYS 반환.",
+          args: [],
+        },
+        {
+          nr: 186,
+          name: "gettid",
+          hot: true,
+          cat: "proc",
+          desc: "현재 스레드의 스레드 ID(TID)를 반환한다. 멀티스레드 시 PID와 다를 수 있음.",
+          args: [],
+        },
+        {
+          nr: 187,
+          name: "readahead",
+          hot: false,
+          cat: "io",
+          desc: "파일의 지정 범위를 페이지 캐시에 미리 읽어들여 이후 read 성능을 높인다.",
+          args: [
+            ["rdi", "fd", "미리 읽을 파일 fd"],
+            ["rsi", "offset", "미리 읽기 시작 파일 오프셋"],
+            ["rdx", "count", "미리 읽을 바이트 수"],
+          ],
+        },
+        {
+          nr: 188,
+          name: "setxattr",
+          hot: false,
+          cat: "fs",
+          desc: "파일의 확장 속성(extended attribute) 값을 설정한다.",
+          args: [
+            ["rdi", "path *", "파일 경로 (심볼릭 링크면 대상 파일)"],
+            [
+              "rsi",
+              "name *",
+              "속성 이름 문자열 (예: user.comment, security.selinux)",
+            ],
+            ["rdx", "value *", "설정할 속성 값 포인터"],
+            ["r10", "size", "value의 크기 (바이트)"],
+            [
+              "r8",
+              "flags",
+              "0=항상설정, XATTR_CREATE(1)=없을때만, XATTR_REPLACE(2)=있을때만",
+            ],
+          ],
+        },
+        {
+          nr: 189,
+          name: "lsetxattr",
+          hot: false,
+          cat: "fs",
+          desc: "심볼릭 링크 자체의 확장 속성을 설정한다 (링크 대상 아님).",
+          args: [
+            ["rdi", "path *", "심볼릭 링크 경로"],
+            ["rsi", "name *", "속성 이름"],
+            ["rdx", "value *", "설정할 값"],
+            ["r10", "size", "값 크기"],
+            ["r8", "flags", "0/XATTR_CREATE/XATTR_REPLACE"],
+          ],
+        },
+        {
+          nr: 190,
+          name: "fsetxattr",
+          hot: false,
+          cat: "fs",
+          desc: "열린 fd 파일의 확장 속성을 설정한다.",
+          args: [
+            ["rdi", "fd", "파일 디스크립터"],
+            ["rsi", "name *", "속성 이름"],
+            ["rdx", "value *", "설정할 값"],
+            ["r10", "size", "값 크기"],
+            ["r8", "flags", "0/XATTR_CREATE/XATTR_REPLACE"],
+          ],
+        },
+        {
+          nr: 191,
+          name: "getxattr",
+          hot: false,
+          cat: "fs",
+          desc: "파일의 확장 속성 값을 가져온다.",
+          args: [
+            ["rdi", "path *", "파일 경로"],
+            ["rsi", "name *", "가져올 속성 이름"],
+            ["rdx", "value *", "결과를 저장할 버퍼 포인터"],
+            ["r10", "size", "value 버퍼 크기. 0이면 필요한 크기만 반환"],
+          ],
+        },
+        {
+          nr: 192,
+          name: "lgetxattr",
+          hot: false,
+          cat: "fs",
+          desc: "심볼릭 링크 자체의 확장 속성 값을 가져온다.",
+          args: [
+            ["rdi", "path *", "심볼릭 링크 경로"],
+            ["rsi", "name *", "속성 이름"],
+            ["rdx", "value *", "결과 버퍼"],
+            ["r10", "size", "버퍼 크기"],
+          ],
+        },
+        {
+          nr: 193,
+          name: "fgetxattr",
+          hot: false,
+          cat: "fs",
+          desc: "열린 fd 파일의 확장 속성 값을 가져온다.",
+          args: [
+            ["rdi", "fd", "파일 디스크립터"],
+            ["rsi", "name *", "속성 이름"],
+            ["rdx", "value *", "결과 버퍼"],
+            ["r10", "size", "버퍼 크기"],
+          ],
+        },
+        {
+          nr: 194,
+          name: "listxattr",
+          hot: false,
+          cat: "fs",
+          desc: "파일에 설정된 모든 확장 속성 이름 목록을 가져온다.",
+          args: [
+            ["rdi", "path *", "파일 경로"],
+            ["rsi", "list *", "결과 버퍼: \\0으로 구분된 속성 이름 목록"],
+            ["rdx", "size", "list 버퍼 크기. 0이면 필요한 크기만 반환"],
+          ],
+        },
+        {
+          nr: 195,
+          name: "llistxattr",
+          hot: false,
+          cat: "fs",
+          desc: "심볼릭 링크 자체의 속성 이름 목록을 가져온다.",
+          args: [
+            ["rdi", "path *", "심볼릭 링크 경로"],
+            ["rsi", "list *", "결과 버퍼"],
+            ["rdx", "size", "버퍼 크기"],
+          ],
+        },
+        {
+          nr: 196,
+          name: "flistxattr",
+          hot: false,
+          cat: "fs",
+          desc: "열린 fd 파일의 속성 이름 목록을 가져온다.",
+          args: [
+            ["rdi", "fd", "파일 디스크립터"],
+            ["rsi", "list *", "결과 버퍼"],
+            ["rdx", "size", "버퍼 크기"],
+          ],
+        },
+        {
+          nr: 197,
+          name: "removexattr",
+          hot: false,
+          cat: "fs",
+          desc: "파일의 특정 확장 속성을 삭제한다.",
+          args: [
+            ["rdi", "path *", "파일 경로"],
+            ["rsi", "name *", "삭제할 속성 이름"],
+          ],
+        },
+        {
+          nr: 198,
+          name: "lremovexattr",
+          hot: false,
+          cat: "fs",
+          desc: "심볼릭 링크 자체의 특정 확장 속성을 삭제한다.",
+          args: [
+            ["rdi", "path *", "심볼릭 링크 경로"],
+            ["rsi", "name *", "삭제할 속성 이름"],
+          ],
+        },
+        {
+          nr: 199,
+          name: "fremovexattr",
+          hot: false,
+          cat: "fs",
+          desc: "열린 fd 파일의 특정 확장 속성을 삭제한다.",
+          args: [
+            ["rdi", "fd", "파일 디스크립터"],
+            ["rsi", "name *", "삭제할 속성 이름"],
+          ],
+        },
+        {
+          nr: 200,
+          name: "tkill",
+          hot: false,
+          cat: "sig",
+          desc: "특정 스레드(TID)에 시그널을 보낸다. tgkill이 더 안전함.",
+          args: [
+            ["rdi", "tid", "시그널을 보낼 대상 스레드 TID"],
+            ["rsi", "sig", "보낼 시그널 번호"],
+          ],
+        },
+        {
+          nr: 201,
+          name: "time",
+          hot: false,
+          cat: "time",
+          desc: "현재 시각을 time_t(유닉스 에포크 기준 초)로 반환한다. clock_gettime 권장.",
+          args: [
+            [
+              "rdi",
+              "tloc *",
+              "반환 값을 저장할 time_t 포인터. NULL이면 rax로만 반환",
+            ],
+          ],
+        },
+        {
+          nr: 202,
+          name: "futex",
+          hot: false,
+          cat: "sched",
+          desc: "유저 공간 뮤텍스/세마포어를 위한 핵심 커널 지원 syscall. pthread_mutex 등이 내부 사용.",
+          args: [
+            [
+              "rdi",
+              "uaddr *",
+              "퓨텍스 변수 주소 (공유 메모리 내 4바이트 정렬된 int)",
+            ],
+            [
+              "rsi",
+              "futex_op",
+              "FUTEX_WAIT/FUTEX_WAKE/FUTEX_REQUEUE/FUTEX_LOCK_PI 등 연산",
+            ],
+            ["rdx", "val", "WAIT이면 기대값, WAKE이면 깨울 스레드 수"],
+            [
+              "r10",
+              "timeout *",
+              "FUTEX_WAIT 시 최대 대기 struct timespec 포인터",
+            ],
+            [
+              "r8",
+              "uaddr2 *",
+              "FUTEX_REQUEUE 등 2개 퓨텍스 연산 시 두 번째 퓨텍스 주소",
+            ],
+            ["r9", "val3", "FUTEX_WAIT_BITSET 등에서 사용하는 비트마스크"],
+          ],
+        },
+        {
+          nr: 203,
+          name: "sched_setaffinity",
+          hot: false,
+          cat: "sched",
+          desc: "프로세스가 실행될 수 있는 CPU 코어 집합(affinity mask)을 설정한다.",
+          args: [
+            ["rdi", "pid", "설정할 PID. 0이면 현재 프로세스"],
+            [
+              "rsi",
+              "cpusetsize",
+              "mask 버퍼 크기 (바이트). sizeof(cpu_set_t) 사용",
+            ],
+            ["rdx", "mask *", "허용할 CPU 번호들의 비트마스크 포인터"],
+          ],
+        },
+        {
+          nr: 204,
+          name: "sched_getaffinity",
+          hot: false,
+          cat: "sched",
+          desc: "프로세스의 CPU 친화성(affinity) 마스크를 가져온다.",
+          args: [
+            ["rdi", "pid", "조회할 PID. 0이면 현재 프로세스"],
+            ["rsi", "cpusetsize", "mask 버퍼 크기"],
+            ["rdx", "mask *", "결과를 저장할 cpu_set_t 버퍼 포인터"],
+          ],
+        },
+        {
+          nr: 205,
+          name: "set_thread_area",
+          hot: false,
+          cat: "proc",
+          desc: "(x86-32 호환) GDT에 스레드 로컬 저장소(TLS) 항목을 설정한다.",
+          args: [
+            [
+              "rdi",
+              "u_info *",
+              "struct user_desc 포인터 (entry_number, base_addr, limit 등)",
+            ],
+          ],
+        },
+        {
+          nr: 206,
+          name: "io_setup",
+          hot: false,
+          cat: "io",
+          desc: "POSIX AIO(비동기 I/O) 컨텍스트를 생성한다.",
+          args: [
+            ["rdi", "nr_events", "동시에 처리할 최대 비동기 요청 수"],
+            ["rsi", "ctxp *", "생성된 aio_context_t 핸들을 저장할 포인터"],
+          ],
+        },
+        {
+          nr: 207,
+          name: "io_destroy",
+          hot: false,
+          cat: "io",
+          desc: "AIO 컨텍스트를 삭제하고 리소스를 해제한다.",
+          args: [["rdi", "ctx", "삭제할 aio_context_t 핸들"]],
+        },
+        {
+          nr: 208,
+          name: "io_getevents",
+          hot: false,
+          cat: "io",
+          desc: "AIO 완료 이벤트를 가져온다.",
+          args: [
+            ["rdi", "ctx_id", "조회할 aio_context_t 핸들"],
+            ["rsi", "min_nr", "반환 전 최소한 받아야 할 이벤트 수"],
+            ["rdx", "nr", "최대 수신 이벤트 수"],
+            ["r10", "events *", "완료 이벤트를 저장할 struct io_event 배열"],
+            [
+              "r8",
+              "timeout *",
+              "대기 최대 시간 struct timespec 포인터. NULL=무한",
+            ],
+          ],
+        },
+        {
+          nr: 209,
+          name: "io_submit",
+          hot: false,
+          cat: "io",
+          desc: "AIO 요청을 커널에 제출한다.",
+          args: [
+            ["rdi", "ctx_id", "대상 aio_context_t 핸들"],
+            ["rsi", "nr", "제출할 요청 수"],
+            [
+              "rdx",
+              "iocbpp *",
+              "struct iocb * 포인터들의 배열 (요청 디스크립터)",
+            ],
+          ],
+        },
+        {
+          nr: 210,
+          name: "io_cancel",
+          hot: false,
+          cat: "io",
+          desc: "제출한 AIO 요청을 취소한다.",
+          args: [
+            ["rdi", "ctx_id", "aio_context_t 핸들"],
+            ["rsi", "iocb *", "취소할 요청 struct iocb 포인터"],
+            ["rdx", "result *", "취소 결과를 저장할 struct io_event 포인터"],
+          ],
+        },
+        {
+          nr: 211,
+          name: "get_thread_area",
+          hot: false,
+          cat: "proc",
+          desc: "GDT 스레드 로컬 저장소 항목을 가져온다.",
+          args: [
+            [
+              "rdi",
+              "u_info *",
+              "struct user_desc 포인터 (entry_number로 조회할 항목 지정)",
+            ],
+          ],
+        },
+        {
+          nr: 212,
+          name: "lookup_dcookie",
+          hot: false,
+          cat: "fs",
+          desc: "dcookie(inode 식별자)를 실제 파일 경로로 변환한다. oprofile 등이 사용.",
+          args: [
+            ["rdi", "cookie64", "64비트 dcookie 값"],
+            ["rsi", "buf *", "결과 경로를 저장할 버퍼"],
+            ["rdx", "len", "버퍼 크기"],
+          ],
+        },
+        {
+          nr: 213,
+          name: "epoll_create",
+          hot: true,
+          cat: "io",
+          desc: "epoll 이벤트 감시 인스턴스를 생성한다. epoll_create1 사용 권장.",
+          args: [
+            ["rdi", "size", "힌트 값 (현재는 무시됨, 0보다 큰 양수면 됨)"],
+          ],
+        },
+        {
+          nr: 214,
+          name: "epoll_ctl_old",
+          hot: false,
+          cat: "io",
+          desc: "(구형, 제거됨) epoll fd 제어. epoll_ctl 사용 권장.",
+          args: [],
+        },
+        {
+          nr: 215,
+          name: "epoll_wait_old",
+          hot: false,
+          cat: "io",
+          desc: "(구형, 제거됨) epoll 이벤트 대기. epoll_wait 사용 권장.",
+          args: [],
+        },
+        {
+          nr: 216,
+          name: "remap_file_pages",
+          hot: false,
+          cat: "mem",
+          desc: "(구형, 느림) 비선형 파일 매핑을 생성한다. 현재는 일반 mmap으로 에뮬레이션됨.",
+          args: [
+            ["rdi", "start", "매핑 시작 주소"],
+            ["rsi", "size", "매핑 크기"],
+            ["rdx", "prot", "보호 속성 (현재 0이어야 함)"],
+            ["r10", "pgoff", "파일 페이지 오프셋"],
+            ["r8", "flags", "MAP_NONBLOCK 등"],
+          ],
+        },
+        {
+          nr: 217,
+          name: "getdents64",
+          hot: false,
+          cat: "fs",
+          desc: "디렉터리 항목을 64비트 struct linux_dirent64 형식으로 읽는다. getdents보다 권장.",
+          args: [
+            ["rdi", "fd", "열린 디렉터리 fd"],
+            ["rsi", "dirp *", "결과를 저장할 버퍼 포인터"],
+            ["rdx", "count", "버퍼 크기 (바이트)"],
+          ],
+        },
+        {
+          nr: 218,
+          name: "set_tid_address",
+          hot: false,
+          cat: "proc",
+          desc: "스레드 종료 시 0을 쓸 주소를 설정한다. POSIX 스레드 join(futex 기반)에 사용.",
+          args: [["rdi", "tidptr *", "스레드 종료 시 0을 써야 할 int 포인터"]],
+        },
+        {
+          nr: 219,
+          name: "restart_syscall",
+          hot: false,
+          cat: "sys",
+          desc: "시그널로 중단된 syscall을 재시작한다. 커널 내부에서 자동으로 사용.",
+          args: [],
+        },
+        {
+          nr: 220,
+          name: "semtimedop",
+          hot: false,
+          cat: "ipc",
+          desc: "타임아웃이 있는 semop. 지정 시간 내 세마포어 조건 미충족 시 EAGAIN 반환.",
+          args: [
+            ["rdi", "semid", "세마포어 집합 ID"],
+            ["rsi", "sops *", "struct sembuf 배열 포인터"],
+            ["rdx", "nsops", "연산 수"],
+            [
+              "r10",
+              "timeout *",
+              "최대 대기 시간 struct timespec 포인터. NULL이면 무한",
+            ],
+          ],
+        },
+        {
+          nr: 221,
+          name: "fadvise64",
+          hot: false,
+          cat: "io",
+          desc: "파일 접근 패턴 힌트를 커널에 전달하여 I/O 성능을 최적화한다.",
+          args: [
+            ["rdi", "fd", "힌트를 줄 파일 fd"],
+            ["rsi", "offset", "힌트를 적용할 파일 내 시작 오프셋"],
+            ["rdx", "len", "적용할 바이트 수. 0이면 파일 끝까지"],
+            [
+              "r10",
+              "advice",
+              "POSIX_FADV_NORMAL/SEQUENTIAL/RANDOM/NOREUSE/WILLNEED/DONTNEED",
+            ],
+          ],
+        },
+        {
+          nr: 222,
+          name: "timer_create",
+          hot: false,
+          cat: "time",
+          desc: "POSIX 인터벌 타이머를 생성한다.",
+          args: [
+            [
+              "rdi",
+              "clockid",
+              "CLOCK_REALTIME/CLOCK_MONOTONIC/CLOCK_PROCESS_CPUTIME_ID 등",
+            ],
+            [
+              "rsi",
+              "sevp *",
+              "struct sigevent 포인터: 만료 알림 방식 (시그널/스레드). NULL=SIGALRM",
+            ],
+            ["rdx", "timerid *", "생성된 timer_t를 저장할 포인터"],
+          ],
+        },
+        {
+          nr: 223,
+          name: "timer_settime",
+          hot: false,
+          cat: "time",
+          desc: "POSIX 타이머의 만료 시간과 반복 주기를 설정하거나 비활성화한다.",
+          args: [
+            ["rdi", "timerid", "설정할 타이머 ID"],
+            [
+              "rsi",
+              "flags",
+              "0=상대시간, TIMER_ABSTIME(1)=절대시간(클럭 기준)",
+            ],
+            [
+              "rdx",
+              "new_value *",
+              "struct itimerspec: {it_interval=주기, it_value=첫만료까지}",
+            ],
+            ["r10", "old_value *", "이전 설정을 저장할 포인터. 불필요시 NULL"],
+          ],
+        },
+        {
+          nr: 224,
+          name: "timer_gettime",
+          hot: false,
+          cat: "time",
+          desc: "POSIX 타이머의 현재 남은 시간과 주기를 가져온다.",
+          args: [
+            ["rdi", "timerid", "조회할 타이머 ID"],
+            [
+              "rsi",
+              "curr_value *",
+              "현재 값을 저장할 struct itimerspec 포인터",
+            ],
+          ],
+        },
+        {
+          nr: 225,
+          name: "timer_getoverrun",
+          hot: false,
+          cat: "time",
+          desc: "타이머가 만료됐지만 아직 처리 못한 오버런 횟수를 가져온다.",
+          args: [["rdi", "timerid", "조회할 타이머 ID"]],
+        },
+        {
+          nr: 226,
+          name: "timer_delete",
+          hot: false,
+          cat: "time",
+          desc: "POSIX 타이머를 삭제하고 리소스를 해제한다.",
+          args: [["rdi", "timerid", "삭제할 타이머 ID"]],
+        },
+        {
+          nr: 227,
+          name: "clock_settime",
+          hot: false,
+          cat: "time",
+          desc: "지정 시계의 시간을 직접 설정한다. CAP_SYS_TIME 필요.",
+          args: [
+            ["rdi", "clockid", "설정할 시계 ID (CLOCK_REALTIME만 설정 가능)"],
+            ["rsi", "tp *", "새 시각 struct timespec 포인터"],
+          ],
+        },
+        {
+          nr: 228,
+          name: "clock_gettime",
+          hot: true,
+          cat: "time",
+          desc: "고해상도 시계에서 현재 시간을 나노초 단위로 가져온다.",
+          args: [
+            [
+              "rdi",
+              "clockid",
+              "CLOCK_REALTIME(0)/CLOCK_MONOTONIC(1)/CLOCK_PROCESS_CPUTIME_ID(2)/CLOCK_THREAD_CPUTIME_ID(3)",
+            ],
+            [
+              "rsi",
+              "tp *",
+              "결과를 저장할 struct timespec 포인터: {tv_sec=초, tv_nsec=나노초}",
+            ],
+          ],
+        },
+        {
+          nr: 229,
+          name: "clock_getres",
+          hot: false,
+          cat: "time",
+          desc: "시계의 해상도(최소 눈금)를 가져온다.",
+          args: [
+            ["rdi", "clockid", "조회할 시계 ID"],
+            ["rsi", "res *", "해상도를 저장할 struct timespec 포인터"],
+          ],
+        },
+        {
+          nr: 230,
+          name: "clock_nanosleep",
+          hot: false,
+          cat: "time",
+          desc: "절대 또는 상대 시간 기반으로 고해상도 슬립을 수행한다.",
+          args: [
+            [
+              "rdi",
+              "clockid",
+              "기준 시계 ID (CLOCK_REALTIME/CLOCK_MONOTONIC 등)",
+            ],
+            [
+              "rsi",
+              "flags",
+              "0=상대시간, TIMER_ABSTIME(1)=절대시간 (시계 기준 특정 시각까지 대기)",
+            ],
+            [
+              "rdx",
+              "request *",
+              "대기할 시간 또는 목표 시각 struct timespec 포인터",
+            ],
+            [
+              "r10",
+              "remain *",
+              "시그널로 중단 시 남은 시간 저장 포인터. TIMER_ABSTIME이면 무시",
+            ],
+          ],
+        },
+        {
+          nr: 231,
+          name: "exit_group",
+          hot: true,
+          cat: "proc",
+          desc: "프로세스의 모든 스레드를 종료한다. exit(3) libc 함수가 내부적으로 호출.",
+          args: [
+            ["rdi", "error_code", "종료 상태 코드 (0=정상 종료, 비0=오류)"],
+          ],
+        },
+        {
+          nr: 232,
+          name: "epoll_wait",
+          hot: true,
+          cat: "io",
+          desc: "epoll에 등록된 fd들에서 I/O 이벤트가 발생하기를 기다린다.",
+          args: [
+            ["rdi", "epfd", "epoll_create로 생성한 epoll 인스턴스 fd"],
+            [
+              "rsi",
+              "events *",
+              "발생한 이벤트를 저장할 struct epoll_event 배열",
+            ],
+            ["rdx", "maxevents", "events 배열의 최대 크기 (0보다 커야 함)"],
+            [
+              "r10",
+              "timeout",
+              "대기 시간(ms). -1=무한대기, 0=즉시반환(non-blocking)",
+            ],
+          ],
+        },
+        {
+          nr: 233,
+          name: "epoll_ctl",
+          hot: true,
+          cat: "io",
+          desc: "epoll 인스턴스에 fd를 추가/수정/삭제한다.",
+          args: [
+            ["rdi", "epfd", "epoll 인스턴스 fd"],
+            [
+              "rsi",
+              "op",
+              "EPOLL_CTL_ADD(1)=추가, EPOLL_CTL_DEL(2)=삭제, EPOLL_CTL_MOD(3)=수정",
+            ],
+            ["rdx", "fd", "등록/변경/삭제할 대상 fd"],
+            [
+              "r10",
+              "event *",
+              "struct epoll_event 포인터: events(EPOLLIN/OUT/ET/RDHUP 등)+data",
+            ],
+          ],
+        },
+        {
+          nr: 234,
+          name: "tgkill",
+          hot: false,
+          cat: "sig",
+          desc: "스레드 그룹 내 특정 스레드(TID)에 시그널을 보낸다. tkill보다 안전.",
+          args: [
+            [
+              "rdi",
+              "tgid",
+              "대상 스레드가 속한 스레드 그룹 ID (= 프로세스 PID)",
+            ],
+            ["rsi", "tid", "시그널을 보낼 특정 스레드 TID"],
+            ["rdx", "sig", "보낼 시그널 번호"],
+          ],
+        },
+        {
+          nr: 235,
+          name: "utimes",
+          hot: false,
+          cat: "fs",
+          desc: "파일의 접근/수정 시간을 마이크로초 단위로 설정한다.",
+          args: [
+            ["rdi", "filename *", "변경할 파일 경로"],
+            [
+              "rsi",
+              "times[2] *",
+              "struct timeval 배열: [0]=접근시간, [1]=수정시간. NULL이면 현재시각",
+            ],
+          ],
+        },
+        {
+          nr: 236,
+          name: "vserver",
+          hot: false,
+          cat: "sys",
+          desc: "(미구현) Linux-VServer 가상화 syscall. 항상 ENOSYS 반환.",
+          args: [],
+        },
+        {
+          nr: 237,
+          name: "mbind",
+          hot: false,
+          cat: "mem",
+          desc: "메모리 영역의 NUMA 정책(메모리 노드 배치)을 설정한다.",
+          args: [
+            [
+              "rdi",
+              "addr",
+              "NUMA 정책을 설정할 메모리 시작 주소 (페이지 경계)",
+            ],
+            ["rsi", "len", "바이트 수"],
+            [
+              "rdx",
+              "mode",
+              "MPOL_DEFAULT/MPOL_BIND/MPOL_PREFERRED/MPOL_INTERLEAVE 등",
+            ],
+            ["r10", "nodemask *", "허용할 NUMA 노드들의 비트마스크 포인터"],
+            ["r8", "maxnode", "nodemask의 최대 비트 수 + 1"],
+            ["r9", "flags", "MPOL_MF_STRICT/MPOL_MF_MOVE/MPOL_MF_MOVE_ALL 등"],
+          ],
+        },
+        {
+          nr: 238,
+          name: "set_mempolicy",
+          hot: false,
+          cat: "mem",
+          desc: "스레드의 기본 NUMA 메모리 할당 정책을 설정한다.",
+          args: [
+            [
+              "rdi",
+              "mode",
+              "MPOL_DEFAULT/MPOL_BIND/MPOL_PREFERRED/MPOL_INTERLEAVE",
+            ],
+            ["rsi", "nodemask *", "허용할 NUMA 노드 비트마스크 포인터"],
+            ["rdx", "maxnode", "노드마스크 최대 비트 수 + 1"],
+          ],
+        },
+        {
+          nr: 239,
+          name: "get_mempolicy",
+          hot: false,
+          cat: "mem",
+          desc: "스레드 또는 특정 주소의 NUMA 메모리 정책을 가져온다.",
+          args: [
+            ["rdi", "mode *", "현재 NUMA 정책 모드를 저장할 포인터"],
+            ["rsi", "nodemask *", "노드 마스크를 저장할 버퍼"],
+            ["rdx", "maxnode", "노드마스크 버퍼 크기(비트 수)"],
+            ["r10", "addr", "조회할 주소 (MPOL_F_ADDR 플래그 시 사용)"],
+            ["r8", "flags", "MPOL_F_NODE/MPOL_F_ADDR/MPOL_F_MEMS_ALLOWED 등"],
+          ],
+        },
+        {
+          nr: 240,
+          name: "mq_open",
+          hot: false,
+          cat: "ipc",
+          desc: "POSIX 메시지 큐를 열거나 생성한다.",
+          args: [
+            [
+              "rdi",
+              "name *",
+              "메시지 큐 이름 (반드시 / 로 시작, 예: /myqueue)",
+            ],
+            [
+              "rsi",
+              "oflag",
+              "O_RDONLY/O_WRONLY/O_RDWR + O_CREAT/O_EXCL/O_NONBLOCK 조합",
+            ],
+            ["rdx", "mode", "O_CREAT 시 권한 비트 (예: 0644)"],
+            [
+              "r10",
+              "attr *",
+              "struct mq_attr 포인터: mq_maxmsg(최대메시지수), mq_msgsize(최대크기) 설정",
+            ],
+          ],
+        },
+        {
+          nr: 241,
+          name: "mq_unlink",
+          hot: false,
+          cat: "ipc",
+          desc: "POSIX 메시지 큐를 파일시스템에서 삭제한다.",
+          args: [["rdi", "name *", "삭제할 메시지 큐 이름"]],
+        },
+        {
+          nr: 242,
+          name: "mq_timedsend",
+          hot: false,
+          cat: "ipc",
+          desc: "타임아웃과 함께 POSIX 메시지 큐에 메시지를 보낸다.",
+          args: [
+            ["rdi", "mqdes", "mq_open으로 얻은 메시지 큐 fd"],
+            ["rsi", "msg_ptr *", "보낼 메시지 데이터 버퍼"],
+            ["rdx", "msg_len", "메시지 크기 (mq_msgsize 이하)"],
+            ["r10", "msg_prio", "메시지 우선순위 (높을수록 먼저 수신. 0 이상)"],
+            [
+              "r8",
+              "abs_timeout *",
+              "최대 대기 절대시간 struct timespec. NULL이면 즉시",
+            ],
+          ],
+        },
+        {
+          nr: 243,
+          name: "mq_timedreceive",
+          hot: false,
+          cat: "ipc",
+          desc: "타임아웃과 함께 POSIX 메시지 큐에서 메시지를 받는다.",
+          args: [
+            ["rdi", "mqdes", "메시지 큐 fd"],
+            ["rsi", "msg_ptr *", "수신 메시지를 저장할 버퍼"],
+            ["rdx", "msg_len", "버퍼 크기 (mq_msgsize 이상)"],
+            [
+              "r10",
+              "msg_prio *",
+              "수신된 메시지 우선순위를 저장할 포인터. 불필요시 NULL",
+            ],
+            ["r8", "abs_timeout *", "최대 대기 절대시간 struct timespec"],
+          ],
+        },
+        {
+          nr: 244,
+          name: "mq_notify",
+          hot: false,
+          cat: "ipc",
+          desc: "메시지 큐에 메시지 도착 시 비동기 알림을 등록한다.",
+          args: [
+            ["rdi", "mqdes", "메시지 큐 fd"],
+            [
+              "rsi",
+              "sevp *",
+              "struct sigevent 포인터: 알림 방법 지정. NULL이면 알림 등록 취소",
+            ],
+          ],
+        },
+        {
+          nr: 245,
+          name: "mq_getsetattr",
+          hot: false,
+          cat: "ipc",
+          desc: "메시지 큐 속성(비블로킹 설정 등)을 가져오거나 변경한다.",
+          args: [
+            ["rdi", "mqdes", "메시지 큐 fd"],
+            [
+              "rsi",
+              "mqstat *",
+              "설정할 새 속성 struct mq_attr 포인터 (mq_flags만 변경 가능)",
+            ],
+            ["rdx", "omqstat *", "이전 속성을 저장할 포인터. 불필요시 NULL"],
+          ],
+        },
+        {
+          nr: 246,
+          name: "kexec_load",
+          hot: false,
+          cat: "sys",
+          desc: "새 커널 이미지를 메모리에 로드한다 (kexec 재부팅 준비). CAP_SYS_BOOT 필요.",
+          args: [
+            ["rdi", "entry", "로드된 커널의 진입점 주소"],
+            ["rsi", "nr_segments", "segments 배열의 원소 수"],
+            [
+              "rdx",
+              "segments *",
+              "struct kexec_segment 배열: 각 세그먼트의 버퍼와 주소",
+            ],
+            ["r10", "flags", "KEXEC_ON_CRASH/KEXEC_PRESERVE_CONTEXT 등"],
+          ],
+        },
+        {
+          nr: 247,
+          name: "waitid",
+          hot: false,
+          cat: "proc",
+          desc: "자식 프로세스 상태 변화를 더 세밀한 옵션으로 기다린다. wait4보다 유연.",
+          args: [
+            [
+              "rdi",
+              "idtype",
+              "P_PID(0)=특정PID, P_PGID(1)=프로세스그룹, P_ALL(2)=모든자식",
+            ],
+            ["rsi", "id", "idtype에 해당하는 PID/PGID. P_ALL이면 무시"],
+            ["rdx", "infop *", "결과를 저장할 siginfo_t 포인터"],
+            [
+              "r10",
+              "options",
+              "WEXITED/WSTOPPED/WCONTINUED/WNOHANG/WNOWAIT 조합",
+            ],
+            [
+              "r8",
+              "rusage *",
+              "리소스 사용량 struct rusage 포인터. 불필요시 NULL",
+            ],
+          ],
+        },
+        {
+          nr: 248,
+          name: "add_key",
+          hot: false,
+          cat: "sys",
+          desc: "커널 키링(keyring)에 새 인증 키를 추가한다.",
+          args: [
+            [
+              "rdi",
+              "type *",
+              "키 유형 문자열 (user, logon, big_key, keyring 등)",
+            ],
+            ["rsi", "description *", "키를 식별하는 설명 문자열"],
+            ["rdx", "payload *", "키 데이터 포인터"],
+            ["r10", "plen", "payload 크기 (바이트)"],
+            ["r8", "keyring", "키를 저장할 키링 ID (KEY_SPEC_USER_KEYRING 등)"],
+          ],
+        },
+        {
+          nr: 249,
+          name: "request_key",
+          hot: false,
+          cat: "sys",
+          desc: "커널 키링에서 키를 검색한다. 없으면 사용자 공간 핸들러에 요청.",
+          args: [
+            ["rdi", "type *", "키 유형 문자열"],
+            ["rsi", "description *", "검색할 키 설명"],
+            [
+              "rdx",
+              "callout_info *",
+              "키 미존재 시 키 생성 핸들러에 전달할 문자열. NULL이면 핸들러 호출 안 함",
+            ],
+            ["r10", "dest_keyring", "찾은 키를 링크할 목적지 키링 ID"],
+          ],
+        },
+        {
+          nr: 250,
+          name: "keyctl",
+          hot: false,
+          cat: "sys",
+          desc: "커널 키를 조작한다 (읽기, 업데이트, 권한 설정 등).",
+          args: [
+            [
+              "rdi",
+              "operation",
+              "KEYCTL_GET_KEYRING_ID/KEYCTL_READ/KEYCTL_UPDATE/KEYCTL_REVOKE 등",
+            ],
+            ["rsi", "arg2", "operation에 따라 키 ID 또는 키링 ID"],
+            ["rdx", "arg3", "operation에 따라 버퍼 포인터 또는 크기"],
+            ["r10", "arg4", "추가 인자"],
+            ["r8", "arg5", "추가 인자"],
+          ],
+        },
+        {
+          nr: 251,
+          name: "ioprio_set",
+          hot: false,
+          cat: "sched",
+          desc: "프로세스/스레드의 I/O 우선순위 클래스와 레벨을 설정한다.",
+          args: [
+            [
+              "rdi",
+              "which",
+              "IOPRIO_WHO_PROCESS(1)/IOPRIO_WHO_PGRP(2)/IOPRIO_WHO_USER(3)",
+            ],
+            ["rsi", "who", "대상 PID/PGID/UID. 0이면 현재"],
+            [
+              "rdx",
+              "ioprio",
+              "IOPRIO_PRIO_VALUE(class, data): class=IOPRIO_CLASS_RT/BE/IDLE, data=우선순위(0~7)",
+            ],
+          ],
+        },
+        {
+          nr: 252,
+          name: "ioprio_get",
+          hot: false,
+          cat: "sched",
+          desc: "프로세스의 현재 I/O 우선순위를 가져온다.",
+          args: [
+            ["rdi", "which", "IOPRIO_WHO_PROCESS/PGRP/USER"],
+            ["rsi", "who", "대상 PID/PGID/UID. 0이면 현재"],
+          ],
+        },
+        {
+          nr: 253,
+          name: "inotify_init",
+          hot: false,
+          cat: "fs",
+          desc: "파일 이벤트 감시를 위한 inotify 인스턴스를 생성한다. inotify_init1 권장.",
+          args: [],
+        },
+        {
+          nr: 254,
+          name: "inotify_add_watch",
+          hot: false,
+          cat: "fs",
+          desc: "inotify 인스턴스에 감시할 파일/디렉터리와 이벤트 마스크를 등록한다.",
+          args: [
+            ["rdi", "fd", "inotify_init으로 생성한 인스턴스 fd"],
+            ["rsi", "pathname *", "감시할 파일 또는 디렉터리 경로"],
+            [
+              "rdx",
+              "mask",
+              "IN_CREATE/IN_DELETE/IN_MODIFY/IN_MOVED_FROM/IN_MOVED_TO/IN_ATTRIB 등 이벤트 조합",
+            ],
+          ],
+        },
+        {
+          nr: 255,
+          name: "inotify_rm_watch",
+          hot: false,
+          cat: "fs",
+          desc: "inotify 인스턴스에서 특정 감시 항목을 제거한다.",
+          args: [
+            ["rdi", "fd", "inotify 인스턴스 fd"],
+            ["rsi", "wd", "inotify_add_watch가 반환한 watch 디스크립터(WD)"],
+          ],
+        },
+        {
+          nr: 256,
+          name: "migrate_pages",
+          hot: false,
+          cat: "mem",
+          desc: "프로세스의 메모리 페이지를 지정 NUMA 노드 간에 이동한다.",
+          args: [
+            ["rdi", "pid", "이동할 프로세스 PID. 0이면 현재"],
+            ["rsi", "maxnode", "노드마스크의 최대 비트 수 + 1"],
+            ["rdx", "from *", "이동할 소스 NUMA 노드 비트마스크"],
+            ["r10", "to *", "이동할 대상 NUMA 노드 비트마스크"],
+          ],
+        },
+        {
+          nr: 257,
+          name: "openat",
+          hot: true,
+          cat: "fs",
+          desc: "dirfd 기준 상대 경로로 파일을 연다. AT_FDCWD 사용 시 현재 작업 디렉터리 기준.",
+          args: [
+            [
+              "rdi",
+              "dirfd",
+              "기준 디렉터리 fd. AT_FDCWD(-100)이면 현재 작업 디렉터리",
+            ],
+            ["rsi", "pathname *", "열 파일 경로. 절대경로면 dirfd 무시됨"],
+            [
+              "rdx",
+              "flags",
+              "O_RDONLY/O_WRONLY/O_RDWR/O_CREAT/O_TRUNC 등 플래그 조합",
+            ],
+            ["r10", "mode", "O_CREAT 시 파일 권한 비트 (예: 0644)"],
+          ],
+        },
+        {
+          nr: 258,
+          name: "mkdirat",
+          hot: false,
+          cat: "fs",
+          desc: "dirfd 기준 상대 경로에 디렉터리를 생성한다.",
+          args: [
+            ["rdi", "dirfd", "기준 디렉터리 fd (AT_FDCWD 가능)"],
+            ["rsi", "pathname *", "생성할 디렉터리 경로"],
+            ["rdx", "mode", "권한 비트"],
+          ],
+        },
+        {
+          nr: 259,
+          name: "mknodat",
+          hot: false,
+          cat: "fs",
+          desc: "dirfd 기준으로 파일시스템 노드를 생성한다.",
+          args: [
+            ["rdi", "dirfd", "기준 디렉터리 fd"],
+            ["rsi", "pathname *", "생성할 경로"],
+            ["rdx", "mode", "파일 타입 + 권한 비트"],
+            ["r10", "dev", "장치 번호 (디바이스 파일의 경우)"],
+          ],
+        },
+        {
+          nr: 260,
+          name: "fchownat",
+          hot: false,
+          cat: "fs",
+          desc: "dirfd 기준 파일의 소유자/그룹을 변경한다.",
+          args: [
+            ["rdi", "dirfd", "기준 디렉터리 fd"],
+            ["rsi", "pathname *", "파일 경로"],
+            ["rdx", "owner", "새 UID. -1이면 변경 없음"],
+            ["r10", "group", "새 GID. -1이면 변경 없음"],
+            ["r8", "flags", "AT_SYMLINK_NOFOLLOW이면 심볼릭 링크 자체 변경"],
+          ],
+        },
+        {
+          nr: 261,
+          name: "futimesat",
+          hot: false,
+          cat: "fs",
+          desc: "dirfd 기준 파일의 접근/수정 시간을 변경한다. utimensat 권장.",
+          args: [
+            ["rdi", "dirfd", "기준 디렉터리 fd"],
+            ["rsi", "pathname *", "파일 경로"],
+            [
+              "rdx",
+              "times[2] *",
+              "struct timeval 배열: [0]=접근, [1]=수정. NULL이면 현재시각",
+            ],
+          ],
+        },
+        {
+          nr: 262,
+          name: "newfstatat",
+          hot: false,
+          cat: "fs",
+          desc: "dirfd 기준 파일의 메타데이터를 가져온다. (fstatat와 동일)",
+          args: [
+            ["rdi", "dirfd", "기준 디렉터리 fd"],
+            [
+              "rsi",
+              "pathname *",
+              "파일 경로. 빈 문자열+AT_EMPTY_PATH이면 fd 직접 조회",
+            ],
+            ["rdx", "statbuf *", "struct stat 포인터"],
+            [
+              "r10",
+              "flag",
+              "AT_SYMLINK_NOFOLLOW/AT_EMPTY_PATH/AT_NO_AUTOMOUNT 등",
+            ],
+          ],
+        },
+        {
+          nr: 263,
+          name: "unlinkat",
+          hot: false,
+          cat: "fs",
+          desc: "dirfd 기준으로 파일 또는 디렉터리를 삭제한다.",
+          args: [
+            ["rdi", "dirfd", "기준 디렉터리 fd"],
+            ["rsi", "pathname *", "삭제할 파일/디렉터리 경로"],
+            [
+              "rdx",
+              "flags",
+              "0이면 파일 삭제. AT_REMOVEDIR(0x200)이면 디렉터리 삭제(rmdir 동작)",
+            ],
+          ],
+        },
+        {
+          nr: 264,
+          name: "renameat",
+          hot: false,
+          cat: "fs",
+          desc: "두 dirfd 기준으로 파일 이름/위치를 변경한다.",
+          args: [
+            ["rdi", "olddirfd", "원본 기준 디렉터리 fd"],
+            ["rsi", "oldpath *", "현재 경로"],
+            ["rdx", "newdirfd", "대상 기준 디렉터리 fd"],
+            ["r10", "newpath *", "새 경로"],
+          ],
+        },
+        {
+          nr: 265,
+          name: "linkat",
+          hot: false,
+          cat: "fs",
+          desc: "dirfd 기준으로 하드 링크를 생성한다.",
+          args: [
+            ["rdi", "olddirfd", "원본 기준 fd"],
+            ["rsi", "oldpath *", "원본 경로"],
+            ["rdx", "newdirfd", "링크 생성 기준 fd"],
+            ["r10", "newpath *", "새 링크 경로"],
+            ["r8", "flags", "AT_EMPTY_PATH(빈경로 허용)/AT_SYMLINK_FOLLOW 등"],
+          ],
+        },
+        {
+          nr: 266,
+          name: "symlinkat",
+          hot: false,
+          cat: "fs",
+          desc: "dirfd 기준으로 심볼릭 링크를 생성한다.",
+          args: [
+            ["rdi", "target *", "링크가 가리킬 대상 경로"],
+            ["rsi", "newdirfd", "링크 생성 기준 디렉터리 fd"],
+            ["rdx", "linkpath *", "생성할 심볼릭 링크 경로"],
+          ],
+        },
+        {
+          nr: 267,
+          name: "readlinkat",
+          hot: false,
+          cat: "fs",
+          desc: "dirfd 기준 심볼릭 링크 내용을 읽는다.",
+          args: [
+            ["rdi", "dirfd", "기준 디렉터리 fd"],
+            ["rsi", "pathname *", "읽을 심볼릭 링크 경로"],
+            ["rdx", "buf *", "결과 경로 저장 버퍼 (NULL 종료 없음)"],
+            ["r10", "bufsiz", "버퍼 크기"],
+          ],
+        },
+        {
+          nr: 268,
+          name: "fchmodat",
+          hot: false,
+          cat: "fs",
+          desc: "dirfd 기준 파일의 권한을 변경한다.",
+          args: [
+            ["rdi", "dirfd", "기준 디렉터리 fd"],
+            ["rsi", "filename *", "파일 경로"],
+            ["rdx", "mode", "새 권한 비트"],
+            ["r10", "flags", "0 또는 AT_SYMLINK_NOFOLLOW"],
+          ],
+        },
+        {
+          nr: 269,
+          name: "faccessat",
+          hot: false,
+          cat: "fs",
+          desc: "dirfd 기준 파일 접근 권한을 확인한다.",
+          args: [
+            ["rdi", "dirfd", "기준 디렉터리 fd"],
+            ["rsi", "filename *", "확인할 파일 경로"],
+            ["rdx", "mode", "F_OK/R_OK/W_OK/X_OK 조합"],
+            ["r10", "flags", "AT_EACCESS/AT_SYMLINK_NOFOLLOW 등"],
+          ],
+        },
+        {
+          nr: 270,
+          name: "pselect6",
+          hot: false,
+          cat: "io",
+          desc: "nanosecond 타임아웃과 시그널 마스크를 지원하는 select 확장.",
+          args: [
+            ["rdi", "n", "감시 fd 최댓값 + 1"],
+            ["rsi", "inp *", "읽기 대기 fd 집합"],
+            ["rdx", "outp *", "쓰기 대기 fd 집합"],
+            ["r10", "exp *", "예외 fd 집합"],
+            ["r8", "tsp *", "struct timespec 타임아웃 포인터"],
+            ["r9", "sig *", "대기 중 적용할 시그널 마스크 포인터"],
+          ],
+        },
+        {
+          nr: 271,
+          name: "ppoll",
+          hot: false,
+          cat: "io",
+          desc: "nanosecond 타임아웃과 시그널 마스크를 지원하는 poll 확장.",
+          args: [
+            ["rdi", "fds *", "struct pollfd 배열 포인터"],
+            ["rsi", "nfds", "배열 원소 수"],
+            ["rdx", "tmo_p *", "struct timespec 타임아웃. NULL=무한"],
+            [
+              "r10",
+              "sigmask *",
+              "대기 중 적용할 sigset_t 포인터. NULL이면 마스크 변경 없음",
+            ],
+            ["r8", "sigsetsize", "sigset_t 크기"],
+          ],
+        },
+        {
+          nr: 272,
+          name: "unshare",
+          hot: false,
+          cat: "proc",
+          desc: "현재 프로세스의 일부 네임스페이스를 새로 분리하여 독립적인 사본을 만든다.",
+          args: [
+            [
+              "rdi",
+              "unshare_flags",
+              "CLONE_NEWNS/CLONE_NEWNET/CLONE_NEWPID/CLONE_NEWUTS/CLONE_NEWIPC/CLONE_NEWUSER 등",
+            ],
+          ],
+        },
+        {
+          nr: 273,
+          name: "set_robust_list",
+          hot: false,
+          cat: "proc",
+          desc: "스레드 종료 시 자동으로 잠금 해제할 강건한 뮤텍스 목록을 등록한다.",
+          args: [
+            [
+              "rdi",
+              "head *",
+              "struct robust_list_head 포인터 (연결 리스트 헤더)",
+            ],
+            [
+              "rsi",
+              "len",
+              "head 구조체 크기 (sizeof(struct robust_list_head))",
+            ],
+          ],
+        },
+        {
+          nr: 274,
+          name: "get_robust_list",
+          hot: false,
+          cat: "proc",
+          desc: "스레드의 강건한 뮤텍스 목록 포인터를 가져온다.",
+          args: [
+            ["rdi", "pid", "조회할 스레드 TID. 0이면 현재"],
+            [
+              "rsi",
+              "head_ptr **",
+              "robust_list_head 포인터를 저장할 포인터의 포인터",
+            ],
+            ["rdx", "len_ptr *", "head 크기를 저장할 포인터"],
+          ],
+        },
+        {
+          nr: 275,
+          name: "splice",
+          hot: false,
+          cat: "io",
+          desc: "두 fd 사이에서 커널 버퍼를 이용해 데이터를 이동한다. 반드시 하나는 파이프여야 함.",
+          args: [
+            ["rdi", "fd_in", "읽을 소스 fd (파이프 또는 파일)"],
+            [
+              "rsi",
+              "off_in *",
+              "소스 파일 오프셋 포인터. fd_in이 파이프면 NULL",
+            ],
+            ["rdx", "fd_out", "쓸 대상 fd (파이프 또는 파일)"],
+            [
+              "r10",
+              "off_out *",
+              "대상 파일 오프셋 포인터. fd_out이 파이프면 NULL",
+            ],
+            ["r8", "len", "이동할 바이트 수"],
+            ["r9", "flags", "SPLICE_F_MOVE/SPLICE_F_NONBLOCK/SPLICE_F_MORE 등"],
+          ],
+        },
+        {
+          nr: 276,
+          name: "tee",
+          hot: false,
+          cat: "io",
+          desc: "한 파이프의 데이터를 소비하지 않고 다른 파이프로 복제한다.",
+          args: [
+            ["rdi", "fd_in", "읽을 소스 파이프 fd"],
+            ["rsi", "fd_out", "복제할 대상 파이프 fd"],
+            ["rdx", "len", "복제할 바이트 수"],
+            ["r10", "flags", "SPLICE_F_NONBLOCK 등"],
+          ],
+        },
+        {
+          nr: 277,
+          name: "sync_file_range",
+          hot: false,
+          cat: "fs",
+          desc: "파일의 지정 범위 페이지 캐시를 디스크에 동기화한다.",
+          args: [
+            ["rdi", "fd", "동기화할 파일 fd"],
+            ["rsi", "offset", "동기화 시작 오프셋"],
+            ["rdx", "nbytes", "동기화할 바이트 수. 0이면 파일 끝까지"],
+            [
+              "r10",
+              "flags",
+              "SYNC_FILE_RANGE_WAIT_BEFORE/WRITE/WAIT_AFTER 조합",
+            ],
+          ],
+        },
+        {
+          nr: 278,
+          name: "vmsplice",
+          hot: false,
+          cat: "io",
+          desc: "사용자 공간 메모리 버퍼를 파이프에 스플라이스(이동)한다.",
+          args: [
+            ["rdi", "fd", "대상 파이프 fd"],
+            ["rsi", "iov *", "struct iovec 배열 포인터 (사용자 공간 버퍼들)"],
+            ["rdx", "nr_segs", "iovec 배열 원소 수"],
+            ["r10", "flags", "SPLICE_F_GIFT(소유권이전)/SPLICE_F_NONBLOCK 등"],
+          ],
+        },
+        {
+          nr: 279,
+          name: "move_pages",
+          hot: false,
+          cat: "mem",
+          desc: "프로세스 내 여러 메모리 페이지를 지정 NUMA 노드로 이동한다.",
+          args: [
+            ["rdi", "pid", "이동할 프로세스 PID. 0이면 현재"],
+            ["rsi", "nr_pages", "이동할 페이지 수"],
+            ["rdx", "pages **", "이동할 페이지 주소들의 배열"],
+            [
+              "r10",
+              "nodes *",
+              "각 페이지의 목적 NUMA 노드 번호 배열. NULL이면 현재 노드 조회",
+            ],
+            [
+              "r8",
+              "status *",
+              "각 페이지의 결과(노드번호 또는 오류코드) 저장 배열",
+            ],
+            [
+              "r9",
+              "flags",
+              "MPOL_MF_MOVE(해당프로세스만)/MPOL_MF_MOVE_ALL(공유페이지도)",
+            ],
+          ],
+        },
+        {
+          nr: 280,
+          name: "utimensat",
+          hot: false,
+          cat: "fs",
+          desc: "파일의 접근/수정 시간을 나노초 단위로 설정한다. utime/utimes보다 정밀.",
+          args: [
+            ["rdi", "dirfd", "기준 디렉터리 fd (AT_FDCWD 가능)"],
+            ["rsi", "pathname *", "파일 경로. NULL이면 dirfd 파일 자체"],
+            [
+              "rdx",
+              "times[2] *",
+              "struct timespec 배열: [0]=접근시간, [1]=수정시간. NULL=현재시각",
+            ],
+            ["r10", "flags", "AT_SYMLINK_NOFOLLOW이면 심볼릭 링크 자체 변경"],
+          ],
+        },
+        {
+          nr: 281,
+          name: "epoll_pwait",
+          hot: false,
+          cat: "io",
+          desc: "시그널 마스크를 원자적으로 교체하며 epoll 이벤트를 대기한다.",
+          args: [
+            ["rdi", "epfd", "epoll 인스턴스 fd"],
+            ["rsi", "events *", "이벤트 저장 배열"],
+            ["rdx", "maxevents", "배열 최대 크기"],
+            ["r10", "timeout", "대기 시간 (ms)"],
+            [
+              "r8",
+              "sigmask *",
+              "대기 중 적용할 시그널 마스크. NULL이면 마스크 변경 없음",
+            ],
+            ["r9", "sigsetsize", "sigset_t 크기"],
+          ],
+        },
+        {
+          nr: 282,
+          name: "signalfd",
+          hot: false,
+          cat: "sig",
+          desc: "시그널을 파일처럼 read()로 수신할 수 있는 fd를 생성한다. select/epoll과 통합 가능.",
+          args: [
+            ["rdi", "fd", "기존 signalfd fd (업데이트 시) 또는 -1 (새로 생성)"],
+            ["rsi", "mask *", "수신할 시그널 집합 sigset_t 포인터"],
+            ["rdx", "sizemask", "sigset_t 크기"],
+          ],
+        },
+        {
+          nr: 283,
+          name: "timerfd_create",
+          hot: false,
+          cat: "time",
+          desc: "타이머 이벤트를 fd로 읽을 수 있는 타이머 fd를 생성한다. epoll과 통합 가능.",
+          args: [
+            [
+              "rdi",
+              "clockid",
+              "기준 시계: CLOCK_REALTIME(0)/CLOCK_MONOTONIC(1)",
+            ],
+            [
+              "rsi",
+              "flags",
+              "TFD_NONBLOCK(비블로킹)/TFD_CLOEXEC(exec시닫힘) 조합",
+            ],
+          ],
+        },
+        {
+          nr: 284,
+          name: "eventfd",
+          hot: false,
+          cat: "ipc",
+          desc: "이벤트 카운터 fd를 생성한다. 프로세스/스레드 간 이벤트 알림용.",
+          args: [["rdi", "initval", "카운터 초기값 (0 이상)"]],
+        },
+        {
+          nr: 285,
+          name: "fallocate",
+          hot: false,
+          cat: "fs",
+          desc: "파일에 디스크 공간을 미리 할당하거나 빈 공간을 만든다.",
+          args: [
+            ["rdi", "fd", "대상 파일 fd (쓰기 모드로 열려있어야 함)"],
+            [
+              "rsi",
+              "mode",
+              "0=공간할당, FALLOC_FL_KEEP_SIZE/FALLOC_FL_PUNCH_HOLE/FALLOC_FL_ZERO_RANGE 등",
+            ],
+            ["rdx", "offset", "할당 시작 오프셋"],
+            ["r10", "len", "할당할 바이트 수"],
+          ],
+        },
+        {
+          nr: 286,
+          name: "timerfd_settime",
+          hot: false,
+          cat: "time",
+          desc: "timerfd의 타이머 만료 시간과 반복 주기를 설정한다.",
+          args: [
+            ["rdi", "ufd", "timerfd_create로 만든 fd"],
+            ["rsi", "flags", "0=상대시간, TFD_TIMER_ABSTIME(1)=절대시간"],
+            [
+              "rdx",
+              "utmr *",
+              "새 타이머 값 struct itimerspec: it_interval=반복주기, it_value=첫만료시간",
+            ],
+            ["r10", "otmr *", "이전 설정을 저장할 포인터. 불필요시 NULL"],
+          ],
+        },
+        {
+          nr: 287,
+          name: "timerfd_gettime",
+          hot: false,
+          cat: "time",
+          desc: "timerfd 타이머의 현재 남은 시간과 주기를 가져온다.",
+          args: [
+            ["rdi", "ufd", "timerfd fd"],
+            ["rsi", "otmr *", "현재 값을 저장할 struct itimerspec 포인터"],
+          ],
+        },
+        {
+          nr: 288,
+          name: "accept4",
+          hot: false,
+          cat: "net",
+          desc: "accept에 SOCK_NONBLOCK/SOCK_CLOEXEC 플래그를 추가한 버전.",
+          args: [
+            ["rdi", "sockfd", "listen() 상태 소켓 fd"],
+            ["rsi", "addr *", "클라이언트 주소 저장 포인터. NULL 가능"],
+            ["rdx", "addrlen *", "주소 크기 포인터"],
+            [
+              "r10",
+              "flags",
+              "SOCK_NONBLOCK(비블로킹)/SOCK_CLOEXEC(exec시닫힘) 조합",
+            ],
+          ],
+        },
+        {
+          nr: 289,
+          name: "signalfd4",
+          hot: false,
+          cat: "sig",
+          desc: "flags 인자를 지원하는 signalfd 확장.",
+          args: [
+            ["rdi", "fd", "-1이면 새 fd 생성, 기존 signalfd이면 업데이트"],
+            ["rsi", "mask *", "수신할 시그널 집합 sigset_t 포인터"],
+            ["rdx", "sizemask", "sigset_t 크기"],
+            ["r10", "flags", "SFD_NONBLOCK/SFD_CLOEXEC 조합"],
+          ],
+        },
+        {
+          nr: 290,
+          name: "eventfd2",
+          hot: false,
+          cat: "ipc",
+          desc: "EFD_NONBLOCK/EFD_CLOEXEC/EFD_SEMAPHORE 플래그를 지원하는 eventfd 확장.",
+          args: [
+            ["rdi", "initval", "카운터 초기값"],
+            [
+              "rsi",
+              "flags",
+              "EFD_NONBLOCK/EFD_CLOEXEC/EFD_SEMAPHORE(세마포어모드) 조합",
+            ],
+          ],
+        },
+        {
+          nr: 291,
+          name: "epoll_create1",
+          hot: true,
+          cat: "io",
+          desc: "EPOLL_CLOEXEC 플래그를 지원하는 epoll_create 확장.",
+          args: [
+            ["rdi", "flags", "0 또는 EPOLL_CLOEXEC(exec 시 fd 자동 닫힘)"],
+          ],
+        },
+        {
+          nr: 292,
+          name: "dup3",
+          hot: false,
+          cat: "io",
+          desc: "O_CLOEXEC 플래그를 지정할 수 있는 dup2 확장.",
+          args: [
+            ["rdi", "oldfd", "복제할 원본 fd"],
+            ["rsi", "newfd", "복제본 fd 번호 (oldfd와 달라야 함)"],
+            ["rdx", "flags", "O_CLOEXEC(exec 시 자동 닫힘) 또는 0"],
+          ],
+        },
+        {
+          nr: 293,
+          name: "pipe2",
+          hot: false,
+          cat: "io",
+          desc: "O_NONBLOCK/O_CLOEXEC 플래그를 지원하는 pipe 확장.",
+          args: [
+            ["rdi", "pipefd[2] *", "fd 쌍 저장 배열: [0]=읽기, [1]=쓰기"],
+            ["rsi", "flags", "O_NONBLOCK/O_CLOEXEC/O_DIRECT 조합"],
+          ],
+        },
+        {
+          nr: 294,
+          name: "inotify_init1",
+          hot: false,
+          cat: "fs",
+          desc: "IN_NONBLOCK/IN_CLOEXEC 플래그를 지원하는 inotify_init 확장.",
+          args: [["rdi", "flags", "IN_NONBLOCK/IN_CLOEXEC 조합 또는 0"]],
+        },
+        {
+          nr: 295,
+          name: "preadv",
+          hot: false,
+          cat: "io",
+          desc: "지정 오프셋에서 scatter read. pread64 + readv 기능 조합.",
+          args: [
+            ["rdi", "fd", "읽을 파일 fd"],
+            ["rsi", "iov *", "struct iovec 배열 포인터"],
+            ["rdx", "iovcnt", "iovec 배열 원소 수"],
+            ["r10", "pos_l", "파일 오프셋 하위 32비트"],
+            ["r8", "pos_h", "파일 오프셋 상위 32비트"],
+          ],
+        },
+        {
+          nr: 296,
+          name: "pwritev",
+          hot: false,
+          cat: "io",
+          desc: "지정 오프셋에 gather write.",
+          args: [
+            ["rdi", "fd", "쓸 파일 fd"],
+            ["rsi", "iov *", "struct iovec 배열 포인터"],
+            ["rdx", "iovcnt", "iovec 배열 원소 수"],
+            ["r10", "pos_l", "파일 오프셋 하위 32비트"],
+            ["r8", "pos_h", "파일 오프셋 상위 32비트"],
+          ],
+        },
+        {
+          nr: 297,
+          name: "rt_tgsigqueueinfo",
+          hot: false,
+          cat: "sig",
+          desc: "스레드 그룹 내 특정 스레드에 siginfo_t 데이터와 함께 시그널을 보낸다.",
+          args: [
+            ["rdi", "tgid", "대상 스레드 그룹 ID (프로세스 PID)"],
+            ["rsi", "tid", "대상 스레드 TID"],
+            ["rdx", "sig", "보낼 시그널 번호"],
+            ["r10", "uinfo *", "전달할 siginfo_t 포인터"],
+          ],
+        },
+        {
+          nr: 298,
+          name: "perf_event_open",
+          hot: false,
+          cat: "sys",
+          desc: "성능 카운터/이벤트 모니터링 fd를 생성한다. perf 도구가 사용.",
+          args: [
+            [
+              "rdi",
+              "attr *",
+              "struct perf_event_attr 포인터 (type, config, sample_period 등)",
+            ],
+            ["rsi", "pid", "감시할 PID. -1이면 모든 프로세스. 0이면 현재"],
+            ["rdx", "cpu", "감시할 CPU. -1이면 모든 CPU"],
+            ["r10", "group_fd", "이벤트 그룹 리더 fd. -1이면 독립 이벤트"],
+            ["r8", "flags", "PERF_FLAG_FD_CLOEXEC/PERF_FLAG_FD_NO_GROUP 등"],
+          ],
+        },
+        {
+          nr: 299,
+          name: "recvmmsg",
+          hot: false,
+          cat: "net",
+          desc: "여러 메시지를 한 번의 syscall로 수신한다 (batch receive).",
+          args: [
+            ["rdi", "sockfd", "수신할 소켓 fd"],
+            [
+              "rsi",
+              "msgvec *",
+              "struct mmsghdr 배열 포인터 (각 원소에 msghdr + msg_len)",
+            ],
+            ["rdx", "vlen", "배열 원소 수 (최대 수신 메시지 수)"],
+            ["r10", "flags", "MSG_WAITFORONE/MSG_DONTWAIT 등"],
+            ["r8", "timeout *", "최대 대기 시간 struct timespec. NULL=무한"],
+          ],
+        },
+        {
+          nr: 300,
+          name: "fanotify_init",
+          hot: false,
+          cat: "fs",
+          desc: "파일 접근 이벤트 감시 및 권한 제어를 위한 fanotify 인스턴스를 생성한다.",
+          args: [
+            [
+              "rdi",
+              "flags",
+              "FAN_CLASS_NOTIF(알림전용)/FAN_CLASS_CONTENT/FAN_CLASS_PRE_CONTENT + FAN_NONBLOCK 등",
+            ],
+            [
+              "rsi",
+              "event_f_flags",
+              "이벤트 fd에 설정할 플래그: O_RDONLY/O_WRONLY/O_RDWR/O_LARGEFILE 등",
+            ],
+          ],
+        },
+        {
+          nr: 301,
+          name: "fanotify_mark",
+          hot: false,
+          cat: "fs",
+          desc: "fanotify 인스턴스에 감시할 파일/디렉터리/마운트를 추가/삭제한다.",
+          args: [
+            ["rdi", "fanotify_fd", "fanotify_init으로 생성한 fd"],
+            [
+              "rsi",
+              "flags",
+              "FAN_MARK_ADD/REMOVE/FLUSH + FAN_MARK_MOUNT/FILESYSTEM/ONLYDIR 등",
+            ],
+            [
+              "rdx",
+              "mask",
+              "FAN_ACCESS/MODIFY/OPEN/CLOSE/CREATE/DELETE/MOVED_FROM/TO 등 이벤트",
+            ],
+            ["r10", "dirfd", "기준 디렉터리 fd (AT_FDCWD 가능)"],
+            ["r8", "pathname *", "감시할 경로. NULL이면 dirfd 자체"],
+          ],
+        },
+        {
+          nr: 302,
+          name: "prlimit64",
+          hot: false,
+          cat: "sys",
+          desc: "프로세스 리소스 제한을 64비트로 조회하거나 설정한다.",
+          args: [
+            ["rdi", "pid", "설정할 PID. 0이면 현재 프로세스"],
+            ["rsi", "resource", "RLIMIT_NOFILE/RLIMIT_STACK/RLIMIT_AS 등"],
+            [
+              "rdx",
+              "new_limit *",
+              "새 제한값 struct rlimit64 포인터. NULL이면 변경 없이 조회만",
+            ],
+            [
+              "r10",
+              "old_limit *",
+              "이전 제한값 저장 포인터. NULL이면 저장 안 함",
+            ],
+          ],
+        },
+        {
+          nr: 303,
+          name: "name_to_handle_at",
+          hot: false,
+          cat: "fs",
+          desc: "파일 경로를 이식 가능한 파일 핸들로 변환한다. NFS 서버 등에서 사용.",
+          args: [
+            ["rdi", "dirfd", "기준 디렉터리 fd"],
+            ["rsi", "pathname *", "변환할 파일 경로"],
+            [
+              "rdx",
+              "handle *",
+              "struct file_handle 포인터 (결과 저장. handle_bytes 필드 먼저 설정)",
+            ],
+            ["r10", "mount_id *", "파일이 속한 마운트 ID를 저장할 포인터"],
+            ["r8", "flags", "AT_EMPTY_PATH/AT_SYMLINK_FOLLOW 등"],
+          ],
+        },
+        {
+          nr: 304,
+          name: "open_by_handle_at",
+          hot: false,
+          cat: "fs",
+          desc: "name_to_handle_at으로 얻은 파일 핸들로 파일을 연다.",
+          args: [
+            ["rdi", "mount_fd", "핸들이 속한 마운트 내 임의 fd"],
+            [
+              "rsi",
+              "handle *",
+              "struct file_handle 포인터 (name_to_handle_at으로 얻은 것)",
+            ],
+            ["rdx", "flags", "O_RDONLY/O_WRONLY 등 열기 플래그"],
+          ],
+        },
+        {
+          nr: 305,
+          name: "clock_adjtime",
+          hot: false,
+          cat: "time",
+          desc: "adjtimex 방식으로 특정 시계의 파라미터를 동적 조정한다.",
+          args: [
+            ["rdi", "id", "조정할 시계 ID (CLOCK_REALTIME 등)"],
+            ["rsi", "tx *", "struct timex 포인터 (조정할 파라미터들)"],
+          ],
+        },
+        {
+          nr: 306,
+          name: "syncfs",
+          hot: false,
+          cat: "fs",
+          desc: "특정 fd가 속한 파일시스템 전체를 디스크에 동기화한다.",
+          args: [["rdi", "fd", "동기화할 파일시스템 내 임의 열린 fd"]],
+        },
+        {
+          nr: 307,
+          name: "sendmmsg",
+          hot: false,
+          cat: "net",
+          desc: "여러 메시지를 한 번의 syscall로 전송한다 (batch send).",
+          args: [
+            ["rdi", "sockfd", "전송할 소켓 fd"],
+            ["rsi", "msgvec *", "struct mmsghdr 배열 포인터"],
+            ["rdx", "vlen", "배열 원소 수 (전송할 메시지 수)"],
+            ["r10", "flags", "MSG_DONTWAIT/MSG_NOSIGNAL 등"],
+          ],
+        },
+        {
+          nr: 308,
+          name: "setns",
+          hot: false,
+          cat: "proc",
+          desc: "열린 네임스페이스 fd를 이용해 특정 네임스페이스에 현재 스레드를 참여시킨다.",
+          args: [
+            [
+              "rdi",
+              "fd",
+              "네임스페이스 fd (/proc/[pid]/ns/ 하위 파일 열어서 얻음)",
+            ],
+            [
+              "rsi",
+              "nstype",
+              "참여할 네임스페이스 유형. CLONE_NEWNET/NEWPID 등. 0이면 자동 감지",
+            ],
+          ],
+        },
+        {
+          nr: 309,
+          name: "getcpu",
+          hot: false,
+          cat: "sys",
+          desc: "현재 스레드가 실행 중인 CPU 번호와 NUMA 노드 번호를 가져온다.",
+          args: [
+            [
+              "rdi",
+              "cpu *",
+              "현재 CPU 번호를 저장할 unsigned int 포인터. NULL이면 무시",
+            ],
+            [
+              "rsi",
+              "node *",
+              "현재 NUMA 노드 번호를 저장할 포인터. NULL이면 무시",
+            ],
+            ["rdx", "tcache *", "(사용 안 됨) NULL 전달"],
+          ],
+        },
+        {
+          nr: 310,
+          name: "process_vm_readv",
+          hot: false,
+          cat: "proc",
+          desc: "다른 프로세스의 가상 메모리에서 데이터를 읽는다. 디버거 등이 사용.",
+          args: [
+            ["rdi", "pid", "읽을 대상 프로세스 PID"],
+            ["rsi", "local_iov *", "데이터를 저장할 로컬 iovec 배열"],
+            ["rdx", "liovcnt", "로컬 iovec 배열 원소 수"],
+            [
+              "r10",
+              "remote_iov *",
+              "원격 프로세스의 읽을 메모리 범위 iovec 배열",
+            ],
+            ["r8", "riovcnt", "원격 iovec 배열 원소 수"],
+            ["r9", "flags", "현재 0 (미래 확장용)"],
+          ],
+        },
+        {
+          nr: 311,
+          name: "process_vm_writev",
+          hot: false,
+          cat: "proc",
+          desc: "다른 프로세스의 가상 메모리에 데이터를 쓴다.",
+          args: [
+            ["rdi", "pid", "쓸 대상 프로세스 PID"],
+            ["rsi", "local_iov *", "쓸 데이터가 있는 로컬 iovec 배열"],
+            ["rdx", "liovcnt", "로컬 iovec 원소 수"],
+            [
+              "r10",
+              "remote_iov *",
+              "원격 프로세스의 쓸 메모리 범위 iovec 배열",
+            ],
+            ["r8", "riovcnt", "원격 iovec 원소 수"],
+            ["r9", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 312,
+          name: "kcmp",
+          hot: false,
+          cat: "proc",
+          desc: "두 프로세스가 같은 커널 자원을 공유하는지 비교한다. (fork 후 공유 확인 등)",
+          args: [
+            ["rdi", "pid1", "첫 번째 프로세스 PID"],
+            ["rsi", "pid2", "두 번째 프로세스 PID"],
+            [
+              "rdx",
+              "type",
+              "KCMP_FILE/KCMP_VM/KCMP_FILES/KCMP_FS/KCMP_SIGHAND/KCMP_IO/KCMP_SYSVSEM 등",
+            ],
+            ["r10", "idx1", "type=KCMP_FILE 시 pid1의 fd 번호"],
+            ["r8", "idx2", "type=KCMP_FILE 시 pid2의 fd 번호"],
+          ],
+        },
+        {
+          nr: 313,
+          name: "finit_module",
+          hot: false,
+          cat: "sys",
+          desc: "ELF 모듈 파일 fd로부터 커널 모듈을 로드한다. CAP_SYS_MODULE 필요.",
+          args: [
+            ["rdi", "fd", "모듈 ELF 파일 fd"],
+            ["rsi", "param_values *", '모듈 파라미터 문자열 (예: "debug=1")'],
+            [
+              "rdx",
+              "flags",
+              "MODULE_INIT_IGNORE_MODVERSIONS/MODULE_INIT_IGNORE_VERMAGIC 등",
+            ],
+          ],
+        },
+        {
+          nr: 314,
+          name: "sched_setattr",
+          hot: false,
+          cat: "sched",
+          desc: "EDF(Earliest Deadline First) 포함 고급 스케줄링 속성을 설정한다.",
+          args: [
+            ["rdi", "pid", "설정할 PID. 0이면 현재"],
+            [
+              "rsi",
+              "attr *",
+              "struct sched_attr 포인터: size, sched_policy, sched_flags, sched_priority, sched_deadline 등",
+            ],
+            ["rdx", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 315,
+          name: "sched_getattr",
+          hot: false,
+          cat: "sched",
+          desc: "고급 스케줄링 속성을 가져온다.",
+          args: [
+            ["rdi", "pid", "조회할 PID. 0이면 현재"],
+            ["rsi", "attr *", "결과를 저장할 struct sched_attr 포인터"],
+            ["rdx", "size", "attr 구조체 크기 (sizeof(struct sched_attr))"],
+            ["r10", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 316,
+          name: "renameat2",
+          hot: false,
+          cat: "fs",
+          desc: "RENAME_NOREPLACE/RENAME_EXCHANGE 등 추가 플래그를 지원하는 renameat 확장.",
+          args: [
+            ["rdi", "olddirfd", "원본 기준 디렉터리 fd"],
+            ["rsi", "oldpath *", "현재 경로"],
+            ["rdx", "newdirfd", "대상 기준 디렉터리 fd"],
+            ["r10", "newpath *", "새 경로"],
+            [
+              "r8",
+              "flags",
+              "RENAME_NOREPLACE(덮어쓰기금지)/RENAME_EXCHANGE(원자교환)/RENAME_WHITEOUT 등",
+            ],
+          ],
+        },
+        {
+          nr: 317,
+          name: "seccomp",
+          hot: false,
+          cat: "sys",
+          desc: "Secure Computing 필터를 설정한다. 프로세스가 호출할 수 있는 syscall을 제한하는 샌드박스.",
+          args: [
+            [
+              "rdi",
+              "operation",
+              "SECCOMP_SET_MODE_STRICT/SECCOMP_SET_MODE_FILTER/SECCOMP_GET_ACTION_AVAIL 등",
+            ],
+            ["rsi", "flags", "SECCOMP_FILTER_FLAG_TSYNC/LOG/SPEC_ALLOW 등"],
+            [
+              "rdx",
+              "uargs *",
+              "SECCOMP_SET_MODE_FILTER 시 BPF 프로그램 struct sock_fprog 포인터",
+            ],
+          ],
+        },
+        {
+          nr: 318,
+          name: "getrandom",
+          hot: true,
+          cat: "sys",
+          desc: "커널 CSPRNG에서 암호학적으로 안전한 난수를 가져온다. /dev/urandom보다 권장.",
+          args: [
+            ["rdi", "buf *", "난수를 저장할 버퍼 포인터"],
+            ["rsi", "buflen", "요청 바이트 수"],
+            [
+              "rdx",
+              "flags",
+              "0=기본(충분한엔트로피까지대기), GRND_NONBLOCK(1)/GRND_RANDOM(2) 조합",
+            ],
+          ],
+        },
+        {
+          nr: 319,
+          name: "memfd_create",
+          hot: false,
+          cat: "mem",
+          desc: "이름 있는 익명 메모리 파일을 생성한다. tmpfs 기반. fd 반환, 경로 없음.",
+          args: [
+            [
+              "rdi",
+              "name *",
+              "메모리 파일 이름 (디버그용, /proc/[pid]/fd/에 표시됨. 슬래시 불가)",
+            ],
+            ["rsi", "flags", "MFD_CLOEXEC/MFD_ALLOW_SEALING/MFD_HUGETLB 조합"],
+          ],
+        },
+        {
+          nr: 320,
+          name: "kexec_file_load",
+          hot: false,
+          cat: "sys",
+          desc: "파일 fd를 통해 kexec 커널 이미지를 로드한다.",
+          args: [
+            ["rdi", "kernel_fd", "커널 이미지 파일 fd"],
+            ["rsi", "initrd_fd", "initrd 이미지 fd. 없으면 -1"],
+            ["rdx", "cmdline_len", "커널 명령줄 문자열 길이"],
+            ["r10", "cmdline *", "커널 부팅 명령줄 문자열 포인터"],
+            ["r8", "flags", "KEXEC_FILE_UNLOAD/ON_CRASH/NO_INITRAMFS 등"],
+          ],
+        },
+        {
+          nr: 321,
+          name: "bpf",
+          hot: false,
+          cat: "sys",
+          desc: "BPF 프로그램 로드, 맵 생성/조작, 오브젝트 조회 등을 수행한다.",
+          args: [
+            [
+              "rdi",
+              "cmd",
+              "BPF_PROG_LOAD/BPF_MAP_CREATE/BPF_MAP_LOOKUP_ELEM/BPF_PROG_ATTACH 등 명령",
+            ],
+            [
+              "rsi",
+              "attr *",
+              "union bpf_attr 포인터 (cmd에 따라 다른 필드 사용)",
+            ],
+            ["rdx", "size", "attr 구조체 크기 (sizeof(union bpf_attr))"],
+          ],
+        },
+        {
+          nr: 322,
+          name: "execveat",
+          hot: false,
+          cat: "proc",
+          desc: "dirfd 기준 상대 경로로 프로그램을 실행한다. execve의 dirfd 확장판.",
+          args: [
+            ["rdi", "dirfd", "기준 디렉터리 fd (AT_FDCWD 가능)"],
+            ["rsi", "pathname *", "실행할 프로그램 경로"],
+            ["rdx", "argv[] *", "인수 배열 (NULL로 종료)"],
+            ["r10", "envp[] *", "환경 변수 배열 (NULL로 종료)"],
+            ["r8", "flags", "AT_EMPTY_PATH(fd직접실행)/AT_SYMLINK_NOFOLLOW 등"],
+          ],
+        },
+        {
+          nr: 323,
+          name: "userfaultfd",
+          hot: false,
+          cat: "mem",
+          desc: "페이지 폴트를 유저 공간 핸들러에서 처리할 수 있는 fd를 생성한다.",
+          args: [
+            ["rdi", "flags", "O_CLOEXEC/O_NONBLOCK/UFFD_USER_MODE_ONLY 조합"],
+          ],
+        },
+        {
+          nr: 324,
+          name: "membarrier",
+          hot: false,
+          cat: "mem",
+          desc: "다른 스레드/프로세스에 메모리 배리어를 강제한다. 락프리 코드의 정합성 보장.",
+          args: [
+            [
+              "rdi",
+              "cmd",
+              "MEMBARRIER_CMD_QUERY/SHARED/PRIVATE_EXPEDITED/REGISTER_PRIVATE_EXPEDITED 등",
+            ],
+            ["rsi", "flags", "현재 0 (미래 확장용)"],
+          ],
+        },
+        {
+          nr: 325,
+          name: "mlock2",
+          hot: false,
+          cat: "mem",
+          desc: "MLOCK_ONFAULT 플래그를 지원하는 mlock 확장. 접근 시에만 고정.",
+          args: [
+            ["rdi", "addr", "고정할 메모리 시작 주소"],
+            ["rsi", "len", "바이트 수"],
+            ["rdx", "flags", "0=즉시고정, MLOCK_ONFAULT(1)=폴트발생시에만고정"],
+          ],
+        },
+        {
+          nr: 326,
+          name: "copy_file_range",
+          hot: false,
+          cat: "io",
+          desc: "두 파일 fd 사이에서 커널 내부에서 데이터를 복사한다 (zero-copy, 파일시스템 최적화).",
+          args: [
+            ["rdi", "fd_in", "읽을 소스 파일 fd"],
+            [
+              "rsi",
+              "off_in *",
+              "소스 파일 오프셋 포인터. NULL이면 fd 현재 오프셋 사용",
+            ],
+            ["rdx", "fd_out", "쓸 대상 파일 fd"],
+            [
+              "r10",
+              "off_out *",
+              "대상 파일 오프셋 포인터. NULL이면 fd 현재 오프셋 사용",
+            ],
+            ["r8", "len", "복사할 바이트 수"],
+            ["r9", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 327,
+          name: "preadv2",
+          hot: false,
+          cat: "io",
+          desc: "RWF_HIPRI/DSYNC 등 추가 플래그를 지원하는 preadv 확장.",
+          args: [
+            ["rdi", "fd", "읽을 파일 fd"],
+            ["rsi", "iov *", "struct iovec 배열"],
+            ["rdx", "iovcnt", "배열 원소 수"],
+            ["r10", "pos_l", "파일 오프셋 하위 32비트 (-1이면 fd 현재 오프셋)"],
+            ["r8", "pos_h", "파일 오프셋 상위 32비트"],
+            [
+              "r9",
+              "flags",
+              "RWF_HIPRI(고우선순위)/RWF_DSYNC/RWF_SYNC/RWF_NOWAIT/RWF_APPEND 등",
+            ],
+          ],
+        },
+        {
+          nr: 328,
+          name: "pwritev2",
+          hot: false,
+          cat: "io",
+          desc: "추가 플래그를 지원하는 pwritev 확장.",
+          args: [
+            ["rdi", "fd", "쓸 파일 fd"],
+            ["rsi", "iov *", "struct iovec 배열"],
+            ["rdx", "iovcnt", "배열 원소 수"],
+            ["r10", "pos_l", "파일 오프셋 하위 32비트"],
+            ["r8", "pos_h", "파일 오프셋 상위 32비트"],
+            [
+              "r9",
+              "flags",
+              "RWF_HIPRI/RWF_DSYNC/RWF_SYNC/RWF_NOWAIT/RWF_APPEND 등",
+            ],
+          ],
+        },
+        {
+          nr: 329,
+          name: "pkey_mprotect",
+          hot: false,
+          cat: "mem",
+          desc: "메모리 보호 키(MPK, Memory Protection Keys)와 함께 메모리 보호 속성을 설정한다.",
+          args: [
+            ["rdi", "addr", "변경할 메모리 시작 주소 (페이지 경계)"],
+            ["rsi", "len", "바이트 수"],
+            ["rdx", "prot", "PROT_READ/WRITE/EXEC/NONE 보호 속성"],
+            ["r10", "pkey", "pkey_alloc으로 할당받은 보호 키 번호"],
+          ],
+        },
+        {
+          nr: 330,
+          name: "pkey_alloc",
+          hot: false,
+          cat: "mem",
+          desc: "메모리 보호 키(MPK)를 할당한다. 최대 16개 키 가능.",
+          args: [
+            ["rdi", "flags", "현재 0 (미래 확장용)"],
+            [
+              "rsi",
+              "access_rights",
+              "PKEY_DISABLE_ACCESS(접근차단)/PKEY_DISABLE_WRITE(쓰기차단) 등",
+            ],
+          ],
+        },
+        {
+          nr: 331,
+          name: "pkey_free",
+          hot: false,
+          cat: "mem",
+          desc: "pkey_alloc으로 할당된 메모리 보호 키를 반환(해제)한다.",
+          args: [["rdi", "pkey", "해제할 보호 키 번호"]],
+        },
+        {
+          nr: 332,
+          name: "statx",
+          hot: false,
+          cat: "fs",
+          desc: "stat보다 확장된 파일 메타데이터를 가져온다. 파일 생성 시간(btime) 등 포함.",
+          args: [
+            ["rdi", "dirfd", "기준 디렉터리 fd (AT_FDCWD 가능)"],
+            [
+              "rsi",
+              "pathname *",
+              "경로. AT_EMPTY_PATH+빈문자열이면 dirfd 자체",
+            ],
+            [
+              "rdx",
+              "flags",
+              "AT_STATX_SYNC_AS_STAT/AT_SYMLINK_NOFOLLOW/AT_NO_AUTOMOUNT 등",
+            ],
+            [
+              "r10",
+              "mask",
+              "원하는 필드 마스크: STATX_BASIC_STATS/STATX_BTIME/STATX_ALL 등",
+            ],
+            ["r8", "statxbuf *", "결과를 저장할 struct statx 포인터"],
+          ],
+        },
+        {
+          nr: 333,
+          name: "io_pgetevents",
+          hot: false,
+          cat: "io",
+          desc: "시그널 마스크를 지원하는 io_getevents 확장.",
+          args: [
+            ["rdi", "ctx_id", "aio_context_t 핸들"],
+            ["rsi", "min_nr", "최소 수신 이벤트 수"],
+            ["rdx", "nr", "최대 수신 이벤트 수"],
+            ["r10", "events *", "struct io_event 배열"],
+            ["r8", "timeout *", "대기 시간 struct timespec"],
+            ["r9", "sig *", "대기 중 적용할 시그널 마스크 포인터"],
+          ],
+        },
+        {
+          nr: 334,
+          name: "rseq",
+          hot: false,
+          cat: "sched",
+          desc: "재시작 가능 시퀀스(Restartable Sequences)를 등록한다. CPU 친화 락프리 코드용.",
+          args: [
+            ["rdi", "rseq *", "struct rseq 포인터: cpu_id, rseq_cs 필드 포함"],
+            ["rsi", "rseq_len", "struct rseq 크기"],
+            ["rdx", "flags", "0=등록, RSEQ_FLAG_UNREGISTER=해제"],
+            ["r10", "sig", "abort 핸들러 서명값 (임의의 고정 32비트 정수)"],
+          ],
+        },
+        {
+          nr: 335,
+          name: "open_tree",
+          hot: false,
+          cat: "fs",
+          desc: "파일시스템 마운트를 fd로 참조하기 위해 마운트 트리를 연다.",
+          args: [
+            ["rdi", "dfd", "기준 디렉터리 fd (AT_FDCWD 가능)"],
+            ["rsi", "filename *", "마운트 포인트 경로"],
+            [
+              "rdx",
+              "flags",
+              "OPEN_TREE_CLONE/OPEN_TREE_CLOEXEC/AT_EMPTY_PATH 등",
+            ],
+          ],
+        },
+        {
+          nr: 336,
+          name: "move_mount",
+          hot: false,
+          cat: "fs",
+          desc: "마운트를 파일트리의 새 위치로 이동한다.",
+          args: [
+            ["rdi", "from_dfd", "소스 기준 fd"],
+            ["rsi", "from_pathname *", "소스 경로"],
+            ["rdx", "to_dfd", "대상 기준 fd"],
+            ["r10", "to_pathname *", "대상 경로"],
+            [
+              "r8",
+              "ms_flags",
+              "MOVE_MOUNT_F_SYMLINKS/MOVE_MOUNT_T_AUTOMOUNTS 등",
+            ],
+          ],
+        },
+        {
+          nr: 337,
+          name: "fsopen",
+          hot: false,
+          cat: "fs",
+          desc: "새 파일시스템 구성 컨텍스트(fs_fd)를 연다.",
+          args: [
+            ["rdi", "fs_name *", "파일시스템 유형 이름 (ext4, tmpfs 등)"],
+            ["rsi", "flags", "FSOPEN_CLOEXEC 또는 0"],
+          ],
+        },
+        {
+          nr: 338,
+          name: "fsconfig",
+          hot: false,
+          cat: "fs",
+          desc: "fsopen으로 열린 파일시스템 컨텍스트에 마운트 옵션을 설정한다.",
+          args: [
+            ["rdi", "fs_fd", "fsopen으로 얻은 fd"],
+            [
+              "rsi",
+              "cmd",
+              "FSCONFIG_SET_FLAG/SET_STRING/SET_BINARY/SET_PATH/CMD_CREATE/CMD_RECONFIGURE 등",
+            ],
+            ["rdx", "key *", "옵션 키 문자열 (예: source, size)"],
+            ["r10", "value *", "옵션 값 (문자열 또는 포인터)"],
+            ["r8", "aux", "SET_PATH 시 fd 번호 등 추가 인자"],
+          ],
+        },
+        {
+          nr: 339,
+          name: "fsmount",
+          hot: false,
+          cat: "fs",
+          desc: "fsconfig로 구성 완료된 파일시스템 컨텍스트를 실제 마운트로 만든다.",
+          args: [
+            ["rdi", "fs_fd", "fsconfig 완료된 fs_fd"],
+            ["rsi", "flags", "FSMOUNT_CLOEXEC 등"],
+            ["rdx", "ms_flags", "MS_RDONLY/MS_NOEXEC 등 마운트 플래그"],
+          ],
+        },
+        {
+          nr: 340,
+          name: "fspick",
+          hot: false,
+          cat: "fs",
+          desc: "기존 마운트 포인트를 파일시스템 컨텍스트로 선택한다. 재구성 가능.",
+          args: [
+            ["rdi", "dfd", "기준 디렉터리 fd"],
+            ["rsi", "path *", "마운트 포인트 경로"],
+            [
+              "rdx",
+              "flags",
+              "FSPICK_CLOEXEC/FSPICK_SYMLINK_NOFOLLOW/FSPICK_NO_AUTOMOUNT 등",
+            ],
+          ],
+        },
+        {
+          nr: 341,
+          name: "pidfd_open",
+          hot: false,
+          cat: "proc",
+          desc: "PID를 안전하게 참조하는 pidfd를 생성한다. PID 재사용 경쟁조건 없음.",
+          args: [
+            ["rdi", "pid", "참조할 프로세스 PID"],
+            ["rsi", "flags", "현재 0 또는 PIDFD_NONBLOCK(커널 5.10+)"],
+          ],
+        },
+        {
+          nr: 342,
+          name: "clone3",
+          hot: false,
+          cat: "proc",
+          desc: "확장된 clone. cgroup 지정, 더 많은 플래그, 안전한 인터페이스 지원.",
+          args: [
+            [
+              "rdi",
+              "uargs *",
+              "struct clone_args 포인터 (flags, pidfd, child_tid, parent_tid, stack 등 필드)",
+            ],
+            [
+              "rsi",
+              "size",
+              "struct clone_args 크기 (sizeof(struct clone_args))",
+            ],
+          ],
+        },
+        {
+          nr: 343,
+          name: "close_range",
+          hot: false,
+          cat: "io",
+          desc: "fd 번호 범위 전체를 한 번에 닫는다. exec 전 fd 정리에 유용.",
+          args: [
+            ["rdi", "first", "닫기 시작 fd 번호"],
+            ["rsi", "last", "닫기 끝 fd 번호. UINT_MAX이면 first부터 모든 fd"],
+            [
+              "rdx",
+              "flags",
+              "0=단순닫기, CLOSE_RANGE_UNSHARE(파일테이블분리후)/CLOSE_RANGE_CLOEXEC(닫지않고플래그만)",
+            ],
+          ],
+        },
+        {
+          nr: 344,
+          name: "openat2",
+          hot: false,
+          cat: "fs",
+          desc: "open_how 구조체를 이용해 더 정밀하게 파일을 여는 openat 확장.",
+          args: [
+            ["rdi", "dirfd", "기준 디렉터리 fd"],
+            ["rsi", "pathname *", "열 파일 경로"],
+            [
+              "rdx",
+              "how *",
+              "struct open_how 포인터: {flags=열기플래그, mode=권한, resolve=경로확인옵션}",
+            ],
+            ["r10", "size", "struct open_how 크기 (sizeof(struct open_how))"],
+          ],
+        },
+        {
+          nr: 345,
+          name: "pidfd_getfd",
+          hot: false,
+          cat: "proc",
+          desc: "pidfd로 참조한 다른 프로세스의 fd를 현재 프로세스로 복제한다.",
+          args: [
+            ["rdi", "pidfd", "대상 프로세스를 참조하는 pidfd"],
+            ["rsi", "targetfd", "복제할 대상 프로세스의 fd 번호"],
+            ["rdx", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 346,
+          name: "faccessat2",
+          hot: false,
+          cat: "fs",
+          desc: "AT_EACCESS/AT_SYMLINK_NOFOLLOW 플래그를 완전히 지원하는 faccessat 확장.",
+          args: [
+            ["rdi", "dirfd", "기준 디렉터리 fd"],
+            ["rsi", "pathname *", "확인할 파일 경로"],
+            ["rdx", "mode", "F_OK/R_OK/W_OK/X_OK 조합"],
+            [
+              "r10",
+              "flags",
+              "AT_EACCESS(유효UID기준)/AT_SYMLINK_NOFOLLOW/AT_EMPTY_PATH 등",
+            ],
+          ],
+        },
+        {
+          nr: 347,
+          name: "process_madvise",
+          hot: false,
+          cat: "mem",
+          desc: "pidfd로 참조한 다른 프로세스의 메모리 범위에 madvise 힌트를 줄 수 있다.",
+          args: [
+            ["rdi", "pidfd", "대상 프로세스 pidfd"],
+            ["rsi", "iovec *", "대상 메모리 범위들의 struct iovec 배열"],
+            ["rdx", "vlen", "배열 원소 수"],
+            [
+              "r10",
+              "advice",
+              "MADV_COLD/PAGEOUT/DONTNEED 등 (MADV_WILLNEED도 가능)",
+            ],
+            ["r8", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 348,
+          name: "epoll_pwait2",
+          hot: false,
+          cat: "io",
+          desc: "struct timespec 타임아웃을 지원하는 epoll_pwait 확장.",
+          args: [
+            ["rdi", "epfd", "epoll 인스턴스 fd"],
+            ["rsi", "events *", "이벤트 저장 배열"],
+            ["rdx", "maxevents", "배열 최대 크기"],
+            ["r10", "timeout *", "struct timespec 타임아웃. NULL=무한"],
+            [
+              "r8",
+              "sigmask *",
+              "대기 중 적용할 시그널 마스크. NULL이면 변경 없음",
+            ],
+            ["r9", "sigsetsize", "sigset_t 크기"],
+          ],
+        },
+        {
+          nr: 349,
+          name: "mount_setattr",
+          hot: false,
+          cat: "fs",
+          desc: "마운트나 마운트 트리의 속성을 변경한다.",
+          args: [
+            ["rdi", "dfd", "기준 디렉터리 fd"],
+            ["rsi", "path *", "마운트 포인트 경로"],
+            ["rdx", "flags", "AT_EMPTY_PATH/AT_RECURSIVE 등"],
+            [
+              "r10",
+              "uattr *",
+              "struct mount_attr 포인터: attr_set/attr_clr/propagation/userns_fd 필드",
+            ],
+            ["r8", "usize", "struct mount_attr 크기"],
+          ],
+        },
+        {
+          nr: 350,
+          name: "move_mount2",
+          hot: false,
+          cat: "fs",
+          desc: "(예약) move_mount 확장 버전. 현재 미구현.",
+          args: [],
+        },
+        {
+          nr: 351,
+          name: "quotactl_fd",
+          hot: false,
+          cat: "fs",
+          desc: "파일시스템 경로 대신 fd로 디스크 쿼터를 제어한다.",
+          args: [
+            ["rdi", "fd", "쿼터를 관리할 파일시스템 fd"],
+            ["rsi", "cmd", "Q_GETQUOTA/Q_SETQUOTA 등"],
+            ["rdx", "id", "대상 UID 또는 GID"],
+            ["r10", "addr *", "struct dqblk 포인터"],
+          ],
+        },
+        {
+          nr: 352,
+          name: "landlock_create_ruleset",
+          hot: false,
+          cat: "sys",
+          desc: "Landlock LSM 보안 정책 규칙 세트를 생성한다. 샌드박스 구현용.",
+          args: [
+            [
+              "rdi",
+              "attr *",
+              "struct landlock_ruleset_attr 포인터: handled_access_fs 필드",
+            ],
+            ["rsi", "size", "attr 구조체 크기"],
+            ["rdx", "flags", "현재 0 또는 LANDLOCK_CREATE_RULESET_VERSION"],
+          ],
+        },
+        {
+          nr: 353,
+          name: "landlock_add_rule",
+          hot: false,
+          cat: "sys",
+          desc: "Landlock 규칙 세트에 파일 경로 접근 규칙을 추가한다.",
+          args: [
+            ["rdi", "ruleset_fd", "landlock_create_ruleset으로 얻은 fd"],
+            ["rsi", "rule_type", "LANDLOCK_RULE_PATH_BENEATH 등"],
+            [
+              "rdx",
+              "rule_attr *",
+              "struct landlock_path_beneath_attr 포인터: allowed_access, parent_fd",
+            ],
+            ["r10", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 354,
+          name: "landlock_restrict_self",
+          hot: false,
+          cat: "sys",
+          desc: "현재 스레드(와 하위 프로세스)에 Landlock 규칙 세트를 적용한다. 되돌릴 수 없음.",
+          args: [
+            ["rdi", "ruleset_fd", "적용할 규칙 세트 fd"],
+            ["rsi", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 355,
+          name: "memfd_secret",
+          hot: false,
+          cat: "mem",
+          desc: "커널도 직접 접근 불가한 비밀 메모리를 위한 fd를 생성한다. 보안 민감 데이터 저장용.",
+          args: [["rdi", "flags", "FD_CLOEXEC 등 또는 0"]],
+        },
+        {
+          nr: 356,
+          name: "process_mrelease",
+          hot: false,
+          cat: "proc",
+          desc: "종료 중인 프로세스(SIGKILL 등)의 메모리를 즉시 해제하여 OOM 상황을 빠르게 회복한다.",
+          args: [
+            ["rdi", "pidfd", "종료 중인 프로세스의 pidfd"],
+            ["rsi", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 357,
+          name: "futex_waitv",
+          hot: false,
+          cat: "sched",
+          desc: "여러 퓨텍스를 한 번의 syscall로 동시에 대기한다.",
+          args: [
+            [
+              "rdi",
+              "waiters *",
+              "struct futex_waitv 배열: {uaddr, val, flags, __reserved} 각 퓨텍스",
+            ],
+            ["rsi", "nr_futexes", "대기할 퓨텍스 수"],
+            ["rdx", "flags", "FUTEX_32/FUTEX_PRIVATE_FLAG 등"],
+            ["r10", "timeout *", "최대 대기 시간 struct timespec. NULL=무한"],
+            ["r8", "clockid", "CLOCK_REALTIME/CLOCK_MONOTONIC 등"],
+          ],
+        },
+        {
+          nr: 358,
+          name: "set_mempolicy_home_node",
+          hot: false,
+          cat: "mem",
+          desc: "MPOL_BIND/PREFERRED_MANY 정책의 홈(선호) NUMA 노드를 설정한다.",
+          args: [
+            ["rdi", "start", "NUMA 정책 적용 메모리 시작 주소"],
+            ["rsi", "len", "바이트 수"],
+            ["rdx", "home_node", "선호 NUMA 노드 번호"],
+            ["r10", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 359,
+          name: "cachestat",
+          hot: false,
+          cat: "mem",
+          desc: "파일의 특정 범위가 페이지 캐시에 얼마나 있는지 통계를 조회한다.",
+          args: [
+            ["rdi", "fd", "조회할 파일 fd"],
+            [
+              "rsi",
+              "cstat_range *",
+              "struct cachestat_range 포인터: {off=시작오프셋, len=바이트수}",
+            ],
+            [
+              "rdx",
+              "cstat *",
+              "struct cachestat 포인터: nr_cache/dirty/writeback/evicted 등",
+            ],
+            ["r10", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 360,
+          name: "fchmodat2",
+          hot: false,
+          cat: "fs",
+          desc: "AT_SYMLINK_NOFOLLOW 등 추가 플래그를 올바르게 지원하는 fchmodat 확장.",
+          args: [
+            ["rdi", "dirfd", "기준 디렉터리 fd"],
+            ["rsi", "filename *", "파일 경로"],
+            ["rdx", "mode", "새 권한 비트"],
+            ["r10", "flags", "AT_SYMLINK_NOFOLLOW/AT_EMPTY_PATH 등"],
+          ],
+        },
+        {
+          nr: 361,
+          name: "map_shadow_stack",
+          hot: false,
+          cat: "mem",
+          desc: "CET(Control-flow Enforcement Technology) 섀도 스택 메모리를 매핑한다.",
+          args: [
+            ["rdi", "addr", "희망 주소. 0이면 커널이 선택"],
+            ["rsi", "size", "섀도 스택 크기 (바이트)"],
+            ["rdx", "flags", "SHADOW_STACK_SET_TOKEN 등"],
+          ],
+        },
+        {
+          nr: 362,
+          name: "futex_wake",
+          hot: false,
+          cat: "sched",
+          desc: "(커널 6.7+) futex2 인터페이스: 퓨텍스 대기 스레드를 깨운다.",
+          args: [
+            ["rdi", "uaddr *", "퓨텍스 변수 주소"],
+            ["rsi", "mask", "깨울 스레드 비트마스크"],
+            ["rdx", "nr", "깨울 최대 스레드 수"],
+            ["r10", "flags", "FUTEX_32/FUTEX_PRIVATE_FLAG 등"],
+          ],
+        },
+        {
+          nr: 363,
+          name: "futex_wait",
+          hot: false,
+          cat: "sched",
+          desc: "(커널 6.7+) futex2 인터페이스: 퓨텍스 값이 기대값과 같을 때 대기한다.",
+          args: [
+            ["rdi", "uaddr *", "퓨텍스 변수 주소"],
+            ["rsi", "val", "기대값 (이 값이어야 대기)"],
+            ["rdx", "mask", "대기 비트마스크"],
+            ["r10", "flags", "FUTEX_32/FUTEX_PRIVATE_FLAG 등"],
+            ["r8", "timeout *", "struct timespec 타임아웃"],
+            ["r9", "clockid", "CLOCK_REALTIME/MONOTONIC 등"],
+          ],
+        },
+        {
+          nr: 364,
+          name: "futex_requeue",
+          hot: false,
+          cat: "sched",
+          desc: "(커널 6.7+) futex2 인터페이스: 대기 스레드를 다른 퓨텍스로 재큐잉한다.",
+          args: [
+            ["rdi", "waiters *", "재큐잉할 퓨텍스 struct futex_waitv 포인터"],
+            ["rsi", "flags", "FUTEX_32/FUTEX_PRIVATE_FLAG 등"],
+            ["rdx", "nr_wake", "재큐잉 전 깨울 스레드 수"],
+            ["r10", "nr_requeue", "재큐잉할 스레드 수"],
+          ],
+        },
+        {
+          nr: 424,
+          name: "pidfd_send_signal",
+          hot: false,
+          cat: "sig",
+          desc: "pidfd로 참조한 프로세스에 시그널을 보낸다. PID 재사용 경쟁조건 없음.",
+          args: [
+            ["rdi", "pidfd", "대상 프로세스 pidfd"],
+            ["rsi", "sig", "보낼 시그널 번호"],
+            ["rdx", "info *", "siginfo_t 포인터. NULL이면 기본 시그널 정보"],
+            ["r10", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 425,
+          name: "io_uring_setup",
+          hot: false,
+          cat: "io",
+          desc: "io_uring 비동기 I/O 인스턴스를 생성한다. 고성능 비동기 I/O의 시작점.",
+          args: [
+            [
+              "rdi",
+              "entries",
+              "SQ/CQ 링 버퍼 크기 (2의 거듭제곱 권장, 최소 1)",
+            ],
+            [
+              "rsi",
+              "params *",
+              "struct io_uring_params 포인터: sq_thread_cpu/idle, flags(IORING_SETUP_SQPOLL 등) 입출력",
+            ],
+          ],
+        },
+        {
+          nr: 426,
+          name: "io_uring_enter",
+          hot: false,
+          cat: "io",
+          desc: "SQ 링에 제출된 요청을 처리하고 CQ 완료 이벤트를 기다린다.",
+          args: [
+            ["rdi", "fd", "io_uring_setup으로 얻은 fd"],
+            ["rsi", "to_submit", "제출할 SQE(Submission Queue Entry) 수"],
+            ["rdx", "min_complete", "반환 전 최소한 기다릴 완료(CQE) 수"],
+            ["r10", "flags", "IORING_ENTER_GETEVENTS/SQ_WAKEUP/SQ_WAIT 등"],
+            [
+              "r8",
+              "sig *",
+              "대기 중 적용할 sigset_t 포인터. NULL이면 변경 없음",
+            ],
+          ],
+        },
+        {
+          nr: 427,
+          name: "io_uring_register",
+          hot: false,
+          cat: "io",
+          desc: "io_uring에 버퍼/파일/이벤트fd 등을 사전 등록하여 syscall 오버헤드를 줄인다.",
+          args: [
+            ["rdi", "fd", "io_uring fd"],
+            [
+              "rsi",
+              "opcode",
+              "IORING_REGISTER_BUFFERS/FILES/EVENTFD/RESTRICTIONS 등",
+            ],
+            ["rdx", "arg *", "opcode에 따라 struct iovec 배열 또는 fd 배열 등"],
+            ["r10", "nr_args", "arg 배열의 원소 수"],
+          ],
+        },
+        {
+          nr: 428,
+          name: "open_tree",
+          hot: false,
+          cat: "fs",
+          desc: "마운트 포인트를 fd로 참조하기 위한 트리를 연다.",
+          args: [
+            ["rdi", "dfd", "기준 디렉터리 fd"],
+            ["rsi", "filename *", "마운트 포인트 경로"],
+            ["rdx", "flags", "OPEN_TREE_CLONE/AT_EMPTY_PATH 등"],
+          ],
+        },
+        {
+          nr: 429,
+          name: "move_mount",
+          hot: false,
+          cat: "fs",
+          desc: "파일시스템 마운트를 새 위치로 이동한다.",
+          args: [
+            ["rdi", "from_dfd", "소스 기준 fd"],
+            ["rsi", "from_pathname *", "소스 경로"],
+            ["rdx", "to_dfd", "대상 기준 fd"],
+            ["r10", "to_pathname *", "대상 경로"],
+            ["r8", "ms_flags", "MOVE_MOUNT_F_SYMLINKS 등"],
+          ],
+        },
+        {
+          nr: 430,
+          name: "fsopen",
+          hot: false,
+          cat: "fs",
+          desc: "파일시스템 구성 컨텍스트를 연다.",
+          args: [
+            ["rdi", "fs_name *", "파일시스템 이름"],
+            ["rsi", "flags", "FSOPEN_CLOEXEC 또는 0"],
+          ],
+        },
+        {
+          nr: 431,
+          name: "fsconfig",
+          hot: false,
+          cat: "fs",
+          desc: "파일시스템 컨텍스트에 마운트 옵션을 설정한다.",
+          args: [
+            ["rdi", "fs_fd", "fsopen fd"],
+            ["rsi", "cmd", "FSCONFIG_SET_STRING/SET_FLAG/CMD_CREATE 등"],
+            ["rdx", "key *", "옵션 키"],
+            ["r10", "value *", "옵션 값"],
+            ["r8", "aux", "추가 인자"],
+          ],
+        },
+        {
+          nr: 432,
+          name: "fsmount",
+          hot: false,
+          cat: "fs",
+          desc: "구성된 파일시스템 컨텍스트를 마운트로 변환한다.",
+          args: [
+            ["rdi", "fs_fd", "구성 완료된 fs_fd"],
+            ["rsi", "flags", "FSMOUNT_CLOEXEC 등"],
+            ["rdx", "ms_flags", "MS_RDONLY 등"],
+          ],
+        },
+        {
+          nr: 433,
+          name: "fspick",
+          hot: false,
+          cat: "fs",
+          desc: "기존 마운트를 파일시스템 컨텍스트로 선택한다.",
+          args: [
+            ["rdi", "dfd", "기준 fd"],
+            ["rsi", "path *", "마운트 포인트 경로"],
+            ["rdx", "flags", "FSPICK_CLOEXEC 등"],
+          ],
+        },
+        {
+          nr: 434,
+          name: "pidfd_open",
+          hot: false,
+          cat: "proc",
+          desc: "PID를 안전하게 참조하는 pidfd를 생성한다.",
+          args: [
+            ["rdi", "pid", "참조할 PID"],
+            ["rsi", "flags", "0 또는 PIDFD_NONBLOCK"],
+          ],
+        },
+        {
+          nr: 435,
+          name: "clone3",
+          hot: false,
+          cat: "proc",
+          desc: "확장된 clone 인터페이스.",
+          args: [
+            ["rdi", "uargs *", "struct clone_args 포인터"],
+            ["rsi", "size", "구조체 크기"],
+          ],
+        },
+        {
+          nr: 436,
+          name: "close_range",
+          hot: false,
+          cat: "io",
+          desc: "fd 범위를 한 번에 닫는다.",
+          args: [
+            ["rdi", "first", "시작 fd"],
+            ["rsi", "last", "끝 fd (UINT_MAX=모두)"],
+            ["rdx", "flags", "0/CLOSE_RANGE_CLOEXEC/UNSHARE"],
+          ],
+        },
+        {
+          nr: 437,
+          name: "openat2",
+          hot: false,
+          cat: "fs",
+          desc: "open_how 구조체를 이용한 정밀 파일 열기.",
+          args: [
+            ["rdi", "dirfd", "기준 fd"],
+            ["rsi", "pathname *", "경로"],
+            ["rdx", "how *", "struct open_how"],
+            ["r10", "size", "구조체 크기"],
+          ],
+        },
+        {
+          nr: 438,
+          name: "pidfd_getfd",
+          hot: false,
+          cat: "proc",
+          desc: "다른 프로세스의 fd를 복제한다.",
+          args: [
+            ["rdi", "pidfd", "대상 프로세스 pidfd"],
+            ["rsi", "targetfd", "복제할 fd 번호"],
+            ["rdx", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 439,
+          name: "faccessat2",
+          hot: false,
+          cat: "fs",
+          desc: "flags를 올바르게 지원하는 faccessat 확장.",
+          args: [
+            ["rdi", "dirfd", "기준 fd"],
+            ["rsi", "pathname *", "경로"],
+            ["rdx", "mode", "F_OK/R_OK/W_OK/X_OK"],
+            ["r10", "flags", "AT_EACCESS/AT_SYMLINK_NOFOLLOW 등"],
+          ],
+        },
+        {
+          nr: 440,
+          name: "process_madvise",
+          hot: false,
+          cat: "mem",
+          desc: "다른 프로세스 메모리에 madvise 힌트 제공.",
+          args: [
+            ["rdi", "pidfd", "대상 프로세스 pidfd"],
+            ["rsi", "iovec *", "메모리 범위 iovec 배열"],
+            ["rdx", "vlen", "배열 원소 수"],
+            ["r10", "advice", "MADV_COLD/PAGEOUT/DONTNEED 등"],
+            ["r8", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 441,
+          name: "epoll_pwait2",
+          hot: false,
+          cat: "io",
+          desc: "timespec 타임아웃 지원 epoll_pwait 확장.",
+          args: [
+            ["rdi", "epfd", "epoll fd"],
+            ["rsi", "events *", "이벤트 저장 배열"],
+            ["rdx", "maxevents", "배열 크기"],
+            ["r10", "timeout *", "struct timespec"],
+            ["r8", "sigmask *", "시그널 마스크"],
+            ["r9", "sigsetsize", "sigset_t 크기"],
+          ],
+        },
+        {
+          nr: 442,
+          name: "mount_setattr",
+          hot: false,
+          cat: "fs",
+          desc: "마운트 속성 변경.",
+          args: [
+            ["rdi", "dfd", "기준 fd"],
+            ["rsi", "path *", "경로"],
+            ["rdx", "flags", "AT_EMPTY_PATH/AT_RECURSIVE 등"],
+            ["r10", "uattr *", "struct mount_attr"],
+            ["r8", "usize", "구조체 크기"],
+          ],
+        },
+        {
+          nr: 443,
+          name: "quotactl_fd",
+          hot: false,
+          cat: "fs",
+          desc: "fd 기준 쿼터 제어.",
+          args: [
+            ["rdi", "fd", "파일시스템 fd"],
+            ["rsi", "cmd", "Q_GETQUOTA 등"],
+            ["rdx", "id", "UID/GID"],
+            ["r10", "addr *", "struct dqblk"],
+          ],
+        },
+        {
+          nr: 444,
+          name: "landlock_create_ruleset",
+          hot: false,
+          cat: "sys",
+          desc: "Landlock 규칙 세트 생성.",
+          args: [
+            ["rdi", "attr *", "struct landlock_ruleset_attr"],
+            ["rsi", "size", "구조체 크기"],
+            ["rdx", "flags", "0 또는 LANDLOCK_CREATE_RULESET_VERSION"],
+          ],
+        },
+        {
+          nr: 445,
+          name: "landlock_add_rule",
+          hot: false,
+          cat: "sys",
+          desc: "Landlock 규칙 추가.",
+          args: [
+            ["rdi", "ruleset_fd", "규칙 세트 fd"],
+            ["rsi", "rule_type", "LANDLOCK_RULE_PATH_BENEATH 등"],
+            ["rdx", "rule_attr *", "struct landlock_path_beneath_attr"],
+            ["r10", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 446,
+          name: "landlock_restrict_self",
+          hot: false,
+          cat: "sys",
+          desc: "현재 스레드에 Landlock 적용.",
+          args: [
+            ["rdi", "ruleset_fd", "적용할 규칙 세트 fd"],
+            ["rsi", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 447,
+          name: "memfd_secret",
+          hot: false,
+          cat: "mem",
+          desc: "커널 접근 불가 비밀 메모리 fd 생성.",
+          args: [["rdi", "flags", "FD_CLOEXEC 등 또는 0"]],
+        },
+        {
+          nr: 448,
+          name: "process_mrelease",
+          hot: false,
+          cat: "proc",
+          desc: "종료 중 프로세스 메모리 즉시 해제.",
+          args: [
+            ["rdi", "pidfd", "종료 중인 프로세스 pidfd"],
+            ["rsi", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 449,
+          name: "futex_waitv",
+          hot: false,
+          cat: "sched",
+          desc: "여러 퓨텍스 동시 대기.",
+          args: [
+            ["rdi", "waiters *", "struct futex_waitv 배열"],
+            ["rsi", "nr_futexes", "퓨텍스 수"],
+            ["rdx", "flags", "FUTEX_32/FUTEX_PRIVATE_FLAG 등"],
+            ["r10", "timeout *", "struct timespec"],
+            ["r8", "clockid", "CLOCK_REALTIME/MONOTONIC"],
+          ],
+        },
+        {
+          nr: 450,
+          name: "set_mempolicy_home_node",
+          hot: false,
+          cat: "mem",
+          desc: "NUMA 정책 홈 노드 설정.",
+          args: [
+            ["rdi", "start", "메모리 시작 주소"],
+            ["rsi", "len", "바이트 수"],
+            ["rdx", "home_node", "NUMA 노드 번호"],
+            ["r10", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 451,
+          name: "cachestat",
+          hot: false,
+          cat: "mem",
+          desc: "파일 범위의 페이지 캐시 통계 조회.",
+          args: [
+            ["rdi", "fd", "파일 fd"],
+            ["rsi", "cstat_range *", "struct cachestat_range (off, len)"],
+            [
+              "rdx",
+              "cstat *",
+              "struct cachestat (nr_cache, dirty, writeback 등)",
+            ],
+            ["r10", "flags", "현재 0"],
+          ],
+        },
+        {
+          nr: 452,
+          name: "fchmodat2",
+          hot: false,
+          cat: "fs",
+          desc: "AT_SYMLINK_NOFOLLOW 완전 지원 fchmodat 확장.",
+          args: [
+            ["rdi", "dirfd", "기준 fd"],
+            ["rsi", "filename *", "경로"],
+            ["rdx", "mode", "권한 비트"],
+            ["r10", "flags", "AT_SYMLINK_NOFOLLOW/AT_EMPTY_PATH 등"],
+          ],
+        },
+      ];
+
+      const CAT_LABELS = {
+        io: "I/O",
+        fs: "파일시스템",
+        proc: "프로세스",
+        mem: "메모리",
+        net: "네트워크",
+        sig: "시그널",
+        sys: "시스템",
+        time: "타이머",
+        ipc: "IPC",
+        sched: "스케줄링",
+      };
+      const REGS = ["rdi", "rsi", "rdx", "r10", "r8", "r9"];
+
+      // 중복 제거 + 정렬
+      const seen = new Set(),
+        DATA = [];
+      for (const s of SYSCALLS) {
+        const k = s.nr + "|" + s.name;
+        if (!seen.has(k)) {
+          seen.add(k);
+          DATA.push(s);
+        }
+      }
+      DATA.sort((a, b) => a.nr - b.nr);
+
+      let mode = "hot",
+        cat = "all",
+        q = "";
+
+      function esc(s) {
+        return s
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+      function hl(t, q) {
+        if (!q) return esc(t);
+        const re = new RegExp(
+          "(" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")",
+          "gi",
+        );
+        return esc(t).replace(re, "<mark>$1</mark>");
+      }
+
+      function renderArgs(args, q) {
+        if (!args || !args.length)
+          return '<span class="no-args">인자 없음</span>';
+        return args
+          .map((a, i) => {
+            const reg = REGS[i] || "—";
+            return `<div class="arg-row"><span class="ar-reg">${reg}</span><span class="ar-arr">→</span><span class="ar-nm">${hl(a[1], q)}</span><span class="ar-desc">${a[2] ? hl(a[2], q) : ""}</span></div>`;
+          })
+          .join("");
+      }
+
+      function render() {
+        const tbody = document.getElementById("tbody");
+        const empty = document.getElementById("empty");
+        const lq = q.toLowerCase();
+        const list = DATA.filter((s) => {
+          if (mode === "hot" && !s.hot) return false;
+          if (cat !== "all" && s.cat !== cat) return false;
+          if (lq) {
+            const hit =
+              s.name.toLowerCase().includes(lq) ||
+              String(s.nr).includes(lq) ||
+              s.desc.toLowerCase().includes(lq) ||
+              s.args.some(
+                (a) =>
+                  a[1].toLowerCase().includes(lq) ||
+                  (a[2] && a[2].toLowerCase().includes(lq)),
+              );
+            if (!hit) return false;
+          }
+          return true;
+        });
+        document.getElementById("show-cnt").textContent = list.length;
+        if (!list.length) {
+          tbody.innerHTML = "";
+          empty.style.display = "block";
+          return;
+        }
+        empty.style.display = "none";
+        tbody.innerHTML = list
+          .map(
+            (s) => `
+<div class="row">
+  <div class="cell cnr">${hl(String(s.nr), q)}</div>
+  <div class="cell cname">${hl(s.name, q)}${s.hot ? '<span class="hot-pill">★ HOT</span>' : ""}</div>
+  <div class="cell cdesc">${hl(s.desc, q)}</div>
+  <div class="cell cargs">${renderArgs(s.args, q)}</div>
+  <div class="cell ccat-cell"><span class="cat-badge cat-${s.cat}">${CAT_LABELS[s.cat] || s.cat}</span></div>
+</div>`,
+          )
+          .join("");
+      }
+
+      function setMode(m) {
+        mode = m;
+        document.getElementById("btn-hot").classList.toggle("on", m === "hot");
+        document.getElementById("btn-all").classList.toggle("on", m === "all");
+        document.getElementById("mode-lbl").textContent =
+          m === "hot" ? "자주 쓰는 syscall" : "전체 syscall (394개)";
+        render();
+      }
+
+      function buildCats() {
+        const wrap = document.getElementById("cats");
+        const all = ["all", ...Object.keys(CAT_LABELS)];
+        wrap.innerHTML = all
+          .map(
+            (c) =>
+              `<button class="ccat${c === "all" ? " on" : ""}" data-cat="${c}">${c === "all" ? "전체" : CAT_LABELS[c]}</button>`,
+          )
+          .join("");
+        wrap.addEventListener("click", (e) => {
+          if (!e.target.classList.contains("ccat")) return;
+          wrap
+            .querySelectorAll(".ccat")
+            .forEach((b) => b.classList.remove("on"));
+          e.target.classList.add("on");
+          cat = e.target.dataset.cat;
+          render();
+        });
+      }
+
+      function init() {
+        const hot = DATA.filter((s) => s.hot).length;
+        document.getElementById("hot-cnt").textContent = hot;
+        document.getElementById("all-cnt").textContent = DATA.length;
+        document.getElementById("total-cnt").textContent = DATA.length;
+        buildCats();
+        render();
+      }
+
+      document.getElementById("search").addEventListener("input", (e) => {
+        q = e.target.value;
+        render();
+      });
+      init();
+    </script>
+  </body>
+</html>
