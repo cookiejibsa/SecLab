@@ -38,6 +38,18 @@
     display: flex;
   }
 
+  a {
+    color: var(--accent);
+    text-decoration: none;
+    text-shadow: 0 0 15px var(--accent);
+    transition: text-shadow 0.3s ease;
+  }
+  a:hover {
+    text-shadow:
+      0 0 15px var(--accent),
+      0 0 15px var(--accent);
+  }
+
   /* ─── TOOLTIP 시스템 ─── */
   /* 마우스를 올리면 위에 뜨는 용어 설명 */
   .tt {
@@ -2177,6 +2189,12 @@ p.z = <span class="num">30</span>;
     </table>
 
     <h3>주요 시스템 콜 번호 (Linux x86-64)</h3>
+
+    <a
+      href="https://cookiejibsa.github.io/SecLab/syscall-cheatsheet"
+      target="_blank"
+      >SYSCALL 더 알아보기</a
+    >
 
     <table>
       <tr><th>번호</th><th>이름</th><th>기능</th><th>C 함수</th></tr>
