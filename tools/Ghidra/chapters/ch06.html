@@ -1,0 +1,455 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 06 · Part 3 — 자동화 & 고급 기능</div>
+  <h2>PCode & Headless 모드</h2>
+  <p class="subtitle">Ghidra의 중간 언어로 아키텍처 독립 분석 — GUI 없이 수천 개 바이너리를 처리하는 방법</p>
+</div>
+
+<div class="callout info">
+  <span class="callout-icon">📌</span>
+  <div class="callout-body">
+    <strong>이 챕터에서 배울 것</strong>
+    <p>PCode 중간 표현 언어의 구조와 연산자, Listing에서 PCode 보기, PCode를 이용한 데이터 흐름 분석, Headless Analyzer로 대량 바이너리 처리, 실전 파이프라인 구성.</p>
+  </div>
+</div>
+
+<h3>PCode — 왜 존재하는가</h3>
+
+<p>
+  x86 어셈블리는 수백 가지 명령어가 있다. ARM은 다른 수백 가지. MIPS는 또 다르다.
+  이 모든 아키텍처에서 "이 값이 어디서 왔는가", "이 함수의 반환 타입이 뭔가"를 분석하려면
+  아키텍처별로 분석 코드를 따로 작성해야 할까? PCode는 그 문제를 푼다.
+</p>
+
+<p>
+  PCode는 Ghidra의 내부 중간 표현(Intermediate Representation) 언어다. 모든 아키텍처의 명령어가 PCode로 "리프팅(lifting)"된다.
+  PCode는 ~70가지 연산자만 있고, 명확하게 정의된 의미론(semantics)을 갖는다.
+  분석 로직은 PCode를 대상으로 작성하면 어떤 아키텍처에서든 동작한다.
+</p>
+
+<h3>PCode 기본 연산자</h3>
+
+<table class="cmp-table">
+  <tr><th>PCode 연산자</th><th>의미</th><th>어셈블리 예시</th></tr>
+  <tr><td><code>COPY</code></td><td>값 복사</td><td>MOV eax, ebx</td></tr>
+  <tr><td><code>LOAD</code></td><td>메모리 읽기</td><td>MOV eax, [ebx]</td></tr>
+  <tr><td><code>STORE</code></td><td>메모리 쓰기</td><td>MOV [ebx], eax</td></tr>
+  <tr><td><code>BRANCH</code></td><td>무조건 점프</td><td>JMP label</td></tr>
+  <tr><td><code>CBRANCH</code></td><td>조건 점프</td><td>JZ / JNZ / JG 등</td></tr>
+  <tr><td><code>CALL</code></td><td>함수 호출</td><td>CALL func</td></tr>
+  <tr><td><code>CALLIND</code></td><td>간접 함수 호출</td><td>CALL [EAX]</td></tr>
+  <tr><td><code>RETURN</code></td><td>반환</td><td>RET</td></tr>
+  <tr><td><code>INT_ADD</code></td><td>정수 덧셈</td><td>ADD</td></tr>
+  <tr><td><code>INT_SUB</code></td><td>정수 뺄셈</td><td>SUB</td></tr>
+  <tr><td><code>INT_MULT</code></td><td>정수 곱셈</td><td>MUL / IMUL</td></tr>
+  <tr><td><code>INT_DIV</code></td><td>정수 나눗셈 (unsigned)</td><td>DIV</td></tr>
+  <tr><td><code>INT_SDIV</code></td><td>정수 나눗셈 (signed)</td><td>IDIV</td></tr>
+  <tr><td><code>INT_AND</code></td><td>비트 AND</td><td>AND</td></tr>
+  <tr><td><code>INT_OR</code></td><td>비트 OR</td><td>OR</td></tr>
+  <tr><td><code>INT_XOR</code></td><td>비트 XOR</td><td>XOR</td></tr>
+  <tr><td><code>INT_EQUAL</code></td><td>같음 비교</td><td>CMP + setz</td></tr>
+  <tr><td><code>INT_SLESS</code></td><td>signed 작음</td><td>CMP + jl</td></tr>
+  <tr><td><code>FLOAT_ADD</code></td><td>부동소수 덧셈</td><td>ADDSS / FADD</td></tr>
+  <tr><td><code>MULTIEQUAL</code></td><td>SSA phi 함수</td><td>(컴파일러 내부 개념)</td></tr>
+  <tr><td><code>INDIRECT</code></td><td>간접 의존성</td><td>포인터를 통한 부수 효과</td></tr>
+</table>
+
+<h3>Listing에서 PCode 보기</h3>
+
+<pre><code><span class="cm">; Listing에서 PCode 열 활성화 방법:</span>
+<span class="cm">; 1. Listing 우측 상단의 "Edit Listing Fields" (연필 아이콘) 클릭</span>
+<span class="cm">; 2. "Instruction/Data" 탭 선택</span>
+<span class="cm">; 3. "PCode" 버튼 우클릭 → "Enable Field"</span>
+<span class="cm">; (평소엔 꺼두는 게 좋다 — 3~5배 세로 공간을 차지함)</span>
+
+<span class="cm">; 예: ADD EAX, EBX 의 PCode</span>
+<span class="reg">ADD</span>     <span class="reg">EAX</span>,<span class="reg">EBX</span>
+<span class="cm">; ---PCode---</span>
+<span class="cm">;  (u0:4) = INT_ADD EAX, EBX</span>
+<span class="cm">;  CF = INT_CARRY EAX, EBX</span>
+<span class="cm">;  OF = INT_SCARRY EAX, EBX</span>
+<span class="cm">;  SF = INT_SLESS (u0:4), 0:4</span>
+<span class="cm">;  ZF = INT_EQUAL (u0:4), 0:4</span>
+<span class="cm">;  EAX = COPY (u0:4)</span>
+
+<span class="cm">; → ADD 명령어 하나가 6개의 PCode 연산으로 변환됨</span>
+<span class="cm">; → 플래그 레지스터 업데이트도 명시적으로 표현됨</span></code></pre>
+
+<h3>Varnode — PCode의 기본 데이터 단위</h3>
+
+<p>
+  PCode에서 모든 값은 <strong>Varnode</strong>로 표현된다. Varnode는 (메모리 공간, 오프셋, 크기)의 튜플이다.
+  메모리 공간은 레지스터 공간, 실제 RAM, 상수 공간, 유일 공간(임시값) 등으로 나뉜다.
+</p>
+
+<pre><code><span class="cm"># Varnode 예시 (스크립트에서)</span>
+<span class="kw">from</span> ghidra.program.model.pcode <span class="kw">import</span> PcodeOp, Varnode
+
+<span class="cm"># 특정 함수의 모든 PCode 연산 순회</span>
+func = getFunctionAt(toAddr(<span class="num">0x401234</span>))
+decompiler_results = decompileFunction(func, <span class="num">60</span>, monitor)
+high_func = decompiler_results.getHighFunction()
+
+<span class="cm"># High-level PCode (SSA 형태) 순회</span>
+opiter = high_func.getPcodeOps()
+<span class="kw">while</span> opiter.hasNext():
+    op = opiter.next()
+    
+    mnemonic = op.getMnemonic()            <span class="cm"># PCode 연산자 이름</span>
+    output   = op.getOutput()              <span class="cm"># 출력 Varnode</span>
+    inputs   = [op.getInput(i) <span class="kw">for</span> i <span class="kw">in</span> range(op.getNumInputs())]
+    
+    <span class="kw">if</span> mnemonic == <span class="str">"CALL"</span>:
+        target = inputs[<span class="num">0</span>]
+        print(<span class="str">f"함수 호출: {target}"</span>)
+    
+    <span class="kw">elif</span> mnemonic == <span class="str">"INT_XOR"</span>:
+        <span class="cm"># XOR 발견 - 암호화 루틴 후보</span>
+        print(<span class="str">f"XOR 연산 at {op.getSeqnum().getTarget()}"</span>)</code></pre>
+
+<h3>PCode를 이용한 데이터 흐름 분석</h3>
+
+<p>
+  "이 변수의 값이 어디서 왔는가?" — 데이터 흐름 분석(Data Flow Analysis)의 핵심 질문이다.
+  고수준 PCode(SSA 형태)에서 Varnode를 역추적하면 값의 출처를 찾을 수 있다.
+</p>
+
+<pre><code><span class="cm">#@title Trace Value Origin</span>
+<span class="cm">#@category Analysis</span>
+<span class="cm"># 특정 함수 호출의 첫 번째 인자 추적</span>
+
+<span class="kw">from</span> ghidra.app.decompiler <span class="kw">import</span> DecompInterface
+<span class="kw">from</span> ghidra.util.task <span class="kw">import</span> ConsoleTaskMonitor
+
+<span class="kw">def</span> <span class="fn">get_decompiler</span>():
+    iface = DecompInterface()
+    iface.openProgram(currentProgram)
+    <span class="kw">return</span> iface
+
+<span class="kw">def</span> <span class="fn">trace_varnode_origin</span>(varnode, depth=<span class="num">0</span>, max_depth=<span class="num">10</span>):
+    <span class="str">"""Varnode의 정의(definition)를 역추적한다"""</span>
+    indent = <span class="str">"  "</span> * depth
+    
+    <span class="kw">if</span> depth > max_depth:
+        print(<span class="str">f"{indent}[최대 깊이 도달]"</span>)
+        <span class="kw">return</span>
+    
+    <span class="kw">if</span> varnode <span class="kw">is</span> <span class="kw">None</span>:
+        <span class="kw">return</span>
+    
+    <span class="cm"># 상수인 경우</span>
+    <span class="kw">if</span> varnode.isConstant():
+        print(<span class="str">f"{indent}[상수] 0x{varnode.getOffset():X}"</span>)
+        <span class="kw">return</span>
+    
+    <span class="cm"># 정의 PCode 연산 찾기</span>
+    def_op = varnode.getDef()
+    <span class="kw">if</span> def_op <span class="kw">is</span> <span class="kw">None</span>:
+        print(<span class="str">f"{indent}[입력 파라미터 또는 전역]"</span>)
+        <span class="kw">return</span>
+    
+    mnemonic = def_op.getMnemonic()
+    print(<span class="str">f"{indent}[{mnemonic}] at {def_op.getSeqnum().getTarget()}"</span>)
+    
+    <span class="cm"># 입력 Varnode들도 재귀적으로 추적</span>
+    <span class="kw">for</span> i <span class="kw">in</span> range(def_op.getNumInputs()):
+        inp = def_op.getInput(i)
+        <span class="fn">trace_varnode_origin</span>(inp, depth + <span class="num">1</span>, max_depth)
+
+<span class="cm"># 사용 예: check_password 함수의 첫 번째 인자 추적</span>
+iface = <span class="fn">get_decompiler</span>()
+func = getFunctionAt(toAddr(<span class="num">0x401234</span>))
+result = iface.decompileFunction(func, <span class="num">60</span>, ConsoleTaskMonitor())
+high_func = result.getHighFunction()
+
+<span class="cm"># 첫 번째 PCode 연산의 첫 번째 입력 추적</span>
+opiter = high_func.getPcodeOps()
+<span class="kw">if</span> opiter.hasNext():
+    first_op = opiter.next()
+    print(<span class="str">"=== 값 추적 시작 ==="</span>)
+    <span class="fn">trace_varnode_origin</span>(first_op.getInput(<span class="num">0</span>))</code></pre>
+
+<h3>PCode 에뮬레이션 — 코드 실행 없이 값 계산</h3>
+
+<p>
+  Ghidra의 PCode 에뮬레이터를 사용하면 실제로 코드를 실행하지 않고도 특정 함수의 결과를 계산할 수 있다.
+  악성코드의 복호화 루틴, CrackMe의 비밀번호 검증 함수를 에뮬레이션하는 데 쓴다.
+</p>
+
+<pre><code><span class="cm">#@title PCode Emulation Example</span>
+<span class="cm">#@category Analysis</span>
+
+<span class="kw">from</span> ghidra.app.emulator <span class="kw">import</span> EmulatorHelper
+<span class="kw">from</span> ghidra.program.model.address <span class="kw">import</span> Address
+
+<span class="cm"># EmulatorHelper 초기화</span>
+emu = EmulatorHelper(currentProgram)
+
+<span class="kw">try</span>:
+    <span class="cm"># 분석할 함수 주소</span>
+    func_addr = toAddr(<span class="num">0x401234</span>)
+    
+    <span class="cm"># 레지스터 초기값 설정</span>
+    emu.writeRegister(<span class="str">"EAX"</span>, <span class="num">0x1234</span>)      <span class="cm"># 첫 번째 파라미터</span>
+    emu.writeRegister(<span class="str">"ECX"</span>, <span class="num">0x5678</span>)      <span class="cm"># 두 번째 파라미터</span>
+    
+    <span class="cm"># 스택 포인터 초기화 (가상 스택 공간)</span>
+    emu.writeRegister(<span class="str">"ESP"</span>, <span class="num">0x00100000</span>)
+    
+    <span class="cm"># 특정 주소에서 실행 시작</span>
+    emu.setExecuteAddress(func_addr)
+    
+    max_steps = <span class="num">1000</span>
+    steps = <span class="num">0</span>
+    
+    <span class="kw">while</span> steps &lt; max_steps:
+        <span class="cm"># 한 스텝 실행</span>
+        success = emu.step(monitor)
+        <span class="kw">if</span> <span class="kw">not</span> success:
+            <span class="kw">break</span>
+        
+        steps += <span class="num">1</span>
+        cur_addr = emu.getExecutionAddress()
+        
+        <span class="cm"># RET 명령어 감지 (함수 종료)</span>
+        instr = currentProgram.getListing().getInstructionAt(cur_addr)
+        <span class="kw">if</span> instr <span class="kw">and</span> instr.getMnemonicString() == <span class="str">"RET"</span>:
+            <span class="kw">break</span>
+    
+    <span class="cm"># 결과 읽기</span>
+    eax_result = emu.readRegister(<span class="str">"EAX"</span>)
+    print(<span class="str">f"함수 반환값 (EAX): 0x{eax_result:X}"</span>)
+    print(<span class="str">f"실행된 스텝 수: {steps}"</span>)
+
+<span class="kw">finally</span>:
+    emu.dispose()  <span class="cm"># 반드시 dispose 호출</span></code></pre>
+
+<div class="callout warn">
+  <span class="callout-icon">⚠️</span>
+  <div class="callout-body">
+    <strong>PCode 에뮬레이션의 한계</strong>
+    <p>
+      시스템 콜, Windows API 호출, 외부 라이브러리 함수는 에뮬레이션이 안 된다. API 호출 지점에서 에뮬레이션이 멈추거나 예외가 발생한다.
+      이런 경우 API 호출 바로 전후에서 에뮬레이션을 시작/중단하고 레지스터 상태만 분석하는 방식을 쓴다.
+    </p>
+  </div>
+</div>
+
+<h3>Headless Analyzer — GUI 없는 대량 분석</h3>
+
+<p>
+  수백 개의 바이너리를 분석해야 할 때 Ghidra GUI를 하나하나 열기는 불가능하다.
+  <code>analyzeHeadless</code>는 커맨드라인에서 Ghidra를 실행하는 방법이다.
+  CI/CD 파이프라인, 악성코드 자동 분석 시스템에서 핵심적으로 쓰인다.
+</p>
+
+<pre><code><span class="cm"># analyzeHeadless 기본 문법</span>
+<span class="cm"># [Ghidra 설치 경로]/support/analyzeHeadless</span>
+
+<span class="cm"># 단일 파일 분석</span>
+./analyzeHeadless \
+    /tmp/my_project MyProject \        <span class="cm"># 프로젝트 위치와 이름</span>
+    -import /samples/malware.exe \     <span class="cm"># 임포트할 바이너리</span>
+    -postScript MyScript.py \          <span class="cm"># 분석 후 실행할 스크립트</span>
+    -scriptPath /my_scripts \          <span class="cm"># 스크립트 검색 경로</span>
+    -log /tmp/ghidra_analysis.log      <span class="cm"># 로그 파일</span>
+
+<span class="cm"># 디렉토리 전체 분석 (재귀)</span>
+./analyzeHeadless \
+    /tmp/my_project BatchProject \
+    -import /samples/ \                <span class="cm"># 디렉토리 지정 시 하위 파일 전부</span>
+    -recursive \                       <span class="cm"># 재귀 탐색</span>
+    -postScript ExtractStrings.py \
+    -deleteProject                     <span class="cm"># 분석 완료 후 프로젝트 삭제 (임시 분석)</span></code></pre>
+
+<pre><code><span class="cm"># 기존 프로젝트에 스크립트만 실행 (재분석 없이)</span>
+./analyzeHeadless \
+    /tmp/my_project ExistingProject \
+    -process malware.exe \             <span class="cm"># -import 대신 -process (이미 임포트된 파일)</span>
+    -noanalysis \                      <span class="cm"># Auto Analysis 건너뜀 (이미 완료된 경우)</span>
+    -postScript MyQueryScript.py
+
+<span class="cm"># 스크립트에 인자 전달</span>
+./analyzeHeadless \
+    /tmp/my_project MyProject \
+    -import /samples/unknown.bin \
+    -postScript HashExtractor.py "output.json" "True"</code></pre>
+
+<h3>Headless 스크립트 예시 — 배치 문자열 추출</h3>
+
+<pre><code><span class="cm">#@title Headless String Extractor</span>
+<span class="cm">#@category Headless</span>
+
+<span class="cm">"""
+사용법:
+analyzeHeadless [proj_dir] [proj_name] -import [dir] -recursive \
+    -postScript ExtractStrings.py /output/results.txt
+"""</span>
+
+<span class="kw">import</span> json
+<span class="kw">import</span> os
+
+args = getScriptArgs()
+output_file = args[<span class="num">0</span>] <span class="kw">if</span> args <span class="kw">else</span> <span class="str">"/tmp/strings_output.txt"</span>
+
+prog_name = currentProgram.getName()
+results = {
+    <span class="str">"binary"</span>: prog_name,
+    <span class="str">"strings"</span>: [],
+    <span class="str">"functions"</span>: [],
+    <span class="str">"imports"</span>: []
+}
+
+<span class="cm"># 정의된 문자열 수집</span>
+<span class="kw">from</span> ghidra.program.model.data <span class="kw">import</span> StringDataType
+
+listing = currentProgram.getListing()
+data_iter = listing.getDefinedData(<span class="kw">True</span>)
+
+<span class="kw">while</span> data_iter.hasNext():
+    d = data_iter.next()
+    <span class="kw">if</span> isinstance(d.getDataType(), StringDataType):
+        s = d.getValue()
+        <span class="kw">if</span> s <span class="kw">and</span> len(str(s)) > <span class="num">3</span>:
+            results[<span class="str">"strings"</span>].append({
+                <span class="str">"addr"</span>: str(d.getAddress()),
+                <span class="str">"value"</span>: str(s)
+            })
+
+<span class="cm"># 임포트 목록 수집</span>
+ext_refs = currentProgram.getExternalManager()
+ext_locs = ext_refs.getAllExternalLocations()
+<span class="kw">while</span> ext_locs.hasNext():
+    loc = ext_locs.next()
+    results[<span class="str">"imports"</span>].append({
+        <span class="str">"lib"</span>: loc.getLibraryName(),
+        <span class="str">"func"</span>: loc.getLabel()
+    })
+
+<span class="cm"># 결과를 파일에 append</span>
+<span class="kw">with</span> open(output_file, <span class="str">"a"</span>) <span class="kw">as</span> f:
+    f.write(json.dumps(results) + <span class="str">"\n"</span>)
+
+print(<span class="str">f"완료: {prog_name} → {output_file}"</span>)</code></pre>
+
+<h3>완전한 자동 분석 파이프라인 구성</h3>
+
+<pre><code><span class="cm">#!/bin/bash</span>
+<span class="cm"># 악성코드 자동 분석 파이프라인</span>
+
+GHIDRA_HOME="/opt/ghidra"
+SAMPLES_DIR="/samples/incoming"
+OUTPUT_DIR="/analysis/results"
+PROJECT_DIR="/tmp/ghidra_projects"
+SCRIPTS_DIR="/my_scripts"
+
+<span class="cm"># 들어오는 샘플 처리</span>
+<span class="kw">for</span> sample <span class="kw">in</span> "$SAMPLES_DIR"/*.exe "$SAMPLES_DIR"/*.dll; do
+    <span class="kw">if</span> [ ! -f "$sample" ]; <span class="kw">then continue</span>; <span class="kw">fi</span>
+    
+    basename=$(basename "$sample")
+    proj_name="analysis_${basename%%.*}"
+    output_json="$OUTPUT_DIR/${basename}.json"
+    
+    echo "[*] 분석 시작: $basename"
+    
+    <span class="cm"># Ghidra Headless 실행</span>
+    "$GHIDRA_HOME/support/analyzeHeadless" \
+        "$PROJECT_DIR" "$proj_name" \
+        -import "$sample" \
+        -scriptPath "$SCRIPTS_DIR" \
+        -postScript ExtractStrings.py "$output_json" \
+        -postScript APIUsageReport.py "$output_json" \
+        -postScript SuspiciousFuncFinder.py "$output_json" \
+        -deleteProject \
+        -log "$OUTPUT_DIR/${basename}.log" \
+        2>&1 | grep -v "^INFO"   <span class="cm"># 너무 많은 INFO 로그 필터</span>
+    
+    <span class="kw">if</span> [ $? -eq 0 ]; <span class="kw">then</span>
+        echo "[+] 완료: $basename → $output_json"
+    <span class="kw">else</span>
+        echo "[-] 실패: $basename"
+    <span class="kw">fi</span>
+<span class="kw">done</span>
+
+<span class="cm"># 결과 집계</span>
+python3 aggregate_results.py "$OUTPUT_DIR"</code></pre>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>Headless 분석 속도 최적화</strong>
+    <p>
+      <code>-noanalysis</code> 옵션으로 Auto Analysis를 끄면 임포트 속도가 10배 빨라진다.
+      스크립트가 특정 정보(문자열, 임포트 목록)만 필요하다면 Auto Analysis 없이도 얻을 수 있는 경우가 많다.
+      반대로 Decompiler 결과가 필요하다면 Analysis가 완료된 기존 프로젝트에서 <code>-process</code>로 스크립트만 실행하는 방법이 효율적이다.
+    </p>
+  </div>
+</div>
+
+<h3>BSim — 함수 유사도 검색</h3>
+
+<p>
+  BSim(Binary Similarity)은 Ghidra 10.x부터 포함된 기능이다. 함수의 PCode를 분석해서 유사도 벡터를 생성하고,
+  이를 데이터베이스에 저장해 유사한 함수를 빠르게 찾는다. 악성코드 패밀리 분류, 재사용 코드 식별에 유용하다.
+</p>
+
+<pre><code><span class="cm"># BSim 사용 개념 (CLI 방식)</span>
+
+<span class="cm"># 1. BSim 서버 설정 (H2 DB 사용, 소규모)</span>
+./bsim createdatabase bsim_db H2
+
+<span class="cm"># 2. 바이너리를 BSim DB에 등록 (Headless로 대량 처리)</span>
+./analyzeHeadless /tmp/proj DB_Population \
+    -import /samples/ -recursive \
+    -postScript BSimAnalyzeHeadless.java bsim_db
+
+<span class="cm"># 3. 특정 바이너리에서 유사 함수 검색</span>
+<span class="cm"># CodeBrowser에서: BSim → Search Functions Similar to All</span>
+<span class="cm"># 유사도 90% 이상 함수 목록이 나옴</span>
+
+<span class="cm"># 활용 시나리오:
+# - 신규 악성코드 샘플이 들어왔을 때 BSim으로 기존 샘플과 비교
+# - 유사도 높은 함수 발견 → 같은 패밀리 or 코드 재사용
+# - 이전에 분석한 이름이 자동으로 적용됨</span></code></pre>
+
+<h3>마치며 — Ghidra 학습 로드맵</h3>
+
+<p>
+  이 가이드에서 다룬 내용을 정리하면:
+</p>
+
+<ul class="step-list">
+  <li>
+    <div class="step-num">1</div>
+    <div><strong>기초 (Ch 01-02):</strong> Ghidra의 원리를 이해하고 환경을 완벽히 구성한다.</div>
+  </li>
+  <li>
+    <div class="step-num">2</div>
+    <div><strong>CodeBrowser (Ch 03):</strong> UI를 완전히 익히고 세 가지 분석 워크플로우를 몸에 배게 한다.</div>
+  </li>
+  <li>
+    <div class="step-num">3</div>
+    <div><strong>데이터 타입 (Ch 04):</strong> 구조체와 타입을 적극적으로 정의해 Decompiler 품질을 높인다.</div>
+  </li>
+  <li>
+    <div class="step-num">4</div>
+    <div><strong>스크립팅 (Ch 05):</strong> 반복 작업은 무조건 스크립트로. API 문서를 읽는 법을 익힌다.</div>
+  </li>
+  <li>
+    <div class="step-num">5</div>
+    <div><strong>PCode & Headless (Ch 06):</strong> 자동화 파이프라인을 구성하고 대규모 분석을 한다.</div>
+  </li>
+</ul>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>다음 단계 — 추가 학습 리소스</strong>
+    <p>
+      <strong>The Ghidra Book (2nd Ed.)</strong> — Chris Eagle, No Starch Press. 가장 권위 있는 Ghidra 교재.
+      <strong>Ghidra GitHub</strong> — NSA의 공식 저장소. 소스코드와 예제 스크립트가 풍부하다.
+      <strong>VoidStar Security Blog</strong> — PCode 에뮬레이션 실전 예제가 잘 정리되어 있다.
+      <strong>Ghidra 내장 문서</strong> — Help → Contents. 모든 기능의 공식 설명이 여기 있다.
+    </p>
+  </div>
+</div>

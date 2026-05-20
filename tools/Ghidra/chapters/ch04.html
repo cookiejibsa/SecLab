@@ -1,0 +1,287 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 04 · Part 2 — CodeBrowser 완전 정복</div>
+  <h2>데이터 타입 & 구조체 정의</h2>
+  <p class="subtitle">Ghidra가 바이트를 이해하게 만드는 방법 — struct 정의가 분석 품질을 10배 올린다</p>
+</div>
+
+<div class="callout info">
+  <span class="callout-icon">📌</span>
+  <div class="callout-body">
+    <strong>이 챕터에서 배울 것</strong>
+    <p>Data Type Manager 구조, 커스텀 struct/union/enum 정의, C 헤더 파일을 GDT로 변환, 구조체 적용으로 Decompiler 품질 향상, 실전 사례.</p>
+  </div>
+</div>
+
+<h3>왜 데이터 타입이 중요한가</h3>
+
+<p>
+  Ghidra가 바이너리를 처음 분석하면 대부분의 바이트는 "undefined"다. 바이트 덩어리가 정수인지, 포인터인지, 구조체인지 모르는 상태다.
+  Ghidra가 추론할 수 있는 것은 코드(함수) 부분이고, 데이터 섹션의 복잡한 구조는 분석가가 직접 알려줘야 한다.
+</p>
+
+<p>
+  비유를 들면: 외국어 책을 펼쳤는데 알파벳은 읽히는데 단어의 의미를 모르는 상태다.
+  데이터 타입을 정의하는 건 사전을 만들어주는 작업이다. 사전이 생기면 전체 문장(함수)이 갑자기 읽힌다.
+</p>
+
+<h3>Data Type Manager 구조</h3>
+
+<p>
+  <code>Window → Data Type Manager</code> 또는 <code>Ctrl+D</code>. 트리 구조로 되어 있다.
+</p>
+
+<pre><code><span class="cm">Data Type Manager 트리 구조:</span>
+
+▼ Program (현재 분석 중인 바이너리)
+  ├── BuiltInTypes      <span class="cm">← byte, dword, qword 등 기본 타입</span>
+  ├── /                 <span class="cm">← 사용자 정의 타입이 들어가는 곳</span>
+  └── IMPORTED          <span class="cm">← 임포트한 라이브러리 타입들</span>
+
+▼ BuiltInTypes         <span class="cm">← Ghidra 내장 타입 아카이브</span>
+▼ windows_vs12_32.gdt  <span class="cm">← Windows 32비트 PE 임포트 시 자동 로드</span>
+▼ ntddk_32.gdt         <span class="cm">← 커널 드라이버 분석용</span></code></pre>
+
+<p>
+  GDT(Ghidra Data Type)는 타입 아카이브 파일이다. Ghidra 설치 디렉토리의 <code>Ghidra/Features/Base/data/typeinfo/</code>에 여러 GDT가 있다.
+  POSIX, Windows API, C 표준 라이브러리 등의 타입이 미리 정의되어 있다.
+</p>
+
+<h3>구조체(struct) 정의하기</h3>
+
+<p>
+  두 가지 방법이 있다. Listing에서 데이터를 선택하고 만드는 방법과, Data Type Manager에서 처음부터 만드는 방법.
+</p>
+
+<div class="tabs">
+  <div class="tab-header">
+    <button class="tab-btn active" data-tab="s1">Listing에서 직접 정의</button>
+    <button class="tab-btn" data-tab="s2">Data Type Manager에서 정의</button>
+    <button class="tab-btn" data-tab="s3">C 헤더에서 임포트</button>
+  </div>
+  <div class="tab-panel active" data-panel="s1">
+    <p>이미 데이터가 있는 주소에서 구조체 레이아웃을 직접 정의하는 방법. 가장 직관적이다.</p>
+    <ul class="step-list">
+      <li>
+        <div class="step-num">1</div>
+        <div>
+          데이터 영역에서 구조체가 시작하는 주소로 이동<br>
+          해당 바이트들이 어떤 구조인지 Decompiler로 추정해두기
+        </div>
+      </li>
+      <li>
+        <div class="step-num">2</div>
+        <div>
+          Listing에서 구조체 범위만큼 드래그로 선택<br>
+          <code>Data → Create Structure</code> 클릭
+        </div>
+      </li>
+      <li>
+        <div class="step-num">3</div>
+        <div>
+          Structure Editor가 열린다. 각 필드의 이름과 타입을 지정<br>
+          OK를 누르면 해당 주소의 데이터가 구조체로 해석된다
+        </div>
+      </li>
+    </ul>
+  </div>
+  <div class="tab-panel" data-panel="s2">
+    <p>처음부터 구조체 레이아웃을 설계할 때. 코드 분석으로 구조를 파악했을 때 사용한다.</p>
+    <pre><code><span class="cm">/* 분석 중 Decompiler에서 이런 패턴을 발견했다고 하자: */</span>
+<span class="kw">int</span> iVar1 = *(param_1);             <span class="cm">// offset 0: int</span>
+<span class="kw">char</span> *pcVar2 = *(param_1 + <span class="num">4</span>);     <span class="cm">// offset 4: char*</span>
+<span class="kw">int</span> iVar3 = *(param_1 + <span class="num">8</span>);       <span class="cm">// offset 8: int</span>
+<span class="kw">byte</span> bVar4 = *(param_1 + <span class="num">12</span>);     <span class="cm">// offset 12: byte</span>
+
+<span class="cm">/* → 이를 바탕으로 구조체 정의:
+   Data Type Manager → Program 우클릭 → New → Structure */</span>
+
+<span class="kw">struct</span> UserRecord {
+    <span class="kw">int</span>    id;          <span class="cm">// offset 0, size 4</span>
+    <span class="kw">char</span>  *username;    <span class="cm">// offset 4, size 4 (32bit) or 8 (64bit)</span>
+    <span class="kw">int</span>    role;        <span class="cm">// offset 8, size 4</span>
+    <span class="kw">byte</span>   is_admin;   <span class="cm">// offset 12, size 1</span>
+};  <span class="cm">// total: 13 bytes (패딩 고려 시 16)</span></code></pre>
+  </div>
+  <div class="tab-panel" data-panel="s3">
+    <p>Windows API 구조체처럼 C 헤더가 이미 있을 때. 수백 개의 구조체를 한 번에 임포트할 수 있다.</p>
+    <pre><code><span class="cm"># 방법 1: Ghidra 내장 Parse C Header 기능</span>
+<span class="cm"># File → Parse C Source</span>
+<span class="cm"># C 헤더 파일을 지정하면 GDT로 자동 변환</span>
+
+<span class="cm"># 예: 사용자 정의 구조체 헤더 파일 (my_structs.h)</span>
+<span class="cm">/*</span>
+typedef struct {
+    int    user_id;
+    char   username[32];
+    int    access_level;
+    time_t last_login;
+} UserRecord;
+
+typedef struct {
+    int         count;
+    UserRecord *users;
+    int         capacity;
+} UserDatabase;
+<span class="cm">*/</span>
+
+<span class="cm"># 주의: Parse C Source는 간단한 헤더에만 잘 동작한다</span>
+<span class="cm"># 복잡한 매크로나 컴파일러 의존 코드는 전처리가 필요</span></code></pre>
+  </div>
+</div>
+
+<h3>구조체를 코드에 적용하기</h3>
+
+<p>
+  구조체를 정의했으면 Decompiler에 적용해야 Decompiler 결과가 바뀐다.
+  변수에 커서를 놓고 <code>T</code>를 누르거나, 우클릭 → "Retype Variable"을 선택한다.
+</p>
+
+<pre><code><span class="cm">/* 적용 전: 구조체가 undefined4 덩어리로 보임 */</span>
+<span class="kw">void</span> <span class="fn">process_user</span>(<span class="kw">undefined4</span> *param_1)
+{
+    <span class="kw">if</span> (*(param_1 + <span class="num">3</span>) != <span class="num">0</span>) {     <span class="cm">// is_admin 체크인데 알 수 없음</span>
+        <span class="fn">FUN_00401500</span>(param_1);
+    }
+    <span class="fn">log_action</span>(*(param_1 + <span class="num">1</span>));    <span class="cm">// username 포인터인데 알 수 없음</span>
+}
+
+<span class="cm">/* 적용 후: UserRecord* 타입을 param_1에 적용 */</span>
+<span class="kw">void</span> <span class="fn">process_user</span>(<span class="fn">UserRecord</span> *user)
+{
+    <span class="kw">if</span> (user->is_admin != <span class="num">0</span>) {      <span class="cm">// 의미가 명확해짐</span>
+        <span class="fn">grant_admin_access</span>(user);
+    }
+    <span class="fn">log_action</span>(user->username);     <span class="cm">// 필드 이름으로 표시</span>
+}</code></pre>
+
+<div class="callout warn">
+  <span class="callout-icon">⚠️</span>
+  <div class="callout-body">
+    <strong>패딩(Padding) 주의</strong>
+    <p>
+      컴파일러는 구조체 필드를 정렬(alignment) 규칙에 따라 패딩을 삽입한다.
+      <code>char</code> 다음에 <code>int</code>가 오면 3바이트 패딩이 생기는 식이다.
+      Ghidra Structure Editor에서 "Pack Structure" 옵션을 언제 켜고 끌지 실제 바이너리 동작과 비교하면서 맞춰야 한다.
+    </p>
+  </div>
+</div>
+
+<h3>Union 정의</h3>
+
+<p>
+  Union은 같은 메모리 위치를 여러 타입으로 해석하는 구조다. 네트워크 패킷 파싱, 레지스터 뷰 등에서 자주 쓰인다.
+</p>
+
+<pre><code><span class="cm">/* Union 예시: 4바이트를 다양하게 해석 */</span>
+<span class="kw">union</span> PacketData {
+    <span class="kw">uint32_t</span>  raw;          <span class="cm">// 32비트 정수로</span>
+    <span class="kw">struct</span> {
+        <span class="kw">uint8_t</span>  type;       <span class="cm">// 하위 1바이트: 패킷 타입</span>
+        <span class="kw">uint8_t</span>  flags;      <span class="cm">// 다음 1바이트: 플래그</span>
+        <span class="kw">uint16_t</span> length;     <span class="cm">// 상위 2바이트: 길이</span>
+    } fields;
+    <span class="kw">uint8_t</span>   bytes[<span class="num">4</span>];      <span class="cm">// 바이트 배열로</span>
+};</code></pre>
+
+<h3>Enum 정의 — 매직 넘버 해석</h3>
+
+<p>
+  바이너리 분석에서 <code>if (eax == 3)</code> 같은 코드를 만나면 "3이 무슨 의미인가?"가 항상 문제다.
+  Enum을 정의하면 <code>if (status == ERROR_FILE_NOT_FOUND)</code>처럼 표시된다.
+</p>
+
+<pre><code><span class="cm">/* Data Type Manager → New → Enum */</span>
+<span class="kw">enum</span> ErrorCode : <span class="kw">uint32_t</span> {
+    SUCCESS          = <span class="num">0x00000000</span>,
+    ERROR_INVALID    = <span class="num">0x00000001</span>,
+    ERROR_AUTH_FAIL  = <span class="num">0x00000002</span>,
+    ERROR_NOT_FOUND  = <span class="num">0x00000003</span>,
+    ERROR_TIMEOUT    = <span class="num">0x00000004</span>
+};</code></pre>
+
+<p>
+  Enum을 정의한 후, Listing에서 해당 상수 값에 커서를 놓고 <code>Equates → Set Equate</code>로 Enum을 연결하면
+  숫자 대신 이름이 표시된다.
+</p>
+
+<h3>실전 사례 — Windows 악성코드 구조체 적용</h3>
+
+<p>
+  실제 악성코드 분석에서 Windows 구조체를 어떻게 활용하는지 보자. CreateThread를 사용하는 악성코드라면 LPTHREAD_START_ROUTINE 함수 포인터를 알아야 한다.
+</p>
+
+<pre><code><span class="cm">/* windows_vs12_32.gdt가 로드된 경우 이미 정의되어 있는 구조체들: */</span>
+
+<span class="cm">/* STARTUPINFOA 구조체 적용 예시 */</span>
+<span class="cm">/* 자동 추론 결과: */</span>
+<span class="fn">CreateProcessA</span>(
+    <span class="num">0</span>, <span class="str">"cmd.exe"</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>,
+    <span class="num">0</span>, <span class="num">0</span>,
+    local_50,          <span class="cm">// ← STARTUPINFOA* 인데 undefined로 표시</span>
+    local_10           <span class="cm">// ← PROCESS_INFORMATION* 인데 undefined로 표시</span>
+);
+
+<span class="cm">/* STARTUPINFOA 타입 적용 후: */</span>
+<span class="fn">CreateProcessA</span>(
+    <span class="num">0</span>, <span class="str">"cmd.exe"</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="kw">FALSE</span>,
+    CREATE_NO_WINDOW,
+    <span class="num">0</span>,
+    &amp;startupInfo,      <span class="cm">// STARTUPINFOA 구조체 → 필드별로 분석 가능</span>
+    &amp;procInfo          <span class="cm">// PROCESS_INFORMATION → hProcess, hThread 등 접근 가능</span>
+);</code></pre>
+
+<h3>배열(Array) 정의</h3>
+
+<p>
+  데이터 섹션에 구조체 배열이 있을 때. 시작 주소에서 우클릭 → "Create Array"로 만들거나,
+  Structure 안에 배열 필드를 정의한다.
+</p>
+
+<pre><code><span class="cm">/* Structure Editor에서 배열 필드 정의 */</span>
+<span class="kw">struct</span> Config {
+    <span class="kw">char</span>  name[<span class="num">64</span>];       <span class="cm">// 64바이트 char 배열</span>
+    <span class="kw">int</span>   ports[<span class="num">8</span>];       <span class="cm">// 8개 int 배열 (C2 서버 포트 목록)</span>
+    <span class="kw">byte</span>  flags[<span class="num">4</span>];       <span class="cm">// 4바이트 플래그 배열</span>
+};
+
+<span class="cm">/* Listing에서 배열 전체에 구조체 적용하기:
+   시작 주소 선택 → 배열 끝까지 드래그 → Data → Create Structure Array */</span></code></pre>
+
+<h3>함수 시그니처 타입 정의 (Function Typedef)</h3>
+
+<p>
+  악성코드에서 함수 포인터를 통해 간접 호출(CALL [EAX])이 많이 나온다.
+  함수 typedef를 정의하면 Decompiler가 올바른 시그니처로 함수를 표시한다.
+</p>
+
+<pre><code><span class="cm">/* Data Type Manager → New → Function Definition */</span>
+
+<span class="cm">/* 예: API 해시 해석 함수의 시그니처 */</span>
+<span class="kw">typedef</span> <span class="kw">int</span> (*PFUNC_HASH_RESOLVE)(<span class="kw">uint32_t</span> hash, <span class="kw">void</span> **out_func);
+
+<span class="cm">/* 적용: 함수 포인터 변수에 이 타입을 지정 */</span>
+<span class="cm">/* 이후 CALL 명령에서 올바른 파라미터 타입이 표시됨 */</span></code></pre>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>GDT 파일 내보내기 & 재사용</strong>
+    <p>
+      힘들게 정의한 구조체들을 GDT 파일로 내보내면 다른 프로젝트에서 재사용할 수 있다.
+      Data Type Manager에서 내보내고 싶은 아카이브를 우클릭 → "Export". 같은 바이너리 패밀리를 분석할 때 특히 유용하다.
+    </p>
+  </div>
+</div>
+
+<h3>Version Tracking — 업데이트된 바이너리 비교</h3>
+
+<p>
+  악성코드나 소프트웨어의 새 버전이 나왔을 때, 이전 버전에서 분석한 이름/구조체를 새 버전에 자동으로 적용하는 기능이다.
+  패치 분석, 악성코드 업데이트 추적에 유용하다.
+</p>
+
+<pre><code><span class="cm"># Version Tracking 사용법</span>
+<span class="cm"># 1. Tools → Version Tracking (두 개의 프로그램 필요)</span>
+<span class="cm"># 2. "Source" (이전 버전, 분석 완료) 와 "Destination" (새 버전) 지정</span>
+<span class="cm"># 3. 자동 매칭 실행: 함수 해시, 심볼 이름, 구조 유사도 비교</span>
+<span class="cm"># 4. 매칭 결과 검토 후 Accept → 이전 분석 결과가 새 버전에 복사됨</span></code></pre>

@@ -1,0 +1,414 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 03 · Part 2 — CodeBrowser 완전 정복</div>
+  <h2>UI 심층 해부 & 분석 워크플로우</h2>
+  <p class="subtitle">패널 하나하나의 의미를 알아야 분석 속도가 붙는다</p>
+</div>
+
+<div class="callout info">
+  <span class="callout-icon">📌</span>
+  <div class="callout-body">
+    <strong>이 챕터에서 배울 것</strong>
+    <p>Listing/Decompiler 동기화 원리, XRef 완전 활용, Function Graph, Symbol Tree 탐색 전략, 주석 시스템, 실전 분석 워크플로우 3가지.</p>
+  </div>
+</div>
+
+<h3>CodeBrowser — 전체 레이아웃</h3>
+
+<p>
+  CodeBrowser를 처음 열면 패널이 너무 많아서 어디서 시작해야 할지 막막하다. 핵심은 세 개다.
+  <strong>Listing</strong>(진실), <strong>Decompiler</strong>(힌트), <strong>Symbol Tree</strong>(지도).
+  이 셋의 관계를 이해하면 나머지는 자연히 따라온다.
+</p>
+
+<div class="section-card">
+  <h4>패널 구성 — 기본 레이아웃</h4>
+  <table class="cmp-table">
+    <tr><th>패널</th><th>위치</th><th>핵심 역할</th><th>단축키</th></tr>
+    <tr><td><strong>Listing</strong></td><td>중앙</td><td>어셈블리 진실. 모든 분석의 기준점</td><td>항상 보임</td></tr>
+    <tr><td><strong>Decompiler</strong></td><td>우측</td><td>C 의사코드 힌트. Listing과 양방향 동기화</td><td>Ctrl+E</td></tr>
+    <tr><td><strong>Symbol Tree</strong></td><td>좌측</td><td>함수/라벨/네임스페이스 목록. 분석 지도</td><td>Ctrl+T</td></tr>
+    <tr><td><strong>Data Type Manager</strong></td><td>좌측 하단</td><td>구조체/enum 정의. 타입 적용</td><td>Ctrl+D</td></tr>
+    <tr><td><strong>Function Graph</strong></td><td>별도 창</td><td>CFG(제어 흐름 그래프) 시각화</td><td>Ctrl+Shift+G</td></tr>
+    <tr><td><strong>Bytes</strong></td><td>별도 창</td><td>Hex 에디터. 원시 바이트 확인</td><td>Window 메뉴</td></tr>
+    <tr><td><strong>Console</strong></td><td>하단</td><td>스크립트 출력, 분석 로그</td><td>Window 메뉴</td></tr>
+    <tr><td><strong>Defined Strings</strong></td><td>별도 창</td><td>바이너리 내 문자열 전체 목록</td><td>Window 메뉴</td></tr>
+  </table>
+</div>
+
+<h3>Listing 패널 완전 해부</h3>
+
+<p>
+  Listing은 디스어셈블리 뷰다. 어셈블리 코드만 보이는 것 같지만, 실제로는 여러 열(column)로 구성된 구조화된 데이터다.
+</p>
+
+<pre><code><span class="cm">; Listing 한 줄의 구성 요소:</span>
+<span class="cm">; [주소]  [원시 바이트]  [명령어]        [오퍼랜드]         [자동 주석]</span>
+
+<span class="hex">00401234</span>  <span class="num">55</span>              <span class="reg">PUSH</span>       <span class="reg">EBP</span>
+<span class="hex">00401235</span>  <span class="num">89 E5</span>          <span class="reg">MOV</span>        <span class="reg">EBP</span>,<span class="reg">ESP</span>
+<span class="hex">00401237</span>  <span class="num">83 EC 10</span>       <span class="reg">SUB</span>        <span class="reg">ESP</span>,<span class="num">0x10</span>
+<span class="hex">0040123A</span>  <span class="num">E8 C1 FF FF FF</span> <span class="reg">CALL</span>       <span class="fn">FUN_00401200</span>      <span class="cm">; XRef 있는 호출</span>
+<span class="hex">0040123F</span>  <span class="num">85 C0</span>          <span class="reg">TEST</span>       <span class="reg">EAX</span>,<span class="reg">EAX</span>
+<span class="hex">00401241</span>  <span class="num">74 0A</span>          <span class="reg">JZ</span>         <span class="lbl">LAB_0040124D</span>      <span class="cm">; 분기 대상 레이블</span></code></pre>
+
+<p>
+  원시 바이트 열을 클릭하면 Bytes 뷰와 동기화된다. 주소를 클릭하면 해당 위치로 고정할 수 있다.
+  열의 너비는 드래그로 조절 가능하고, 우측 상단의 "Edit Listing Fields" 버튼으로 원하는 열만 표시할 수 있다.
+</p>
+
+<h3>Listing ↔ Decompiler 동기화</h3>
+
+<p>
+  Listing에서 커서를 어셈블리 줄에 놓으면, Decompiler 창에서 해당 어셈블리에 대응하는 C 코드가 하이라이트된다.
+  반대도 마찬가지다. 이 동기화가 Ghidra 분석의 핵심 워크플로우다.
+</p>
+
+<pre><code><span class="cm">; Listing에서 이 줄에 커서를 놓으면:</span>
+<span class="hex">0040123A</span>  <span class="reg">CALL</span>  <span class="fn">FUN_00401200</span>
+
+<span class="cm">/* Decompiler에서 이 부분이 하이라이트됨: */</span>
+<span class="kw">int</span> result = <span class="fn">FUN_00401200</span>(param_1);
+<span class="kw">if</span> (result == <span class="num">0</span>) {
+    ...
+}</code></pre>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>Decompiler 창에서 직접 변수 이름 변경</strong>
+    <p>
+      Decompiler 창에서 변수 이름에 커서를 놓고 <code>L</code>을 누르면 이름 변경이 된다.
+      이 변경이 Listing에도 자동으로 반영된다. Decompiler에서 더 빠르게 작업할 수 있다.
+    </p>
+  </div>
+</div>
+
+<h3>XRef (교차 참조) — 분석의 핵심 도구</h3>
+
+<p>
+  리버스 엔지니어링에서 가장 자주 하는 질문은 "이 함수는 어디서 호출돼?" 그리고 "이 데이터는 어디서 사용돼?"다.
+  XRef가 그 답을 준다.
+</p>
+
+<div class="tabs">
+  <div class="tab-header">
+    <button class="tab-btn active" data-tab="xref1">함수 XRef</button>
+    <button class="tab-btn" data-tab="xref2">데이터 XRef</button>
+    <button class="tab-btn" data-tab="xref3">XRef 타입</button>
+  </div>
+  <div class="tab-panel active" data-panel="xref1">
+    <p>
+      함수 이름 위에 커서를 놓고 <code>Ctrl+클릭</code> 또는 <code>X</code>를 누르면 이 함수를 호출하는 모든 위치가 나온다.
+      호출이 한 곳이면 그냥 이동하고, 여러 곳이면 목록이 팝업된다.
+    </p>
+    <pre><code><span class="cm">; 예: check_license 함수의 XRef</span>
+<span class="cm">; 다음 4곳에서 호출됨을 알 수 있음:</span>
+
+<span class="hex">00401100</span>  CALL  <span class="fn">check_license</span>   <span class="cm">; main()에서 호출</span>
+<span class="hex">00402345</span>  CALL  <span class="fn">check_license</span>   <span class="cm">; startup_init()에서 호출</span>
+<span class="hex">00405678</span>  CALL  <span class="fn">check_license</span>   <span class="cm">; periodic_check()에서 호출</span>
+<span class="hex">00406789</span>  CALL  <span class="fn">check_license</span>   <span class="cm">; on_connect()에서 호출</span></code></pre>
+    <p>라이선스 체크가 4곳에서 호출된다는 걸 발견하면, 크랙을 위해 어떤 조건을 수정해야 할지 전략을 세울 수 있다.</p>
+  </div>
+  <div class="tab-panel" data-panel="xref2">
+    <p>
+      문자열이나 전역 변수 위에서 <code>X</code>를 누르면 이 데이터를 참조하는 모든 코드 위치가 나온다.
+      "password incorrect" 문자열의 XRef를 따라가면 비밀번호 체크 로직을 즉시 찾을 수 있다.
+    </p>
+    <pre><code><span class="cm">; Defined Strings에서 "Enter password:" 더블클릭</span>
+<span class="cm">; → 해당 주소로 이동</span>
+<span class="cm">; → X를 눌러 XRef 확인</span>
+<span class="cm">; → 이 문자열을 사용하는 함수로 이동</span>
+<span class="cm">; → 비밀번호 처리 로직 발견</span></code></pre>
+  </div>
+  <div class="tab-panel" data-panel="xref3">
+    <table class="cmp-table">
+      <tr><th>XRef 타입</th><th>의미</th></tr>
+      <tr><td><code>CALL</code></td><td>함수 호출</td></tr>
+      <tr><td><code>DATA</code></td><td>데이터 읽기/쓰기 참조</td></tr>
+      <tr><td><code>READ</code></td><td>데이터 읽기</td></tr>
+      <tr><td><code>WRITE</code></td><td>데이터 쓰기</td></tr>
+      <tr><td><code>UNCONDITIONAL_JUMP</code></td><td>무조건 점프</td></tr>
+      <tr><td><code>CONDITIONAL_JUMP</code></td><td>조건부 점프</td></tr>
+      <tr><td><code>COMPUTED_JUMP</code></td><td>간접 점프 (함수 포인터 등)</td></tr>
+    </table>
+  </div>
+</div>
+
+<h3>Function Graph — CFG 시각적 분석</h3>
+
+<p>
+  <code>Ctrl+Shift+G</code> 또는 <code>Window → Function Graph</code>로 열 수 있다.
+  현재 함수의 제어 흐름 그래프(Control Flow Graph)를 블록 다이어그램으로 보여준다.
+</p>
+
+<p>
+  각 블록이 기본 블록(Basic Block)이다 — 분기 없이 순차 실행되는 명령어들의 묶음이다.
+  초록색 화살표가 조건 참(True) 분기, 빨간색이 조건 거짓(False) 분기, 파란색이 무조건 점프다.
+</p>
+
+<pre><code><span class="cm">; 함수의 if-else 구조가 CFG에서 어떻게 보이는가:</span>
+
+<span class="cm">                    [entry block]
+                    TEST EAX, EAX
+                    JZ → [false branch]
+                    ↓ (true)
+              [true branch]           [false branch]
+              MOV EAX, 1              MOV EAX, 0
+              JMP [exit]              JMP [exit]
+                    ↓
+                [exit block]
+                RETN</span></code></pre>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>Function Graph에서 실수 포인트</strong>
+    <p>
+      함수가 크면 그래프가 너무 복잡해진다. 이럴 때는 관심 있는 블록만 선택해서 "Group"으로 묶거나,
+      Satellite View(우측 하단 소형 맵)를 활용한다. 전체 구조 파악에는 CFG가 유용하고,
+      세부 분석은 Listing에서 하는 게 낫다.
+    </p>
+  </div>
+</div>
+
+<h3>단축키 완전 정리</h3>
+
+<div class="tabs">
+  <div class="tab-header">
+    <button class="tab-btn active" data-tab="nav">탐색</button>
+    <button class="tab-btn" data-tab="edit">편집</button>
+    <button class="tab-btn" data-tab="search">검색</button>
+    <button class="tab-btn" data-tab="analysis">분석</button>
+  </div>
+  <div class="tab-panel active" data-panel="nav">
+    <table class="cmp-table">
+      <tr><th>단축키</th><th>기능</th></tr>
+      <tr><td><code>G</code></td><td>주소로 이동 (expression 가능: 0x401000, main, etc.)</td></tr>
+      <tr><td><code>Alt+←</code></td><td>이전 위치로 (브라우저의 뒤로가기처럼)</td></tr>
+      <tr><td><code>Alt+→</code></td><td>다음 위치로</td></tr>
+      <tr><td><code>Ctrl+클릭</code></td><td>해당 심볼/함수/참조로 이동</td></tr>
+      <tr><td><code>X</code></td><td>XRef 목록 보기</td></tr>
+      <tr><td><code>Ctrl+Shift+G</code></td><td>Function Graph 열기</td></tr>
+      <tr><td><code>Tab</code></td><td>Listing ↔ Decompiler 포커스 전환</td></tr>
+    </table>
+  </div>
+  <div class="tab-panel" data-panel="edit">
+    <table class="cmp-table">
+      <tr><th>단축키</th><th>기능</th></tr>
+      <tr><td><code>N</code></td><td>이름 변경 (함수, 변수, 레이블 모두)</td></tr>
+      <tr><td><code>L</code></td><td>레이블 추가 (Decompiler에서는 변수 이름 변경)</td></tr>
+      <tr><td><code>;</code></td><td>줄 끝 주석 (EOL Comment)</td></tr>
+      <tr><td><code>Ctrl+Shift+;</code></td><td>플레이트 주석 (함수 위 박스 주석)</td></tr>
+      <tr><td><code>Shift+;</code></td><td>Pre-comment (명령어 앞 주석)</td></tr>
+      <tr><td><code>T</code></td><td>타입 변경 (변수/데이터의 타입)</td></tr>
+      <tr><td><code>F</code></td><td>함수 정의 (undefined 영역을 함수로)</td></tr>
+      <tr><td><code>D</code></td><td>데이터 정의 (bytes → 특정 타입으로)</td></tr>
+      <tr><td><code>U</code></td><td>정의 해제 (Undefine)</td></tr>
+      <tr><td><code>C</code></td><td>코드로 해석 (disassemble at cursor)</td></tr>
+      <tr><td><code>Ctrl+Z</code></td><td>실행 취소</td></tr>
+    </table>
+  </div>
+  <div class="tab-panel" data-panel="search">
+    <table class="cmp-table">
+      <tr><th>단축키</th><th>기능</th></tr>
+      <tr><td><code>Ctrl+F</code></td><td>Listing 텍스트 검색</td></tr>
+      <tr><td><code>Ctrl+Shift+F</code></td><td>메모리 전체 검색 (바이트 패턴, 문자열)</td></tr>
+      <tr><td><code>S</code></td><td>현재 위치에서 다음 일치 항목으로</td></tr>
+      <tr><td><code>Window → Defined Strings</code></td><td>전체 문자열 목록</td></tr>
+      <tr><td><code>Search → Instruction Patterns</code></td><td>어셈블리 패턴으로 검색</td></tr>
+    </table>
+  </div>
+  <div class="tab-panel" data-panel="analysis">
+    <table class="cmp-table">
+      <tr><th>단축키/메뉴</th><th>기능</th></tr>
+      <tr><td><code>Edit → Function Signature</code></td><td>함수 시그니처 직접 편집</td></tr>
+      <tr><td><code>Right-click → Set Function Prototype</code></td><td>호출 규약, 반환 타입 변경</td></tr>
+      <tr><td><code>Right-click → Override Signature</code></td><td>디컴파일러 출력에서 함수 원형 강제 지정</td></tr>
+      <tr><td><code>Analysis → One Shot → Decompiler Param ID</code></td><td>파라미터 타입 재추론</td></tr>
+    </table>
+  </div>
+</div>
+
+<h3>주석(Comment) 시스템 완전 이해</h3>
+
+<p>
+  Ghidra의 주석은 5가지 타입이 있다. 각각 Listing에서 다른 위치에 표시된다.
+</p>
+
+<table class="cmp-table">
+  <tr><th>주석 타입</th><th>단축키</th><th>표시 위치</th><th>용도</th></tr>
+  <tr><td>EOL Comment</td><td><code>;</code></td><td>명령어 오른쪽 끝</td><td>한 줄 메모. "이 레지스터는 파일 핸들"</td></tr>
+  <tr><td>Pre Comment</td><td><code>Shift+;</code></td><td>명령어 바로 위</td><td>블록 설명. 여러 줄 가능</td></tr>
+  <tr><td>Post Comment</td><td><code>Ctrl+;</code></td><td>명령어 바로 아래</td><td>결과 설명. "여기서 EAX = 성공 여부"</td></tr>
+  <tr><td>Plate Comment</td><td><code>Ctrl+Shift+;</code></td><td>함수/레이블 위 박스</td><td>함수 전체 설명. 가장 눈에 띔</td></tr>
+  <tr><td>Repeatable Comment</td><td><code>Alt+;</code></td><td>이 주소를 참조하는 모든 곳</td><td>함수 목적. 호출 지점 전체에 전파</td></tr>
+</table>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>Repeatable Comment 활용법</strong>
+    <p>
+      <code>check_password</code> 함수에 Repeatable Comment로 "Returns 1 if password matches, 0 otherwise"를 달아두면,
+      이 함수를 호출하는 모든 위치의 CALL 명령어 옆에 해당 주석이 자동으로 표시된다. 분석 결과가 전파되는 효과.
+    </p>
+  </div>
+</div>
+
+<h3>실전 분석 워크플로우 3가지</h3>
+
+<div class="tabs">
+  <div class="tab-header">
+    <button class="tab-btn active" data-tab="wf1">문자열 기반 접근</button>
+    <button class="tab-btn" data-tab="wf2">임포트 기반 접근</button>
+    <button class="tab-btn" data-tab="wf3">엔트리포인트 추적</button>
+  </div>
+  <div class="tab-panel active" data-panel="wf1">
+    <p>
+      스트립된 바이너리에서 가장 빠른 시작점. 의미 있는 문자열을 찾아서 로직으로 역추적한다.
+    </p>
+    <ul class="step-list">
+      <li>
+        <div class="step-num">1</div>
+        <div>
+          <code>Window → Defined Strings</code>로 문자열 창 열기<br>
+          필터에 "password", "error", "success", "flag", "key", "invalid" 입력
+        </div>
+      </li>
+      <li>
+        <div class="step-num">2</div>
+        <div>
+          의미 있는 문자열 더블클릭 → Listing의 해당 주소로 이동<br>
+          <code>X</code>로 XRef 확인 → 이 문자열을 사용하는 함수로 이동
+        </div>
+      </li>
+      <li>
+        <div class="step-num">3</div>
+        <div>
+          해당 함수에서 Decompiler 확인, 이름 변경, 주석 달기<br>
+          호출자(caller)를 XRef로 추적하며 위로 올라가기
+        </div>
+      </li>
+    </ul>
+    <pre><code><span class="cm">; 예: CTF 크랙미 분석</span>
+<span class="cm">; "Wrong password!" 문자열 XRef → check_input() 발견</span>
+<span class="cm">; check_input() 분석 → strcmp() 호출 확인</span>
+<span class="cm">; strcmp() 인자를 추적 → 하드코딩된 비밀번호 발견</span>
+<span class="hex">00401234</span>  <span class="reg">PUSH</span>  <span class="str">0x405000</span>        <span class="cm">; "secret123" ← 이게 비밀번호</span>
+<span class="hex">00401239</span>  <span class="reg">PUSH</span>  <span class="reg">EAX</span>              <span class="cm">; 사용자 입력</span>
+<span class="hex">0040123A</span>  <span class="reg">CALL</span>  <span class="fn">strcmp</span></code></pre>
+  </div>
+  <div class="tab-panel" data-panel="wf2">
+    <p>
+      임포트 테이블에서 의심스러운 API를 찾아 사용 지점을 추적한다. 악성코드 분석에 특히 유효하다.
+    </p>
+    <ul class="step-list">
+      <li>
+        <div class="step-num">1</div>
+        <div>
+          Symbol Tree에서 <code>Imports</code> 펼치기<br>
+          <code>kernel32.dll</code>, <code>wininet.dll</code>, <code>ws2_32.dll</code> 등 의심스러운 DLL 확인
+        </div>
+      </li>
+      <li>
+        <div class="step-num">2</div>
+        <div>
+          의심 API 선택 (예: <code>CreateRemoteThread</code>, <code>VirtualAllocEx</code>, <code>WriteProcessMemory</code>)<br>
+          <code>X</code>로 XRef → 사용 지점으로 이동
+        </div>
+      </li>
+      <li>
+        <div class="step-num">3</div>
+        <div>
+          해당 함수에서 API 호출 패턴 분석<br>
+          예: OpenProcess → VirtualAllocEx → WriteProcessMemory → CreateRemoteThread = DLL 인젝션
+        </div>
+      </li>
+    </ul>
+  </div>
+  <div class="tab-panel" data-panel="wf3">
+    <p>
+      <code>main</code> 또는 엔트리포인트에서 시작해 위에서 아래로 추적한다. 코드 구조를 전체적으로 파악하고 싶을 때.
+    </p>
+    <ul class="step-list">
+      <li>
+        <div class="step-num">1</div>
+        <div>
+          Symbol Tree → Functions → <code>entry</code> 또는 <code>main</code> 클릭<br>
+          없으면 <code>G</code>를 누르고 <code>entry</code> 입력
+        </div>
+      </li>
+      <li>
+        <div class="step-num">2</div>
+        <div>
+          Function Graph(<code>Ctrl+Shift+G</code>)로 전체 흐름 조감<br>
+          어떤 경로가 있는지 파악 후 Listing으로 세부 분석
+        </div>
+      </li>
+      <li>
+        <div class="step-num">3</div>
+        <div>
+          CALL 명령어를 만날 때마다 해당 함수로 들어가서 이름 붙이기<br>
+          분석이 끝나면 <code>Alt+←</code>로 돌아와 다음 CALL 분석
+        </div>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<h3>함수 시그니처 수정 — Decompiler 품질 높이기</h3>
+
+<p>
+  Ghidra가 자동으로 추론한 함수 시그니처가 틀릴 때가 많다. 특히 호출 규약이 비표준이거나 파라미터 수가 틀린 경우.
+  수동으로 수정하면 Decompiler 결과물이 드라마틱하게 좋아진다.
+</p>
+
+<pre><code><span class="cm">/* 수정 전: Ghidra 자동 추론 결과 */</span>
+<span class="kw">void</span> <span class="fn">FUN_00401234</span>(<span class="kw">undefined4</span> param_1)
+{
+    <span class="kw">undefined4</span> uVar1;
+    uVar1 = <span class="fn">FUN_00401100</span>(param_1, *(undefined4 *)(param_1 + <span class="num">4</span>));
+    ...
+}
+
+<span class="cm">/* 수정 후: 함수 시그니처 직접 지정 */</span>
+<span class="cm">/* Edit → Function Signature 또는 함수명 우클릭 → Edit Function Signature */</span>
+<span class="kw">int</span> <span class="fn">check_user_token</span>(<span class="fn">UserRecord</span> *user)
+{
+    <span class="kw">int</span> result;
+    result = <span class="fn">validate_token</span>(user, user->token_length);
+    ...
+}</code></pre>
+
+<p>
+  <code>UserRecord</code> 같은 커스텀 타입은 Data Type Manager에서 먼저 정의해야 한다.
+  이 내용은 다음 챕터에서 다룬다.
+</p>
+
+<h3>Binary Patching — 바이너리 수정</h3>
+
+<p>
+  Ghidra로 바이너리를 직접 수정할 수 있다. CTF 크랙미에서 조건 분기를 반전시키거나, 안티디버깅 코드를 NOP으로 채우는 등에 사용한다.
+</p>
+
+<pre><code><span class="cm">; 방법 1: Instruction Patch (어셈블리 수준 수정)</span>
+<span class="cm">; Listing에서 수정할 명령어 우클릭 → "Patch Instruction"</span>
+<span class="cm">; 예: JNZ → JMP (점프 조건 제거)</span>
+
+<span class="cm">; 방법 2: Byte Patch (바이트 수준 수정)</span>
+<span class="cm">; Bytes 뷰에서 직접 수정: 우클릭 → "Byte Viewer Options" 후 편집</span>
+
+<span class="cm">; 수정 후 내보내기:</span>
+<span class="cm">; File → Export Program → Format: Binary (원본 포맷 유지)</span></code></pre>
+
+<div class="callout warn">
+  <span class="callout-icon">⚠️</span>
+  <div class="callout-body">
+    <strong>Patch는 Ghidra 내부 DB에만 반영된다</strong>
+    <p>
+      "Patch Instruction"을 해도 원본 파일은 그대로다. 실제로 수정된 바이너리를 얻으려면
+      반드시 <code>File → Export Program</code>으로 내보내야 한다.
+    </p>
+  </div>
+</div>

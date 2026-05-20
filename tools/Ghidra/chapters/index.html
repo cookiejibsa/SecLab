@@ -1,0 +1,82 @@
+<div class="hero">
+  <div class="hero-badge">GHIDRA DEEP DIVE</div>
+  <h1>Ghidra 심화 가이드</h1>
+  <p>
+    NSA가 만든 무료 리버스 엔지니어링 프레임워크를 처음부터 끝까지 —
+    설치부터 PCode 분석, 스크립팅 자동화까지
+  </p>
+  <button class="start-btn" onclick="navTo('ch01')">
+    Chapter 01 부터 시작하기 →
+  </button>
+  <div class="hero-meta">
+    <span>📚 6개 챕터</span>
+    <span>🔧 실전 스크립트 6개</span>
+    <span>🐍 Python/Java API</span>
+    <span>⚡ PCode 심화 포함</span>
+  </div>
+</div>
+
+<hr style="border-color: var(--border); margin: 8px 0 32px" />
+
+<!-- PART 1 -->
+<div class="part-title">Part 1 — 기초 & 설치</div>
+<div class="chapter-grid">
+  <a class="chapter-card" onclick="navTo('ch01')">
+    <div class="ch-num">Chapter 01</div>
+    <h3>Ghidra란 무엇인가</h3>
+    <p>
+      NSA가 왜 만들었고 IDA Pro와 뭐가 다른지. 내부 처리 파이프라인(기계어 →
+      PCode → 의사코드)과 SLEIGH 언어까지.
+    </p>
+  </a>
+  <a class="chapter-card" onclick="navTo('ch02')">
+    <div class="ch-num">Chapter 02</div>
+    <h3>설치 & 환경 구성</h3>
+    <p>
+      Java 버전 문제 완전 해결, OS별 설치 가이드, 프로젝트 구조 이해, Auto
+      Analysis 분석기별 용도, 추천 플러그인.
+    </p>
+  </a>
+</div>
+
+<!-- PART 2 -->
+<div class="part-title">Part 2 — CodeBrowser 완전 정복</div>
+<div class="chapter-grid">
+  <a class="chapter-card" onclick="navTo('ch03')">
+    <div class="ch-num">Chapter 03</div>
+    <h3>UI 심층 해부 & 분석 워크플로우</h3>
+    <p>
+      Listing/Decompiler 동기화 원리, XRef 완전 활용, Function Graph, 주석 5종,
+      실전 분석 워크플로우 3가지, Binary Patching.
+    </p>
+  </a>
+  <a class="chapter-card" onclick="navTo('ch04')">
+    <div class="ch-num">Chapter 04</div>
+    <h3>데이터 타입 & 구조체 정의</h3>
+    <p>
+      커스텀 struct/union/enum 생성, C 헤더 파일을 GDT로 변환, 구조체 적용으로
+      Decompiler 품질을 10배 올리는 법.
+    </p>
+  </a>
+</div>
+
+<!-- PART 3 -->
+<div class="part-title">Part 3 — 자동화 & 고급 기능</div>
+<div class="chapter-grid">
+  <a class="chapter-card" onclick="navTo('ch05')">
+    <div class="ch-num">Chapter 05</div>
+    <h3>스크립팅 자동화 (Python/Java)</h3>
+    <p>
+      Script Manager 사용법, Ghidra Jython API 핵심, 실전 스크립트 6개 —
+      API 해시 해석, XOR 복호화 자동 주석, 배치 분류까지.
+    </p>
+  </a>
+  <a class="chapter-card" onclick="navTo('ch06')">
+    <div class="ch-num">Chapter 06</div>
+    <h3>PCode & Headless 모드</h3>
+    <p>
+      Ghidra의 중간 표현 언어 PCode 구조와 에뮬레이션, GUI 없이 수천 개
+      바이너리를 처리하는 Headless Analyzer 완전 가이드.
+    </p>
+  </a>
+</div>
