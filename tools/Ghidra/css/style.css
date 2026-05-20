@@ -97,6 +97,7 @@ body {
   margin-bottom: 32px;
   transition: opacity 0.15s;
 }
+.start-btn:hover { opacity: 0.85; }
 
 .nav-item:hover { color: var(--text); background: var(--bg3); }
 .nav-item.active { color: var(--accent); background: rgba(88,166,255,0.08); border-right: 2px solid var(--accent); }
