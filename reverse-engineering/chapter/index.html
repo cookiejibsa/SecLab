@@ -1,0 +1,160 @@
+<div class="hero">
+  <div class="hero-badge">REVERSE ENGINEERING GUIDEBOOK</div>
+  <h1>바이너리를 읽는 기술</h1>
+  <p>
+    실습 중심으로 배우는 리버스 엔지니어링 — C와 어셈블리를 어느 정도 아는 분을
+    위한 실전 가이드
+  </p>
+  <button class="start-btn" onclick="loadChapter('ch01')">
+    Part 1 부터 시작하기 →
+  </button>
+  <div class="hero-meta">
+    <span>📚 19개 챕터</span>
+    <span>🛠 10+ 툴 실습</span>
+    <span>🎯 CTF 실전 포함</span>
+    <span>⚡ 중급자 대상</span>
+  </div>
+</div>
+
+<hr style="border-color: var(--border); margin: 8px 0 32px" />
+
+<!-- PART 1 -->
+<div class="part-title">Part 1 — 기초 다지기</div>
+<div class="chapter-grid">
+  <a class="chapter-card" onclick="loadChapter('ch01')">
+    <div class="ch-num">Chapter 01</div>
+    <h3>RE 개요 & 법적·윤리적 기준</h3>
+    <p>
+      리버스 엔지니어링이 무엇인지, 언제 합법이고 언제 아닌지. 시작 전 꼭 알아야
+      할 맥락.
+    </p>
+  </a>
+  <a class="chapter-card" onclick="loadChapter('ch02')">
+    <div class="ch-num">Chapter 02</div>
+    <h3>환경 세팅</h3>
+    <p>
+      Ghidra, x64dbg, Frida, pestudio/DIE 등 핵심 툴셋 설치 및 가상 머신 구성.
+    </p>
+  </a>
+  <a class="chapter-card" onclick="loadChapter('ch03')">
+    <div class="ch-num">Chapter 03</div>
+    <h3>어셈블리 핵심 요약</h3>
+    <p>x86/x64 명령어 셋 빠른 복습 — 레지스터, 주소 지정, 제어 흐름, 플래그.</p>
+  </a>
+  <a class="chapter-card" onclick="loadChapter('ch04')">
+    <div class="ch-num">Chapter 04</div>
+    <h3>메모리 구조 & 스택/힙</h3>
+    <p>프로세스 메모리 레이아웃, 스택 프레임 구조, 힙 할당 흐름 완전 해부.</p>
+  </a>
+</div>
+
+<!-- PART 2 -->
+<div class="part-title">Part 2 — 정적 분석</div>
+<div class="chapter-grid">
+  <a class="chapter-card" onclick="loadChapter('ch05')">
+    <div class="ch-num">Chapter 05</div>
+    <h3>PE / ELF 파일 포맷</h3>
+    <p>
+      실행 파일의 해부학 — 헤더, 섹션, 임포트/익스포트 테이블을 직접 파헤친다.
+    </p>
+  </a>
+  <a class="chapter-card" onclick="loadChapter('ch06')">
+    <div class="ch-num">Chapter 06 ✦</div>
+    <h3>Ghidra 소개 & 심화편 예고</h3>
+    <p>
+      Ghidra의 핵심 기능 소개와 UI 흐름. 깊은 사용법은 별도 심화편에서 다룬다.
+    </p>
+  </a>
+  <a class="chapter-card" onclick="loadChapter('ch07')">
+    <div class="ch-num">Chapter 07</div>
+    <h3>함수 인식 & 호출 규약</h3>
+    <p>
+      디컴파일된 코드에서 함수 경계를 찾고, cdecl/stdcall/fastcall을 구분하는
+      법.
+    </p>
+  </a>
+</div>
+
+<!-- PART 3 -->
+<div class="part-title">Part 3 — 동적 분석</div>
+<div class="chapter-grid">
+  <a class="chapter-card" onclick="loadChapter('ch08')">
+    <div class="ch-num">Chapter 08</div>
+    <h3>x64dbg 실습</h3>
+    <p>브레이크포인트 전략, 레지스터 추적, 메모리 덤프 — 동적 분석의 핵심.</p>
+  </a>
+  <a class="chapter-card" onclick="loadChapter('ch09')">
+    <div class="ch-num">Chapter 09 ✦</div>
+    <h3>pwndbg 소개 & 심화편 예고</h3>
+    <p>Linux 환경 디버거. 기본 명령어와 GDB 위에서 pwndbg가 제공하는 것들.</p>
+  </a>
+  <a class="chapter-card" onclick="loadChapter('ch10')">
+    <div class="ch-num">Chapter 10</div>
+    <h3>API 모니터링</h3>
+    <p>
+      Process Monitor, API Monitor로 바이너리의 행위를 블랙박스처럼 관찰하는
+      방법.
+    </p>
+  </a>
+  <a class="chapter-card" onclick="loadChapter('ch11')">
+    <div class="ch-num">Chapter 11</div>
+    <h3>안티 디버깅 & 우회</h3>
+    <p>IsDebuggerPresent부터 타이밍 체크까지 — 탐지 원리와 패치/우회 기법.</p>
+  </a>
+</div>
+
+<!-- PART 4 -->
+<div class="part-title">Part 4 — 난독화 해제</div>
+<div class="chapter-grid">
+  <a class="chapter-card" onclick="loadChapter('ch12')">
+    <div class="ch-num">Chapter 12</div>
+    <h3>패킹 & 언패킹</h3>
+    <p>UPX부터 커스텀 패커까지 — 패커를 식별하고 원본 코드를 꺼내는 흐름.</p>
+  </a>
+  <a class="chapter-card" onclick="loadChapter('ch13')">
+    <div class="ch-num">Chapter 13</div>
+    <h3>암호화 루틴 식별 & 키 추출</h3>
+    <p>
+      XOR, AES, RC4 패턴을 디스어셈블리에서 찾고, 런타임 키를 덤프하는 기법.
+    </p>
+  </a>
+  <a class="chapter-card" onclick="loadChapter('ch14')">
+    <div class="ch-num">Chapter 14</div>
+    <h3>Frida 런타임 후킹</h3>
+    <p>
+      JavaScript로 함수 후킹, 인자 변조, 리턴값 조작. 모바일/데스크탑 모두 적용.
+    </p>
+  </a>
+</div>
+
+<!-- PART 5 -->
+<div class="part-title">Part 5 — 실전 & 고급</div>
+<div class="chapter-grid">
+  <a class="chapter-card" onclick="loadChapter('ch15')">
+    <div class="ch-num">Chapter 15</div>
+    <h3>CTF 크랙미 풀이</h3>
+    <p>실제 크랙미 3개를 처음부터 끝까지 — 분석 전략부터 플래그 추출까지.</p>
+  </a>
+  <a class="chapter-card" onclick="loadChapter('ch16')">
+    <div class="ch-num">Chapter 16</div>
+    <h3>angr 심볼릭 실행</h3>
+    <p>Python으로 바이너리를 수학적으로 풀기 — angr 설치부터 CTF 자동화까지.</p>
+  </a>
+  <a class="chapter-card" onclick="loadChapter('ch17')">
+    <div class="ch-num">Chapter 17</div>
+    <h3>네트워크 프로토콜 리버싱</h3>
+    <p>Wireshark + 정적 분석 병행으로 커스텀 프로토콜의 구조를 역추적한다.</p>
+  </a>
+  <a class="chapter-card" onclick="loadChapter('ch18')">
+    <div class="ch-num">Chapter 18</div>
+    <h3>모바일 앱 리버싱</h3>
+    <p>
+      apktool/jadx로 APK 디컴파일, Frida로 런타임 분석. SSL Pinning 우회 포함.
+    </p>
+  </a>
+  <a class="chapter-card" onclick="loadChapter('ch19')">
+    <div class="ch-num">Chapter 19</div>
+    <h3>악성코드 분석 입문</h3>
+    <p>안전한 샌드박스 환경 구성 후, 실제 샘플의 행위와 C2 통신을 추적한다.</p>
+  </a>
+</div>

@@ -1,0 +1,63 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 17 · Part 5 — 실전 & 고급</div>
+  <h2>네트워크 프로토콜 리버싱</h2>
+  <p class="subtitle">커스텀 프로토콜의 구조를 Wireshark + 정적 분석으로 역추적한다</p>
+</div>
+
+<h3>접근 방법</h3>
+<p>
+  악성코드 C2 통신이나 독점 클라이언트의 프로토콜을 분석할 때, 두 방향에서 동시에 접근한다.
+  Wireshark로 트래픽을 수집해 패킷 구조를 추측하고,
+  동시에 바이너리의 send/recv 함수를 후킹해서 암호화 이전/이후 데이터를 확인한다.
+</p>
+
+<h3>Wireshark 기본 분석</h3>
+<pre><code><span class="cm"># 대상 프로세스 트래픽 캡처 (Wireshark)</span>
+<span class="cm"># 필터: ip.addr == C2_IP or tcp.port == 4444</span>
+
+<span class="cm"># 커스텀 프로토콜 패킷 구조 추측</span>
+<span class="cm"># 반복 등장하는 바이트 패턴 → 매직 바이트/헤더</span>
+<span class="cm"># 고정 오프셋의 값 변화 → 시퀀스 번호, 길이 필드</span>
+<span class="cm"># 페이로드 앞부분 고정 → 커맨드 ID</span>
+
+<span class="cm"># Follow TCP Stream으로 전체 세션 확인</span></code></pre>
+
+<h3>패킷 구조 역추적</h3>
+<pre><code><span class="cm">/* 역추적한 커스텀 프로토콜 구조 예시 */</span>
+<span class="kw">typedef struct</span> {
+    <span class="kw">uint32_t</span> magic;      <span class="cm">// 0xDEADC0DE</span>
+    <span class="kw">uint16_t</span> cmd_id;     <span class="cm">// 0x01=upload, 0x02=exec, 0x03=download</span>
+    <span class="kw">uint16_t</span> flags;      <span class="cm">// 암호화 여부 등</span>
+    <span class="kw">uint32_t</span> payload_len;
+    <span class="kw">uint8_t</span>  payload[];
+} C2Packet;
+
+<span class="cm">// Wireshark Dissector로 자동 파싱 가능</span></code></pre>
+
+<h3>send/recv 후킹으로 암호화 전 데이터 확인</h3>
+<pre><code><span class="cm">// Frida: send() 직전 평문 덤프</span>
+<span class="fn">Interceptor</span>.attach(<span class="fn">Module</span>.findExportByName(<span class="str">'ws2_32.dll'</span>, <span class="str">'send'</span>), {
+    onEnter: <span class="kw">function</span>(args) {
+        <span class="kw">var</span> socket = args[<span class="num">0</span>];
+        <span class="kw">var</span> buf    = args[<span class="num">1</span>];
+        <span class="kw">var</span> len    = args[<span class="num">2</span>].toInt32();
+        console.log(<span class="str">'[send] len='</span> + len);
+        console.log(<span class="fn">hexdump</span>(<span class="fn">Memory</span>.readByteArray(buf, len)));
+    }
+});
+
+<span class="cm">// recv() 직후 평문 덤프</span>
+<span class="fn">Interceptor</span>.attach(<span class="fn">Module</span>.findExportByName(<span class="str">'ws2_32.dll'</span>, <span class="str">'recv'</span>), {
+    onLeave: <span class="kw">function</span>(retval) {
+        <span class="cm">// this.args는 onEnter에서 저장해야 함</span>
+        console.log(<span class="str">'[recv] received '</span> + retval + <span class="str">' bytes'</span>);
+    }
+});</code></pre>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>FakeNet-NG와 조합</strong>
+    <p>FakeNet-NG로 가짜 C2 서버를 시뮬레이션하면 악성코드가 실제로 무엇을 요청하는지 전체 흐름을 볼 수 있다. DNS 응답을 127.0.0.1로 돌리고, HTTP/HTTPS를 가로채서 응답을 조작할 수 있다.</p>
+  </div>
+</div>

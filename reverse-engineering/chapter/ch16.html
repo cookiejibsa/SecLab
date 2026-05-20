@@ -1,0 +1,74 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 16 · Part 5 — 실전 & 고급</div>
+  <h2>angr 심볼릭 실행</h2>
+  <p class="subtitle">Python으로 바이너리를 수학적으로 푼다</p>
+</div>
+
+<h3>심볼릭 실행이란</h3>
+<p>
+  일반 실행이 구체적인 입력값으로 한 경로만 따라간다면,
+  심볼릭 실행은 입력을 "어떤 값이든 될 수 있는 변수"로 처리하고
+  가능한 모든 경로를 동시에 탐색한다. 결과적으로 "이 함수가 성공을 반환하려면 입력이 어떤 값이어야 하는가"를
+  수학적으로 풀 수 있다.
+</p>
+
+<h3>기본 패턴 — 크랙미 자동 풀기</h3>
+<pre><code><span class="kw">import</span> angr
+
+<span class="cm"># 바이너리 로드</span>
+proj = angr.Project(<span class="str">'./crackme'</span>, auto_load_libs=<span class="kw">False</span>)
+
+<span class="cm"># 초기 상태: stdin에 심볼릭 입력 설정</span>
+state = proj.factory.entry_state(
+    stdin=angr.SimFile(name=<span class="str">'stdin'</span>, size=<span class="num">16</span>)  <span class="cm"># 16바이트 입력</span>
+)
+
+<span class="cm"># 탐색 목표 설정</span>
+simgr = proj.factory.simulation_manager(state)
+simgr.explore(
+    find=<span class="num">0x401234</span>,    <span class="cm"># 성공 경로 주소 (Ghidra에서 확인)</span>
+    avoid=<span class="num">0x401260</span>   <span class="cm"># 실패 경로 주소</span>
+)
+
+<span class="cm"># 결과 추출</span>
+<span class="kw">if</span> simgr.found:
+    solution = simgr.found[<span class="num">0</span>].posix.dumps(<span class="num">0</span>)
+    print(<span class="str">f'Input: {solution}'</span>)</code></pre>
+
+<h3>find/avoid 주소 찾기</h3>
+<p>Ghidra에서 "Correct"/"Wrong" 문자열이 출력되는 분기 직전 주소를 찾는다.</p>
+<pre><code><span class="cm">/* Ghidra 디컴파일 */</span>
+<span class="kw">if</span> (<span class="fn">check_serial</span>(input) == <span class="num">1</span>) {
+    <span class="fn">puts</span>(<span class="str">"Correct!"</span>);   <span class="cm">← find: 이 puts의 주소</span>
+} <span class="kw">else</span> {
+    <span class="fn">puts</span>(<span class="str">"Wrong!"</span>);    <span class="cm">← avoid: 이 puts의 주소</span>
+}</code></pre>
+
+<h3>한계와 대응</h3>
+<table class="cmp-table">
+<tr><th>한계</th><th>증상</th><th>대응</th></tr>
+<tr><td>경로 폭발 (Path Explosion)</td><td>루프가 많으면 탐색이 기하급수적으로 늘어남</td><td>veritesting 옵션, 루프 제한, 수동 BP 설정</td></tr>
+<tr><td>시스템 콜 모델링</td><td>복잡한 IO나 네트워크 코드에서 멈춤</td><td>hook으로 대체 구현</td></tr>
+<tr><td>부동소수점</td><td>FPU 연산이 들어가면 정확도 저하</td><td>concolic execution으로 보완</td></tr>
+</table>
+
+<pre><code><span class="cm"># 최적화 옵션</span>
+proj = angr.Project(<span class="str">'./target'</span>, auto_load_libs=<span class="kw">False</span>)
+state = proj.factory.entry_state()
+state.options.add(angr.options.LAZY_SOLVES)   <span class="cm"># 느린 SMT 해결 지연</span>
+
+<span class="cm"># veritesting으로 루프 가속</span>
+simgr = proj.factory.simulation_manager(state, veritesting=<span class="kw">True</span>)
+
+<span class="cm"># 특정 함수를 stub으로 교체 (시스템 콜 우회)</span>
+<span class="kw">@</span>proj.hook(scanf_addr, length=<span class="num">5</span>)
+<span class="kw">def</span> <span class="fn">scanf_hook</span>(state):
+    state.regs.eax = <span class="num">1</span>  <span class="cm"># 성공 반환</span></code></pre>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>CTF에서 angr가 빛나는 순간</strong>
+    <p>조건이 복잡해서 z3로 수동 모델링하기 어렵지만, 성공/실패 분기 주소를 알 수 있는 크랙미. 10분의 분석 + angr 스크립트로 수 시간의 수동 역산을 대체할 수 있다.</p>
+  </div>
+</div>
