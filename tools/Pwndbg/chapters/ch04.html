@@ -1,0 +1,182 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 04 · Part 2 — 핵심 명령어</div>
+  <h2>메모리 검사 — telescope · vmmap · search</h2>
+  <p class="subtitle">x 명령어 하나로는 부족하다 — pwndbg가 메모리 읽기를 어떻게 바꿨는지</p>
+</div>
+
+<h3>x 명령어 — GDB 기본, 완전 정리</h3>
+
+<p>
+  <code>x</code>(examine)는 GDB 기본 명령어다. pwndbg에서도 그대로 쓴다. 문법은 <code>x/[횟수][포맷][크기] 주소</code>다.
+</p>
+
+<table class="cmp-table">
+  <tr><th>포맷</th><th>의미</th><th>예시</th></tr>
+  <tr><td><code>x</code></td><td>16진수</td><td><code>x/8x $rsp</code></td></tr>
+  <tr><td><code>d</code></td><td>부호 있는 10진수</td><td><code>x/4d $rbp-0x10</code></td></tr>
+  <tr><td><code>u</code></td><td>부호 없는 10진수</td><td><code>x/4u 0x404000</code></td></tr>
+  <tr><td><code>s</code></td><td>문자열 (null 종료)</td><td><code>x/s $rdi</code></td></tr>
+  <tr><td><code>i</code></td><td>명령어 (디스어셈블)</td><td><code>x/5i $rip</code></td></tr>
+  <tr><td><code>c</code></td><td>문자</td><td><code>x/10c 0x402000</code></td></tr>
+  <tr><td><code>t</code></td><td>이진수</td><td><code>x/4t $rax</code></td></tr>
+</table>
+
+<table class="cmp-table">
+  <tr><th>크기</th><th>의미</th><th>바이트</th></tr>
+  <tr><td><code>b</code></td><td>byte</td><td>1</td></tr>
+  <tr><td><code>h</code></td><td>halfword</td><td>2</td></tr>
+  <tr><td><code>w</code></td><td>word</td><td>4</td></tr>
+  <tr><td><code>g</code></td><td>giant (quadword)</td><td>8</td></tr>
+</table>
+
+<pre><code><span class="cm"># 실전 예시</span>
+pwndbg> x/8gx $rsp          <span class="cm"># 스택 8개 qword (64bit에서 가장 자주 씀)</span>
+pwndbg> x/32wx $rbp-0x20    <span class="cm"># 로컬 변수 영역 32개 word</span>
+pwndbg> x/s $rdi             <span class="cm"># 함수 첫 인자를 문자열로</span>
+pwndbg> x/3i $rip            <span class="cm"># 현재부터 3개 명령어 디스어셈블</span>
+pwndbg> x/10xb 0x404000      <span class="cm"># 10바이트씩 hex로</span></code></pre>
+
+<h3>telescope — 포인터 체인 자동 역참조</h3>
+
+<p>
+  <code>x</code>는 한 depth만 보여준다. 포인터가 포인터를 가리키고 그게 또 포인터를 가리키는 경우, <code>telescope</code>가 재귀적으로 따라가서 최종 값을 보여준다.
+</p>
+
+<pre><code><span class="cm"># telescope 기본 사용법</span>
+pwndbg> telescope $rsp          <span class="cm"># RSP부터 기본 8개 항목</span>
+pwndbg> telescope $rsp 16       <span class="cm"># 16개 항목</span>
+pwndbg> telescope 0x7fff.. 20   <span class="cm"># 특정 주소부터 20개</span>
+
+<span class="cm"># 출력 예시: 스택에서 libc 주소 찾기</span>
+00:0000│ rsp  0x7fffffffe280 —▸ 0x401215 (main+21)
+01:0008│      0x7fffffffe288 —▸ 0x7fffffffe3c0 ◂— "AAAAAAAAAAAA"
+02:0010│      0x7fffffffe290 ◂— 0x0
+03:0018│      0x7fffffffe298 ◂— 0x0
+04:0020│      0x7fffffffe2a0 —▸ 0x7ffff7ffe2d0 (_rtld_global) ◂— 0x0
+05:0028│      0x7fffffffe2a8 ◂— 0x0
+06:0030│ rbp  0x7fffffffe2b0 —▸ 0x7fffffffe2d0 ◂— 0x1
+07:0038│      0x7fffffffe2b8 —▸ 0x7ffff7a3d0b3 (__libc_start_main+243)
+<span class="cm"># ↑ 07 위치에 libc 주소! BOF로 이걸 읽으면 libc leak</span></code></pre>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>telescope는 레지스터도 체크한다</strong>
+    <p>
+      telescope 출력에서 <code>│ rsp</code>, <code>│ rbp</code>처럼 레지스터 이름이 옆에 붙는다. 어떤 레지스터가 이 스택 위치를 가리키고 있는지 한눈에 보인다. 오버플로 목표(리턴 주소)가 어디 있는지 바로 찾을 수 있다.
+    </p>
+  </div>
+</div>
+
+<h3>vmmap — 메모리 맵 완전 파악</h3>
+
+<p>
+  프로세스의 가상 주소 공간 전체를 보여준다. 각 영역의 주소 범위, 크기, 권한, 이름(파일명)이 나온다. ASLR 상황에서 libc 베이스 주소를 찾거나, 영역별 권한을 확인할 때 필수다.
+</p>
+
+<pre><code><span class="cm"># 전체 메모리 맵</span>
+pwndbg> vmmap
+
+<span class="cm"># 출력 예시:</span>
+LEGEND: STACK | HEAP | CODE | DATA | RWX | RODATA
+    0x400000     0x401000 r--p     1000 0      /home/user/target
+    0x401000     0x402000 r-xp     1000 1000   /home/user/target  <span class="cm">← CODE</span>
+    0x402000     0x403000 r--p     1000 2000   /home/user/target
+    0x403000     0x404000 r--p     1000 2000   /home/user/target
+    0x404000     0x405000 rw-p     1000 3000   /home/user/target  <span class="cm">← DATA</span>
+    0x555555559000  0x55555557a000 rw-p  21000 0  [heap]          <span class="cm">← HEAP</span>
+    0x7ffff7a00000  0x7ffff7dc9000 r-xp 3c9000 0  /lib/.../libc.so.6
+    0x7ffff7fc8000  0x7ffff7fcc000 r--p   4000 0  [vvar]
+    0x7ffff7fcc000  0x7ffff7fce000 r-xp   2000 0  [vdso]
+    0x7ffffffde000  0x7ffffffff000 rw-p  21000 0  [stack]         <span class="cm">← STACK</span></code></pre>
+
+<pre><code><span class="cm"># 특정 라이브러리만 필터</span>
+pwndbg> vmmap libc
+pwndbg> vmmap heap
+pwndbg> vmmap stack
+
+<span class="cm"># 주소가 어떤 영역에 속하는지 확인</span>
+pwndbg> vmmap 0x7ffff7a3d0b3    <span class="cm"># 이 주소가 libc 어디인지</span>
+
+<span class="cm"># libc 베이스 주소 계산 (vmmap libc의 첫 줄 주소)</span>
+pwndbg> vmmap libc
+<span class="cm"># 0x7ffff7a00000 이면 libc base = 0x7ffff7a00000</span>
+
+<span class="cm"># 주변 N 페이지도 함께 표시 (2025.01+ 기능)</span>
+pwndbg> vmmap -C 2 libc         <span class="cm"># libc 앞뒤 2페이지 포함</span></code></pre>
+
+<h3>xinfo — 주소의 컨텍스트</h3>
+
+<pre><code><span class="cm"># 특정 주소가 어디인지 상세히</span>
+pwndbg> xinfo 0x7ffff7a3d0b3
+
+<span class="cm"># 출력 예시:</span>
+<span class="cm"># Extended information for virtual address 0x7ffff7a3d0b3:</span>
+<span class="cm">#   Containing mapping:</span>
+<span class="cm">#     0x7ffff7a00000 0x7ffff7dc9000 r-xp  /lib/x86_64-linux-gnu/libc.so.6</span>
+<span class="cm">#   Offset information:</span>
+<span class="cm">#     Mapped Area    0x7ffff7a00000 + 0x3d0b3</span>
+<span class="cm">#     File (full)    0x3d0b3</span>
+<span class="cm">#   Symbol:          __libc_start_main+243</span>
+
+<span class="cm"># distance — 두 주소 간 거리</span>
+pwndbg> distance $rsp 0x7ffff7a3d0b3</code></pre>
+
+<h3>search — 메모리 패턴 탐색</h3>
+
+<p>
+  전체 메모리에서 특정 바이트 패턴, 문자열, 포인터 값을 찾는다. 셸코드 주소 찾기, 문자열 위치 찾기, 포인터 추적에 쓴다.
+</p>
+
+<pre><code><span class="cm"># 문자열 검색</span>
+pwndbg> search "password"
+pwndbg> search -t string "flag"  <span class="cm"># 문자열 타입 명시</span>
+
+<span class="cm"># 바이트 패턴 검색</span>
+pwndbg> search "\x41\x41\x41\x41"   <span class="cm"># AAAA (버퍼 확인)</span>
+pwndbg> search -b "\x90\x90\x90"    <span class="cm"># NOP sled 찾기</span>
+
+<span class="cm"># 주소값 검색 (포인터 찾기)</span>
+pwndbg> search -p 0x401234           <span class="cm"># 이 주소를 담고 있는 곳</span>
+pwndbg> search -8 0x7ffff7a3d0b3    <span class="cm"># 64비트 값으로 검색</span>
+
+<span class="cm"># 특정 영역에서만 검색</span>
+pwndbg> search -t string "sh" heap  <span class="cm"># 힙에서만</span>
+pwndbg> search -t bytes "\x00\x41" stack  <span class="cm"># 스택에서만</span>
+
+<span class="cm"># 실전: "/bin/sh" 문자열이 libc 어디에 있는지</span>
+pwndbg> search "/bin/sh"
+<span class="cm"># 0x7ffff7b97e9a  '/bin/sh' ← 이 주소 = system() 인자로 사용</span></code></pre>
+
+<h3>hexdump — hex + ASCII 동시 보기</h3>
+
+<pre><code><span class="cm"># hexdump 기본</span>
+pwndbg> hexdump $rsp
+pwndbg> hexdump 0x404000 0x40    <span class="cm"># 0x40 바이트</span>
+pwndbg> hexdump $rsp --size 64  <span class="cm"># 64바이트</span>
+
+<span class="cm"># 출력 형태: 주소 | hex | ASCII</span>
+<span class="cm"># +0000 0000│ 41 41 41 41  42 42 42 42 │AAAABBBB</span>
+<span class="cm"># +0008 0008│ 43 43 43 43  44 44 44 44 │CCCCDDDD</span></code></pre>
+
+<h3>leakfind & probeleak — 메모리 릭 체인 추적</h3>
+
+<pre><code><span class="cm"># 특정 주소 범위에서 유효한 포인터 체인 재귀 탐색</span>
+pwndbg> leakfind $rsp              <span class="cm"># 스택에서 유용한 주소 체인 탐색</span>
+pwndbg> leakfind 0x555... 0x556... <span class="cm"># 특정 범위</span>
+
+<span class="cm"># probeleak — 주소 범위에서 포인터 전부 나열</span>
+pwndbg> probeleak $rsp $rsp+0x200
+<span class="cm"># 출력: 각 위치에서 발견된 포인터와 그 포인터가 가리키는 영역</span>
+<span class="cm"># libc 주소, 바이너리 주소, 힙 주소 등이 한 번에 나열됨</span>
+<span class="cm"># → BOF 시 어느 오프셋에서 libc 주소를 읽을 수 있는지 파악</span></code></pre>
+
+<div class="callout warn">
+  <span class="callout-icon">⚠️</span>
+  <div class="callout-body">
+    <strong>search는 전체 메모리를 스캔한다</strong>
+    <p>
+      <code>search</code>는 매핑된 모든 메모리를 스캔하므로 바이너리가 크면 느릴 수 있다. <code>search -t string "flag" heap</code>처럼 영역을 지정하면 훨씬 빠르다. 또한 ASLR이 켜져 있는 경우 재실행마다 주소가 달라지므로, 실행 중에만 유효한 결과임을 항상 기억하자.
+    </p>
+  </div>
+</div>

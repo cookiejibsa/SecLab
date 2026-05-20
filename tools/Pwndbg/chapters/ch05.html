@@ -1,0 +1,138 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 05 · Part 2 — 핵심 명령어</div>
+  <h2>스택 & 레지스터 분석</h2>
+  <p class="subtitle">레지스터와 스택을 읽고 쓰는 법 — 익스플로잇의 기초 중의 기초</p>
+</div>
+
+<h3>레지스터 읽기</h3>
+
+<pre><code><span class="cm"># 전체 레지스터 출력</span>
+pwndbg> regs             <span class="cm"># pwndbg 스타일 (색상, 역참조 포함)</span>
+pwndbg> info registers   <span class="cm"># GDB 기본 방식</span>
+pwndbg> i r              <span class="cm"># 약어</span>
+pwndbg> i r rax rdi rsi  <span class="cm"># 특정 레지스터만</span>
+
+<span class="cm"># 개별 레지스터 출력 (print)</span>
+pwndbg> p $rax           <span class="cm"># RAX 값 출력</span>
+pwndbg> p $rsp           <span class="cm"># RSP 출력</span>
+pwndbg> p/x $rax         <span class="cm"># 16진수로</span>
+pwndbg> p/d $rax         <span class="cm"># 10진수로</span>
+pwndbg> p/t $rax         <span class="cm"># 2진수로 (플래그 분석 시)</span>
+
+<span class="cm"># 레지스터로 계산</span>
+pwndbg> p $rbp - $rsp    <span class="cm"># 스택 프레임 크기</span>
+pwndbg> p $rdi + 0x8     <span class="cm"># 오프셋 계산</span>
+pwndbg> p (void*)$rax    <span class="cm"># 포인터로 캐스팅</span></code></pre>
+
+<h3>레지스터 쓰기 — 값 강제 변경</h3>
+
+<pre><code><span class="cm"># 레지스터 값 변경</span>
+pwndbg> set $rax = 0x1          <span class="cm"># RAX를 1로</span>
+pwndbg> set $rdi = 0x404040     <span class="cm"># 함수 인자 변조</span>
+pwndbg> set $rip = 0x401234     <span class="cm"># 실행 흐름 강제 변경</span>
+
+<span class="cm"># 실전: 조건 분기 강제 변경</span>
+<span class="cm"># JNZ가 나왔을 때 점프 안 하게 하려면:</span>
+pwndbg> set $eflags = $eflags | 0x40    <span class="cm"># ZF 세트 (JZ/JE 조건 충족)</span>
+pwndbg> set $eflags = $eflags &amp; ~0x40   <span class="cm"># ZF 클리어</span>
+
+<span class="cm"># 더 간단하게: jump로 분기 강제</span>
+pwndbg> jump *0x401250          <span class="cm"># 조건 무시하고 이 주소로 점프</span></code></pre>
+
+<h3>메모리 값 변경</h3>
+
+<pre><code><span class="cm"># set을 이용한 메모리 패치</span>
+pwndbg> set *(int*)0x404040 = 0x1337
+pwndbg> set *(long*)$rsp = 0x401234    <span class="cm"># 스택 위 값 변경</span>
+pwndbg> set *(char*)0x402000 = 0x90   <span class="cm"># NOP 삽입</span>
+
+<span class="cm"># 배열로 여러 바이트 변경</span>
+pwndbg> set {char[4]}0x402000 = {0x90, 0x90, 0x90, 0xC3}
+<span class="cm"># NOP NOP NOP RET 패치</span></code></pre>
+
+<h3>stack 명령어</h3>
+
+<pre><code><span class="cm"># pwndbg의 stack 명령어 (telescope의 스택 특화 버전)</span>
+pwndbg> stack            <span class="cm"># RSP 기준 기본 8개</span>
+pwndbg> stack 20         <span class="cm"># 20개 항목</span>
+pwndbg> stack -i         <span class="cm"># 역순 (높은 주소가 위, 스택 시각화)</span>
+
+<span class="cm"># 스택 분석 예시 — 함수 호출 직후</span>
+pwndbg> stack 10
+<span class="cm"># 00:0000│ rsp 0x7fff..e288 —▸ 0x401234 (main+48)  ← ret addr</span>
+<span class="cm"># 01:0008│     0x7fff..e290 ◂— 0x0                 ← old rbp</span>
+<span class="cm"># 02:0010│     0x7fff..e298 ◂— 'AAAAAAA'           ← 버퍼</span>
+<span class="cm"># ...</span></code></pre>
+
+<h3>플래그 레지스터 분석</h3>
+
+<pre><code><span class="cm"># RFLAGS 전체 보기</span>
+pwndbg> p/t $eflags      <span class="cm"># 2진수로 — 각 비트가 플래그</span>
+pwndbg> info registers eflags
+
+<span class="cm"># 플래그 비트 위치 (주요 플래그)</span>
+<span class="cm"># CF  bit 0  — Carry Flag (올림, 빌림)</span>
+<span class="cm"># PF  bit 2  — Parity Flag</span>
+<span class="cm"># ZF  bit 6  — Zero Flag (비교 결과 0일 때)</span>
+<span class="cm"># SF  bit 7  — Sign Flag (음수일 때)</span>
+<span class="cm"># TF  bit 8  — Trap Flag (단계 실행)</span>
+<span class="cm"># IF  bit 9  — Interrupt Enable</span>
+<span class="cm"># OF  bit 11 — Overflow Flag</span>
+
+<span class="cm"># 특정 플래그 확인</span>
+pwndbg> p ($eflags >> 6) &amp; 1   <span class="cm"># ZF 값 (0 또는 1)</span>
+pwndbg> p ($eflags >> 7) &amp; 1   <span class="cm"># SF 값</span></code></pre>
+
+<h3>스택 프레임 완전 분석</h3>
+
+<pre><code><span class="cm"># 현재 함수의 스택 프레임 구조 파악</span>
+
+<span class="cm">; 표준 함수 프롤로그 이후 상태:
+; [RSP]     = 리턴 주소 (함수 호출 직후엔 여기)
+; [RSP]     = (PUSH RBP 후) 이전 RBP
+; [RSP+8]   = 리턴 주소
+; RBP       = 현재 스택 프레임 베이스
+; [RBP-N]   = 로컬 변수들
+; [RBP+8]   = 첫 번째 인자 (x86 cdecl)
+; [RBP+10]  = 두 번째 인자</span>
+
+<span class="cm"># 로컬 변수 위치 계산</span>
+pwndbg> p $rbp - 0x10         <span class="cm"># 로컬 변수 4개 위 (4*4=16)</span>
+pwndbg> x/4wx $rbp - 0x10    <span class="cm"># 해당 위치 값 확인</span>
+
+<span class="cm"># 함수 인자 위치 (x86_64 System V ABI)</span>
+<span class="cm"># 인자 1 = RDI</span>
+<span class="cm"># 인자 2 = RSI</span>
+<span class="cm"># 인자 3 = RDX</span>
+<span class="cm"># 인자 4 = RCX</span>
+<span class="cm"># 인자 5 = R8</span>
+<span class="cm"># 인자 6 = R9</span>
+<span class="cm"># 인자 7+ = 스택 (RBP+0x10, RBP+0x18, ...)</span></code></pre>
+
+<h3>frame / backtrace — 콜 스택 탐색</h3>
+
+<pre><code><span class="cm"># 현재 콜 스택</span>
+pwndbg> bt               <span class="cm"># backtrace</span>
+pwndbg> bt 5             <span class="cm"># 5 프레임만</span>
+pwndbg> bt full          <span class="cm"># 로컬 변수 포함</span>
+
+<span class="cm"># 특정 프레임으로 이동</span>
+pwndbg> frame 0          <span class="cm"># 현재 함수</span>
+pwndbg> frame 2          <span class="cm"># 호출자의 호출자</span>
+pwndbg> up               <span class="cm"># 한 단계 위 (호출자로)</span>
+pwndbg> down             <span class="cm"># 한 단계 아래</span>
+
+<span class="cm"># 프레임 이동 후 로컬 변수 보기</span>
+pwndbg> frame 2
+pwndbg> info locals      <span class="cm"># 해당 프레임의 로컬 변수</span>
+pwndbg> info args        <span class="cm"># 해당 프레임의 인자</span></code></pre>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>리턴 주소 바로 찾기</strong>
+    <p>
+      <code>telescope $rsp</code>에서 첫 번째 CODE 색상(빨간색 계열) 값이 리턴 주소다. 버퍼 오버플로 분석에서 "리턴 주소가 어떻게 바뀌었나"를 확인할 때 <code>telescope $rsp 20</code>을 쓰면 한 번에 파악된다.
+    </p>
+  </div>
+</div>

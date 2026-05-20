@@ -1,0 +1,181 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 02 · Part 1 — 기초</div>
+  <h2>Context 화면 완전 해부</h2>
+  <p class="subtitle">멈출 때마다 자동으로 펼쳐지는 이 화면 — 읽는 법을 알면 분석 속도가 3배 빨라진다</p>
+</div>
+
+<div class="callout info">
+  <span class="callout-icon">📌</span>
+  <div class="callout-body">
+    <strong>이 챕터에서 배울 것</strong>
+    <p>LEGEND 색상 의미, REGISTERS 패널 읽는 법, DISASM 패널과 Unicorn 에뮬레이션, STACK 패널, BACKTRACE 패널, context 명령어로 재출력, 섹션별 on/off.</p>
+  </div>
+</div>
+
+<h3>Context — 브레이크포인트마다 자동 출력되는 화면</h3>
+
+<p>
+  pwndbg를 처음 켜면 브레이크포인트에서 멈출 때 아래와 같은 화면이 쏟아진다. 익숙하지 않으면 정보가 너무 많아서 오히려 혼란스럽다. 패널 하나씩 해부해보자.
+</p>
+
+<div class="context-box">
+  <div class="ctx-section">LEGEND: STACK | HEAP | CODE | DATA | RWX | RODATA</div>
+  <div class="ctx-section">REGISTERS</div>
+  <span class="ctx-reg"> RAX</span>  0x0<br>
+  <span class="ctx-reg"> RBX</span>  0x0<br>
+  <span class="ctx-reg"> RCX</span>  0x7ffff7af2151 (<span class="ctx-addr">__GI___libc_read+17</span>) ◂— cmp    rax, -0x1000<br>
+  <span class="ctx-reg"> RDX</span>  0x400<br>
+  <span class="ctx-reg"> RDI</span>  0x0<br>
+  <span class="ctx-reg"> RSI</span>  <span class="ctx-stack-val">0x7fffffffe290</span> ◂— 0x0<br>
+  <span class="ctx-reg"> RSP</span>  <span class="ctx-stack-val">0x7fffffffe288</span> —▸ <span class="ctx-addr">0x401234</span> (<span class="ctx-addr">main+48</span>)<br>
+  <span class="ctx-reg"> RBP</span>  <span class="ctx-stack-val">0x7fffffffe2b0</span> —▸ <span class="ctx-stack-val">0x7fffffffe2d0</span> ◂— 0x0<br>
+  <span class="ctx-reg"> RIP</span>  <span class="ctx-addr">0x401215</span> (<span class="ctx-addr">main+21</span>) ◂— <span class="ctx-inst">lea    rax, [rbp - 0x20]</span>
+  <div class="ctx-section">DISASM / CONTEXT+CODE</div>
+  &nbsp;&nbsp;&nbsp;<span class="ctx-addr">0x401210</span> &lt;main+16&gt;  mov    DWORD PTR [rbp-0x4], 0x0<br>
+  <span class="ctx-arrow"> ►</span> <span class="ctx-addr">0x401215</span> &lt;main+21&gt;  <span class="ctx-cur">lea    rax, [rbp - 0x20]</span><br>
+  &nbsp;&nbsp;&nbsp;<span class="ctx-addr">0x401219</span> &lt;main+25&gt;  mov    rsi, rax<br>
+  &nbsp;&nbsp;&nbsp;<span class="ctx-addr">0x40121c</span> &lt;main+28&gt;  mov    edi, 0x0<br>
+  &nbsp;&nbsp;&nbsp;<span class="ctx-addr">0x401221</span> &lt;main+33&gt;  call   <span class="ctx-addr">0x401090</span> &lt;read@plt&gt;<br>
+  <div class="ctx-section">STACK</div>
+  <span class="ctx-addr">00:0000</span>│ rsp  <span class="ctx-stack-val">0x7fffffffe288</span> —▸ <span class="ctx-addr">0x401234</span> (main+48)<br>
+  <span class="ctx-addr">01:0008</span>│      <span class="ctx-stack-val">0x7fffffffe290</span> ◂— 0x0<br>
+  <span class="ctx-addr">02:0010</span>│      <span class="ctx-stack-val">0x7fffffffe298</span> ◂— 0x0<br>
+  <span class="ctx-addr">03:0018</span>│ rbp  <span class="ctx-stack-val">0x7fffffffe2a0</span> —▸ <span class="ctx-stack-val">0x7fffffffe2c0</span> ◂— 0x1
+  <div class="ctx-section">BACKTRACE</div>
+  &nbsp;►  f 0 <span class="ctx-addr">0x401215</span> main+21<br>
+  &nbsp;&nbsp;&nbsp;f 1 <span class="ctx-addr">0x7ffff7a3d0b3</span> __libc_start_main+243
+</div>
+
+<h3>LEGEND — 색상이 의미하는 것</h3>
+
+<p>
+  Context 화면 맨 위의 <code>LEGEND</code> 줄이 색상 코드를 알려준다. 주소나 값에 색이 입혀져 있으면 그 주소가 어느 메모리 영역에 속하는지 바로 알 수 있다.
+</p>
+
+<table class="cmp-table">
+  <tr><th>색상</th><th>의미</th><th>예시</th></tr>
+  <tr><td>🟦 파란색 계열</td><td>STACK 영역</td><td><code>0x7fffffffe288</code> — 스택 주소</td></tr>
+  <tr><td>🟩 초록색 계열</td><td>HEAP 영역</td><td><code>0x555555559260</code> — malloc() 반환 주소</td></tr>
+  <tr><td>🟥 빨간색 계열</td><td>CODE 영역 (실행 가능)</td><td><code>0x401234</code> — 텍스트 섹션</td></tr>
+  <tr><td>🟨 노란색 계열</td><td>DATA 영역</td><td><code>0x404040</code> — .data/.bss</td></tr>
+  <tr><td>🟪 자홍색 계열</td><td>RWX 영역 (읽기+쓰기+실행)</td><td>JIT 코드, 셸코드 영역</td></tr>
+  <tr><td>흰색/회색</td><td>RODATA / 기타</td><td><code>0x402000</code> — 읽기 전용 데이터</td></tr>
+</table>
+
+<h3>REGISTERS 패널 읽기</h3>
+
+<p>
+  레지스터 값 옆에 <code>—▸</code>나 <code>◂—</code> 화살표가 보이면 그 값이 포인터라는 뜻이다. pwndbg가 자동으로 역참조(dereference)해서 가리키는 곳의 내용을 보여준다.
+</p>
+
+<pre><code><span class="cm"># 레지스터 읽기 예시</span>
+pwndbg> <span class="reg">RDI</span>  <span class="hex">0x7ffff7a3b3d7</span>  ◂— <span class="str">"Enter password: "</span>
+<span class="cm">#       ^주소              ^이 주소를 역참조한 값 (문자열)</span>
+
+pwndbg> <span class="reg">RSP</span>  <span class="hex">0x7fffffffe288</span>  —▸ <span class="hex">0x401234</span> (main+48)
+<span class="cm">#       ^스택 포인터         ^RSP가 가리키는 곳 → 리턴 주소</span>
+
+pwndbg> <span class="reg">RBP</span>  <span class="hex">0x7fffffffe2b0</span>  —▸ <span class="hex">0x7fffffffe2d0</span> ◂— 0x0
+<span class="cm">#       ^프레임 포인터        ^RBP가 가리키는 곳 → 이전 RBP</span></code></pre>
+
+<p>
+  변경된 레지스터는 색상이 달라진다. 이전 멈춤에서 바뀐 값은 즉시 눈에 띄어서 어떤 명령어가 무엇을 바꿨는지 추적하기 쉽다.
+</p>
+
+<h3>DISASM 패널 — Unicorn 에뮬레이션의 비밀</h3>
+
+<p>
+  pwndbg의 DISASM 패널은 단순히 현재 PC 주변 명령어를 나열하지 않는다. <strong>Unicorn Engine</strong>으로 다음 몇 개의 명령어를 미리 에뮬레이션해서, 실제로 실행될 명령어만 표시한다.
+</p>
+
+<p>
+  이게 중요한 이유는 조건 분기 때문이다. <code>JZ</code> 명령어 앞에서 멈췄을 때, Zero Flag 상태를 확인해서 "이 분기가 실제로 점프할지"를 미리 계산하고 화살표로 알려준다. 점프 테이블, PLT 항목, ROP 체인을 단계별로 실행할 때도 실제 실행 경로만 보여준다.
+</p>
+
+<pre><code><span class="cm">; DISASM 패널에서 분기 예측 표시 예시</span>
+<span class="cm">; ► 는 현재 실행 위치, 화살표 방향이 점프 방향</span>
+
+ ► <span class="hex">0x401210</span>    test   eax, eax
+   <span class="hex">0x401212</span>    je     <span class="hex">0x40123a</span>        <span class="cm">&lt;-- 이 분기는 취해짐 (ZF=1)</span>
+                                         <span class="cm">↓ 점프한다면:</span>
+   <span class="hex">0x40123a</span>    mov    edi, 0x1
+   <span class="hex">0x40123f</span>    call   <span class="hex">0x401090</span> &lt;exit@plt&gt;</code></pre>
+
+<h3>STACK 패널 — 스택 telescope</h3>
+
+<p>
+  STACK 패널은 RSP 기준으로 위쪽 스택 항목들을 보여준다. 각 줄에 오프셋, 주소, 역참조 체인이 나온다.
+</p>
+
+<pre><code><span class="cm"># STACK 패널 읽기</span>
+<span class="hex">00:0000</span>│ rsp  <span class="hex">0x7fffffffe288</span> —▸ <span class="hex">0x401234</span> (main+48)
+<span class="cm">#  ^오프셋 ^레지스터 표시   ^스택 주소      ^스택에 저장된 값 (리턴 주소)</span>
+
+<span class="hex">01:0008</span>│      <span class="hex">0x7fffffffe290</span> ◂— <span class="str">'AAAAAAAA'</span>
+<span class="cm">#  ^8바이트 위   ^주소          ^내용이 문자열처럼 보임 (공격 패턴 감지)</span>
+
+<span class="hex">02:0010</span>│ rbp  <span class="hex">0x7fffffffe298</span> —▸ <span class="hex">0x7fffffffe2b0</span> ◂— 0x0
+<span class="cm">#  ^RBP 위치    ^주소          ^이전 RBP 저장 위치</span></code></pre>
+
+<p>
+  <code>00:0000</code>에서 숫자는 RSP로부터의 오프셋이다. <code>│ rsp</code>는 현재 레지스터가 이 위치를 가리킨다는 표시. 버퍼 오버플로로 스택이 덮일 때 이 패널에서 즉시 확인된다.
+</p>
+
+<h3>BACKTRACE 패널</h3>
+
+<p>
+  콜 스택을 보여준다. <code>f 0</code>이 현재 함수, <code>f 1</code>이 호출자, 이런 식으로 올라간다. 중첩된 함수 안에서 길을 잃었을 때 유용하다.
+</p>
+
+<pre><code><span class="cm"># BACKTRACE 예시 — nested call 상황</span>
+ ► f 0  <span class="hex">0x7ffff7a3b151</span>  __GI___libc_read+17
+   f 1  <span class="hex">0x401257</span>         read_input+35
+   f 2  <span class="hex">0x401189</span>         main+57
+   f 3  <span class="hex">0x7ffff7a3d0b3</span>  __libc_start_main+243
+
+<span class="cm"># 특정 프레임으로 이동</span>
+pwndbg> frame 2          <span class="cm"># main 프레임으로</span>
+pwndbg> bt               <span class="cm"># 전체 backtrace 출력 (GDB 내장)</span>
+pwndbg> backtrace full   <span class="cm"># 지역 변수까지 포함</span></code></pre>
+
+<h3>context 명령어 — 수동 재출력 & 섹션 제어</h3>
+
+<pre><code><span class="cm"># 화면이 흐트러졌을 때 재출력</span>
+pwndbg> context
+
+<span class="cm"># 특정 섹션만 출력</span>
+pwndbg> context regs
+pwndbg> context disasm
+pwndbg> context stack
+pwndbg> context backtrace
+pwndbg> context code        <span class="cm"># 소스 코드 (debug symbol 있을 때)</span>
+
+<span class="cm"># 여러 섹션 함께</span>
+pwndbg> context regs disasm stack
+
+<span class="cm"># 특정 섹션 토글 (임시 끄기/켜기)</span>
+pwndbg> context disasm --off    <span class="cm"># DISASM 패널 끄기</span>
+pwndbg> context disasm --on     <span class="cm"># 다시 켜기</span>
+
+<span class="cm"># 기본 표시 섹션 순서 변경 (.gdbinit에서 설정 가능)</span>
+pwndbg> set context-sections regs disasm stack backtrace</code></pre>
+
+<h3>context history — 이전 상태 비교</h3>
+
+<p>
+  pwndbg 2025.01+에서 추가된 기능이다. 이전 멈춤의 context 출력을 다시 볼 수 있다.
+</p>
+
+<pre><code><span class="cm"># context history 보기 (2025.01+ 기능)</span>
+pwndbg> context-history     <span class="cm"># 이전 context 출력 목록</span>
+pwndbg> context-history 3   <span class="cm"># 3번 이전 context 보기</span></code></pre>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>TUI 모드로 항상 context 유지하기</strong>
+    <p>
+      GDB의 TUI(Text User Interface) 모드에서 pwndbg를 쓰면 context가 터미널 상단에 고정된다. <code>tui layout pwndbg</code>를 입력하면 된다. tmux와 함께 쓰면 context를 다른 패인에 분리할 수도 있다 (jcfg의 split-context 블로그 참고).
+    </p>
+  </div>
+</div>

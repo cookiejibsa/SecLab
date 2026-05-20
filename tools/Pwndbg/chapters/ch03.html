@@ -1,0 +1,194 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 03 · Part 2 — 핵심 명령어</div>
+  <h2>실행 제어 & 브레이크포인트</h2>
+  <p class="subtitle">어디서 멈추고 어떻게 이동할지 — 디버거의 핵심 기술</p>
+</div>
+
+<div class="callout info">
+  <span class="callout-icon">📌</span>
+  <div class="callout-body">
+    <strong>이 챕터에서 배울 것</strong>
+    <p>starti·run·si·ni·finish·continue의 차이, 소프트웨어/하드웨어 브레이크포인트, 조건부 BP, 와치포인트, catch syscall, 브레이크포인트 명령 자동화.</p>
+  </div>
+</div>
+
+<h3>실행 시작 명령어</h3>
+
+<div class="cmd-grid">
+  <div class="cmd-card">
+    <code>run (r)</code>
+    <p>프로그램을 처음부터 실행. 브레이크포인트 전까지 달린다. 인자는 <code>run arg1 arg2</code>.</p>
+  </div>
+  <div class="cmd-card">
+    <code>starti</code>
+    <p>첫 번째 어셈블리 명령어에서 즉시 멈춤. 프로그램 시작을 한 스텝씩 보고 싶을 때.</p>
+  </div>
+  <div class="cmd-card">
+    <code>start</code>
+    <p>main() 진입점에 임시 BP를 걸고 실행. libc 초기화 코드를 건너뛰고 main부터 보고 싶을 때.</p>
+  </div>
+</div>
+
+<pre><code><span class="cm"># 인자 전달 방법들</span>
+pwndbg> run arg1 arg2
+pwndbg> run &lt; input.txt             <span class="cm"># stdin 리다이렉션</span>
+pwndbg> run $(python3 -c "print('A'*100)")  <span class="cm"># 인라인 페이로드</span>
+
+<span class="cm"># 환경변수 제어</span>
+pwndbg> set environment MYVAR=value
+pwndbg> unset environment MYVAR
+
+<span class="cm"># 재시작 (인자 유지)</span>
+pwndbg> run                         <span class="cm"># 이전 인자 그대로 재시작</span></code></pre>
+
+<h3>실행 이동 명령어</h3>
+
+<table class="cmp-table">
+  <tr><th>명령어</th><th>약어</th><th>동작</th><th>주의</th></tr>
+  <tr><td><code>step</code></td><td><code>s</code></td><td>소스 한 줄 실행. 함수 내부로 들어감</td><td>debug symbol 필요</td></tr>
+  <tr><td><code>stepi</code></td><td><code>si</code></td><td>어셈블리 명령어 하나 실행. 함수 내부로 들어감</td><td>가장 자세한 제어</td></tr>
+  <tr><td><code>next</code></td><td><code>n</code></td><td>소스 한 줄. 함수 호출은 건너뜀</td><td>debug symbol 필요</td></tr>
+  <tr><td><code>nexti</code></td><td><code>ni</code></td><td>어셈블리 명령어 하나. CALL은 건너뜀</td><td>익스플로잇에서 주로 사용</td></tr>
+  <tr><td><code>continue</code></td><td><code>c</code></td><td>다음 브레이크포인트까지 실행</td><td></td></tr>
+  <tr><td><code>finish</code></td><td><code>fin</code></td><td>현재 함수 끝까지 실행 후 반환</td><td>깊이 들어간 함수에서 탈출</td></tr>
+  <tr><td><code>until</code></td><td><code>u</code></td><td>지정 주소 또는 줄까지 실행</td><td><code>until *0x401234</code></td></tr>
+  <tr><td><code>jump</code></td><td><code>j</code></td><td>PC를 강제로 지정 주소로 이동</td><td>스택 상태는 변하지 않음</td></tr>
+</table>
+
+<pre><code><span class="cm"># 실전 패턴: 함수 호출 분석</span>
+pwndbg> ni       <span class="cm"># CALL 명령어까지 이동</span>
+pwndbg> si       <span class="cm"># 함수 내부로 진입</span>
+<span class="cm">... 내부 분석 ...</span>
+pwndbg> finish   <span class="cm"># 함수 끝으로 나와서 반환값 확인</span>
+
+<span class="cm"># 여러 번 실행</span>
+pwndbg> si 5     <span class="cm"># si를 5번 실행</span>
+pwndbg> ni 10    <span class="cm"># ni를 10번 실행</span></code></pre>
+
+<h3>소프트웨어 브레이크포인트</h3>
+
+<pre><code><span class="cm"># 기본 브레이크포인트</span>
+pwndbg> break main           <span class="cm"># 함수 이름으로</span>
+pwndbg> break *0x401234      <span class="cm"># 절대 주소로 (*는 주소임을 명시)</span>
+pwndbg> break *main+48       <span class="cm"># 함수 + 오프셋</span>
+pwndbg> b *0x401234          <span class="cm"># break 약어</span>
+
+<span class="cm"># 임시 브레이크포인트 (한 번 히트 후 자동 삭제)</span>
+pwndbg> tbreak *0x401234
+
+<span class="cm"># 브레이크포인트 목록</span>
+pwndbg> info breakpoints
+pwndbg> i b                  <span class="cm"># 약어</span>
+
+<span class="cm"># 브레이크포인트 삭제/비활성화</span>
+pwndbg> delete 1             <span class="cm"># 번호로 삭제</span>
+pwndbg> delete               <span class="cm"># 전체 삭제</span>
+pwndbg> disable 2            <span class="cm"># 비활성화 (삭제 아님)</span>
+pwndbg> enable 2             <span class="cm"># 재활성화</span></code></pre>
+
+<h3>조건부 브레이크포인트</h3>
+
+<p>
+  특정 조건이 맞을 때만 멈추는 브레이크포인트다. 루프 안에서 특정 인덱스에서만 멈추거나, 레지스터 값이 특정 값일 때만 멈출 수 있다.
+</p>
+
+<pre><code><span class="cm"># 조건 달기</span>
+pwndbg> break *0x401234 if $rdi == 0x42
+pwndbg> break *main+100  if $rax > 0
+
+<span class="cm"># 기존 BP에 조건 추가</span>
+pwndbg> condition 1 $rcx == 0   <span class="cm"># 브레이크포인트 1번에 조건</span>
+pwndbg> condition 1              <span class="cm"># 조건 제거</span>
+
+<span class="cm"># 횟수 조건 (N번째 히트 때 멈춤)</span>
+pwndbg> break *0x401234
+pwndbg> ignore 1 9              <span class="cm"># 9번 무시하고 10번째에 멈춤</span>
+
+<span class="cm"># 실전 예시: malloc이 특정 크기를 요청할 때만 멈춤</span>
+pwndbg> break malloc if $rdi == 0x40</code></pre>
+
+<h3>하드웨어 브레이크포인트</h3>
+
+<p>
+  소프트웨어 BP는 코드에 <code>0xCC</code>(INT3) 바이트를 삽입한다. 자기 수정 코드, 언패커, 안티디버깅 코드는 이를 감지한다. 하드웨어 BP는 CPU 레지스터(DR0~DR3)를 사용하므로 메모리를 수정하지 않는다. 단, 개수가 4개로 제한된다.
+</p>
+
+<pre><code><span class="cm"># 하드웨어 브레이크포인트</span>
+pwndbg> hbreak *0x401234    <span class="cm"># 실행 위치 하드웨어 BP</span>
+
+<span class="cm"># 와치포인트 (메모리 값 변경 감지)</span>
+pwndbg> watch *0x404040     <span class="cm"># 0x404040의 값이 바뀔 때 멈춤</span>
+pwndbg> rwatch *0x404040    <span class="cm"># 읽을 때 멈춤</span>
+pwndbg> awatch *0x404040    <span class="cm"># 읽거나 쓸 때 멈춤</span>
+
+<span class="cm"># 실전: 전역 변수 값이 언제 바뀌는지 추적</span>
+pwndbg> watch *(int*)0x404020  <span class="cm"># int 크기로</span>
+pwndbg> watch -l target_var    <span class="cm"># 심볼 이름으로 (debug symbol 필요)</span></code></pre>
+
+<h3>catch syscall — 시스템 콜 감지</h3>
+
+<pre><code><span class="cm"># 특정 시스템 콜에서 멈춤</span>
+pwndbg> catch syscall read       <span class="cm"># read() 시스템 콜</span>
+pwndbg> catch syscall write      <span class="cm"># write() 시스템 콜</span>
+pwndbg> catch syscall execve     <span class="cm"># execve() — 셸 실행 직전!</span>
+pwndbg> catch syscall open openat  <span class="cm"># 여러 개</span>
+pwndbg> catch syscall            <span class="cm"># 모든 시스템 콜</span>
+
+<span class="cm"># 시스템 콜 번호로 지정 (x86_64 기준)</span>
+pwndbg> catch syscall 0          <span class="cm"># 0 = read</span>
+pwndbg> catch syscall 59         <span class="cm"># 59 = execve</span>
+
+<span class="cm"># 실전: 셸코드가 execve를 호출하는 순간 잡기</span>
+pwndbg> catch syscall execve
+pwndbg> run &lt; payload
+<span class="cm"># execve("/bin/sh", ...) 호출 직전에 멈춤
+# 이때 RDI = "/bin/sh" 문자열 주소 확인 가능</span></code></pre>
+
+<h3>브레이크포인트 명령 자동화 — commands</h3>
+
+<p>
+  브레이크포인트에 히트할 때마다 자동으로 실행할 GDB 명령어를 등록할 수 있다. 반복적인 분석을 자동화하는 데 유용하다.
+</p>
+
+<pre><code><span class="cm"># BP 1번에 명령어 등록</span>
+pwndbg> commands 1
+Type commands for breakpoint(s) 1, one per line.
+End with a line saying just "end".
+> <span class="fn">print $rdi</span>
+> <span class="fn">x/s $rdi</span>
+> <span class="fn">continue</span>
+> <span class="fn">end</span>
+
+<span class="cm"># → 이 BP에 걸릴 때마다 RDI 값을 출력하고 자동으로 계속 실행</span>
+
+<span class="cm"># 실전: malloc 호출마다 크기 로깅</span>
+pwndbg> break malloc
+pwndbg> commands
+> printf "malloc(%ld)\n", $rdi
+> continue
+> end</code></pre>
+
+<h3>procinfo — 프로세스 상태 한눈에</h3>
+
+<pre><code><span class="cm"># 현재 프로세스 상태 전체 보기</span>
+pwndbg> procinfo
+
+<span class="cm"># 출력 예시:</span>
+<span class="cm"># exe        '/home/user/target'</span>
+<span class="cm"># pid        1234</span>
+<span class="cm"># uid        1000</span>
+<span class="cm"># gid        1000</span>
+<span class="cm"># fd         0 -> /dev/pts/0 (stdin)</span>
+<span class="cm"># fd         1 -> /dev/pts/0 (stdout)</span>
+<span class="cm"># fd         2 -> /dev/pts/0 (stderr)</span>
+<span class="cm"># fd         3 -> /tmp/secret.txt  ← 열린 파일 발견!</span></code></pre>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>$rebase — PIE 바이너리에서 주소 계산</strong>
+    <p>
+      PIE(Position Independent Executable) 바이너리는 매번 베이스 주소가 달라진다. pwndbg는 <code>$rebase</code>라는 편의 함수를 제공한다. <code>break *$rebase(0x1234)</code>는 "바이너리 베이스 + 0x1234"로 BP를 건다. Ghidra에서 확인한 오프셋을 그대로 쓸 수 있다.
+    </p>
+  </div>
+</div>

@@ -1,0 +1,197 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 08 · Part 3 — 익스플로잇 개발</div>
+  <h2>힙 분석 완전 정복</h2>
+  <p class="subtitle">pwndbg의 힙 명령어 없이는 tcache 공격을 볼 수조차 없다</p>
+</div>
+
+<div class="callout info">
+  <span class="callout-icon">📌</span>
+  <div class="callout-body">
+    <strong>이 챕터에서 배울 것</strong>
+    <p>malloc 청크 구조, heap·bins·vis_heap_chunks 명령어 완전 정리, tcache/fastbin/unsorted bin 시각화, double free 탐지, try_free·find_fake_fast 활용.</p>
+  </div>
+</div>
+
+<h3>malloc 청크 구조 — 먼저 이해해야 명령어가 보인다</h3>
+
+<p>
+  glibc의 malloc은 청크(chunk) 단위로 메모리를 관리한다. 청크는 헤더 + 사용자 데이터로 구성된다.
+</p>
+
+<pre><code><span class="cm">; malloc 청크 메모리 레이아웃 (64비트)</span>
+<span class="cm">; 주소       내용</span>
+<span class="cm">; chunk →  [prev_size  8B]  ← 이전 청크 크기 (free 시 사용)</span>
+<span class="cm">;          [size       8B]  ← 현재 청크 크기 + 플래그 3비트</span>
+<span class="cm">; mem →    [fd         8B]  ← (free 시) 다음 청크 포인터</span>
+<span class="cm">;          [bk         8B]  ← (free 시) 이전 청크 포인터</span>
+<span class="cm">;          [user data ...] ← malloc()이 반환하는 포인터는 여기!</span>
+
+<span class="cm">; size 필드 하위 3비트:</span>
+<span class="cm">;   bit 0 (P) = prev_in_use: 이전 청크가 사용 중이면 1</span>
+<span class="cm">;   bit 1 (M) = mmap'd: mmap으로 할당됐으면 1</span>
+<span class="cm">;   bit 2 (A) = non-main-arena: 메인 아레나가 아니면 1</span>
+
+<span class="cm">; 예: size = 0x31 이면 실제 크기 = 0x30, P=1(이전 청크 사용 중)</span></code></pre>
+
+<h3>heap 명령어 — 청크 목록</h3>
+
+<pre><code><span class="cm"># 현재 힙의 모든 청크 나열</span>
+pwndbg> heap
+<span class="cm"># Free chunk (tcachebins) | PREV_INUSE</span>
+<span class="cm"># Addr: 0x555555559290</span>
+<span class="cm"># Size: 0x31</span>
+<span class="cm"># fd: 0x0</span>
+
+<span class="cm"># 특정 아레나만</span>
+pwndbg> heap --main           <span class="cm"># main arena만</span>
+
+<span class="cm"># 청크 단위로 확인 (malloc_chunk 구조체)</span>
+pwndbg> malloc_chunk 0x555555559280
+<span class="cm"># {prev_size=0, size=49, fd=0, bk=0, ...}</span>
+
+<span class="cm"># p 명령으로도</span>
+pwndbg> p *(mchunkptr)0x555555559280</code></pre>
+
+<h3>vis_heap_chunks — 힙 시각화</h3>
+
+<p>
+  pwndbg 최고 기능 중 하나다. 힙을 청크 단위로 색상 구분해서 보여준다. 어떤 청크가 할당 중이고 어떤 게 free인지, 오버플로가 어디를 침범했는지 한눈에 보인다.
+</p>
+
+<pre><code><span class="cm"># 기본 사용</span>
+pwndbg> vis_heap_chunks
+
+<span class="cm"># 출력 예시 (색상은 터미널에서 확인)</span>
+<span class="cm"># 0x555555559000  0x0000000000000000  0x0000000000000291  ................ ← tcache struct</span>
+<span class="cm"># 0x555555559290  0x0000000000000000  0x0000000000000031  ........1.......  </span>
+<span class="cm"># 0x5555555592a0  0x4141414141414141  0x4141414141414141  AAAAAAAAAAAAAAAA ← 사용 중 청크 (A로 가득)</span>
+<span class="cm"># 0x5555555592b0  0x4141414141414141  0x0000000000000000  AAAAAAAA........</span>
+<span class="cm"># 0x5555555592c0  0x0000000000000000  0x0000000000000031  ........1....... ← free 청크</span>
+<span class="cm"># 0x5555555592d0  0x0000000000000000  0x0000555555559010  .........@UUU... ← fd 포인터</span>
+
+<span class="cm"># 옵션</span>
+pwndbg> vis_heap_chunks 0x555555559290    <span class="cm"># 특정 주소부터</span>
+pwndbg> vis_heap_chunks --no-color       <span class="cm"># 색상 없이</span></code></pre>
+
+<h3>bins 명령어 — 빈(bin) 상태 전체</h3>
+
+<pre><code><span class="cm"># 모든 빈 한 번에</span>
+pwndbg> bins
+
+<span class="cm"># 출력 예시:</span>
+<span class="cm"># tcachebins</span>
+<span class="cm"># 0x20 [  3]: 0x5555555594e0 —▸ 0x5555555594b0 —▸ 0x555555559480 ◂— 0x0</span>
+<span class="cm"># 0x30 [  2]: 0x555555559540 —▸ 0x555555559500 ◂— 0x0</span>
+<span class="cm"># fastbins</span>
+<span class="cm"># 0x20: 0x0</span>
+<span class="cm"># 0x30: 0x0</span>
+<span class="cm"># unsortedbin</span>
+<span class="cm"># all: 0x555555559580 —▸ 0x7ffff7dcfca0 (main_arena+96) ◂— 0x555555559580</span>
+<span class="cm"># smallbins</span>
+<span class="cm"># empty</span>
+<span class="cm"># largebins</span>
+<span class="cm"># empty</span>
+
+<span class="cm"># 개별 빈만 보기</span>
+pwndbg> tcachebins       <span class="cm"># tcache만</span>
+pwndbg> fastbins         <span class="cm"># fastbin만</span>
+pwndbg> unsortedbin      <span class="cm"># unsorted bin만</span>
+pwndbg> smallbins        <span class="cm"># small bins</span>
+pwndbg> largebins        <span class="cm"># large bins</span></code></pre>
+
+<h3>tcache 구조 이해 — 현대 힙 공격의 핵심</h3>
+
+<p>
+  glibc 2.26(2017)부터 도입된 스레드별 캐시다. 0x410 바이트 이하 청크를 free하면 tcache에 먼저 들어간다. 각 크기별로 최대 7개를 LIFO로 보관한다. 락이 없어서 빠르지만, 검증도 적어서 공격하기 쉽다.
+</p>
+
+<pre><code><span class="cm"># tcache 내부 구조 확인</span>
+pwndbg> tcache_perthread_struct
+<span class="cm"># tcache_perthread_struct (0x555555559010) {</span>
+<span class="cm">#   counts = {3, 0, 2, ...}     ← 각 크기별 개수</span>
+<span class="cm">#   entries = {0x5555..., ...}  ← 각 크기별 첫 번째 청크</span>
+<span class="cm"># }</span>
+
+<span class="cm"># mp_ 구조체 (malloc parameters)</span>
+pwndbg> mp
+<span class="cm"># { tcache_bins = 64, tcache_max_bytes = 1032, tcache_count = 7, ... }</span>
+
+<span class="cm"># tcache 크기 범위: 0x20 ~ 0x410 (64비트), 0x08 단위</span>
+<span class="cm"># 크기 계산: malloc(0x28) → 청크 크기 0x30 (= 0x28 + 8헤더, 16정렬)</span></code></pre>
+
+<h3>double free 탐지</h3>
+
+<pre><code><span class="cm"># 같은 청크를 두 번 free하면...</span>
+<span class="cm"># glibc 2.26 초기: 검사 없음 → 쉬운 double free</span>
+<span class="cm"># glibc 2.29+: tcache에 key 필드 추가, 재진입 탐지</span>
+<span class="cm"># glibc 2.32+: safe-linking으로 fd 포인터 암호화</span>
+
+<span class="cm"># pwndbg로 double free 확인</span>
+<span class="cm"># vis_heap_chunks에서 같은 청크가 빈에 두 번 나오면 double free</span>
+pwndbg> tcachebins
+<span class="cm"># 0x20 [2]: 0x555555559290 —▸ 0x555555559290  ← 같은 주소가 두 번!</span>
+
+<span class="cm"># try_free — free() 시 어떤 일이 일어날지 미리 확인</span>
+pwndbg> try_free 0x555555559290
+<span class="cm"># Doing free with 0x555555559290...</span>
+<span class="cm"># Would place into tcachebins[0x20][0/7]</span></code></pre>
+
+<h3>find_fake_fast — 가짜 청크 찾기</h3>
+
+<pre><code><span class="cm"># 특정 주소를 fastbin/tcache 청크로 사용할 수 있는 후보 찾기</span>
+pwndbg> find_fake_fast 0x404020   <span class="cm"># 이 주소를 fd로 쓸 수 있는 청크</span>
+
+<span class="cm"># 출력: 해당 주소 주변에서 올바른 size 필드를 가진 가짜 청크 위치</span>
+<span class="cm"># 힙 메타데이터나 전역 변수에서 우연히 올바른 크기 값을 가진 곳 탐색</span></code></pre>
+
+<h3>arenas — 멀티스레드 힙</h3>
+
+<pre><code><span class="cm"># 아레나 목록 (멀티스레드 프로그램)</span>
+pwndbg> arenas
+<span class="cm"># [main] [0x555555559000] 0x555555559000 0x55555557a000 rw-p ...</span>
+
+<span class="cm"># main_arena 구조체 보기</span>
+pwndbg> main_arena
+<span class="cm"># main_arena {</span>
+<span class="cm">#   mutex = 0,</span>
+<span class="cm">#   flags = 0,</span>
+<span class="cm">#   fastbinsY = {...},</span>
+<span class="cm">#   top = 0x555555559580,    ← top chunk 주소</span>
+<span class="cm">#   ...} </span>
+
+<span class="cm"># top chunk — 힙의 끝, 이후는 할당 안 됨</span>
+<span class="cm"># top chunk 주소를 알면 힙 레이아웃 계산 가능</span></code></pre>
+
+<h3>실전 힙 분석 시나리오 — UAF(Use After Free)</h3>
+
+<pre><code><span class="cm"># UAF 시나리오: free 후에도 포인터를 통해 접근</span>
+
+<span class="cm"># 1. malloc & free 상황 재현</span>
+pwndbg> break *main+100    <span class="cm"># free() 직후에 BP</span>
+pwndbg> run
+
+<span class="cm"># 2. free 직후 상태 확인</span>
+pwndbg> vis_heap_chunks
+<span class="cm"># 0x555555559290  ← 이 청크가 tcache에 들어감</span>
+
+pwndbg> tcachebins
+<span class="cm"># 0x30 [1]: 0x555555559290 ◂— 0x0</span>
+
+<span class="cm"># 3. fd 포인터 확인 (tcache에서 다음 청크 포인터)</span>
+pwndbg> x/2gx 0x555555559290
+<span class="cm"># 0x555555559290:  0x0000000000000000  ← fd (null = 리스트 끝)</span>
+<span class="cm"># 0x555555559298:  0x0000555555559010  ← key (double free 방지)</span>
+
+<span class="cm"># 4. UAF 후 같은 주소로 다시 접근하면 fd 포인터 조작 가능</span>
+<span class="cm"># → 다음 malloc은 fd가 가리키는 주소를 반환</span>
+<span class="cm"># → 임의 주소에 malloc! (tcache poisoning)</span></code></pre>
+
+<div class="callout warn">
+  <span class="callout-icon">⚠️</span>
+  <div class="callout-body">
+    <strong>safe-linking (glibc 2.32+)</strong>
+    <p>
+      glibc 2.32부터 tcache/fastbin의 fd 포인터가 XOR 암호화된다 (<code>fd ^ (chunk_addr >> 12)</code>). pwndbg는 이를 자동으로 디코딩해서 보여주지만, 익스플로잇 코드에서 직접 fd를 조작하려면 암호화를 거쳐야 한다. Ubuntu 22.04(glibc 2.35), 24.04(glibc 2.39) 대상에서는 반드시 고려해야 한다.
+    </p>
+  </div>
+</div>

