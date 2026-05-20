@@ -1,0 +1,1164 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chapter 10 — 윤리 &amp; 법적 기준 | Metasploit 가이드북</title>
+    <link rel="stylesheet" href="../css/style.css" />
+  </head>
+  <body>
+    <div class="reading-progress"><div class="reading-progress-bar"></div></div>
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon">
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+          </svg>
+          Metasploit 가이드북
+        </div>
+        <p>침투 테스트 완전 정복</p>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">시작하기</div>
+        <a href="../index.html"
+          ><span class="nav-num">00</span> 목차 &amp; 개요</a
+        >
+        <a href="chapter1.html"
+          ><span class="nav-num">01</span> Metasploit이란?</a
+        >
+        <a href="chapter2.html"
+          ><span class="nav-num">02</span> 설치 &amp; 환경 구성</a
+        >
+        <div class="nav-section-label">핵심 개념</div>
+        <a href="chapter3.html"
+          ><span class="nav-num">03</span> MSF 콘솔 기초</a
+        >
+        <a href="chapter4.html"
+          ><span class="nav-num">04</span> Exploit &amp; Payload</a
+        >
+        <a href="chapter5.html"
+          ><span class="nav-num">05</span> Meterpreter 완전 정복</a
+        >
+        <div class="nav-section-label">실전 기술</div>
+        <a href="chapter6.html"
+          ><span class="nav-num">06</span> 정보 수집 &amp; 스캔</a
+        >
+        <a href="chapter7.html"
+          ><span class="nav-num">07</span> 취약점 분석 &amp; 공격</a
+        >
+        <a href="chapter8.html"
+          ><span class="nav-num">08</span> 포스트 익스플로잇</a
+        >
+        <div class="nav-section-label">심화 &amp; 윤리</div>
+        <a href="chapter9.html"
+          ><span class="nav-num">09</span> 커스텀 모듈 개발</a
+        >
+        <a href="chapter10.html" class="active"
+          ><span class="nav-num">10</span> 윤리 &amp; 법적 기준</a
+        >
+      </nav>
+      <div class="sidebar-footer">⚠️ 교육 목적 전용 — 무단 사용 금지</div>
+    </aside>
+    <main class="main">
+      <div class="chapter-header">
+        <div class="chapter-badge">Chapter 10</div>
+        <h1>윤리 &amp; 법적 기준</h1>
+        <p class="subtitle">
+          화이트햇 해커의 원칙 — 허가된 침투 테스트의 법적 요건, 직업 윤리,
+          책임감 있는 공개(Responsible Disclosure)
+        </p>
+      </div>
+
+      <div class="callout danger">
+        <div class="callout-icon">⚖️</div>
+        <div class="callout-body">
+          <strong
+            >가장 중요한 원칙: 명시적 허가 없는 침투 테스트는 범죄입니다</strong
+          >
+          <p>
+            아무리 선의의 목적이라도, 아무리 취약점이 명백하더라도, 허가 없는
+            시스템 접근은 컴퓨터 관련 법규 위반입니다. 이 가이드북의 모든 기술은
+            반드시 허가된 환경에서만 사용하세요.
+          </p>
+        </div>
+      </div>
+
+      <section class="section">
+        <h2>⚖️ 국내 관련 법규</h2>
+        <p>
+          한국에서 사이버 보안 활동은 여러 법률의 적용을 받습니다. 화이트햇
+          해커가 반드시 알아야 할 핵심 법규를 정리합니다.
+        </p>
+
+        <div
+          style="
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 1.5rem 0;
+          "
+        >
+          <div
+            style="
+              background: var(--surface-2);
+              border: 1px solid var(--border);
+              border-radius: 10px;
+              padding: 1.5rem;
+            "
+          >
+            <div style="font-size: 1.5rem; margin-bottom: 0.5rem">🔒</div>
+            <strong style="color: var(--accent)"
+              >정보통신망 이용촉진 및 정보보호 등에 관한 법률</strong
+            >
+            <p
+              style="
+                font-size: 0.9rem;
+                color: var(--text-muted);
+                margin-top: 0.5rem;
+              "
+            >
+              제48조: 허가 없이 타인의 정보통신시스템에 침입하는 행위 금지<br />
+              <strong>위반 시:</strong> 5년 이하 징역 또는 5천만원 이하 벌금
+            </p>
+          </div>
+          <div
+            style="
+              background: var(--surface-2);
+              border: 1px solid var(--border);
+              border-radius: 10px;
+              padding: 1.5rem;
+            "
+          >
+            <div style="font-size: 1.5rem; margin-bottom: 0.5rem">💻</div>
+            <strong style="color: var(--accent)"
+              >형법 제314조 (업무방해)</strong
+            >
+            <p
+              style="
+                font-size: 0.9rem;
+                color: var(--text-muted);
+                margin-top: 0.5rem;
+              "
+            >
+              컴퓨터 등 정보처리장치에 허위 정보 입력, 부정한 명령을 통해 업무를
+              방해하는 행위<br />
+              <strong>위반 시:</strong> 5년 이하 징역 또는 1,500만원 이하 벌금
+            </p>
+          </div>
+          <div
+            style="
+              background: var(--surface-2);
+              border: 1px solid var(--border);
+              border-radius: 10px;
+              padding: 1.5rem;
+            "
+          >
+            <div style="font-size: 1.5rem; margin-bottom: 0.5rem">🗄️</div>
+            <strong style="color: var(--accent)">개인정보 보호법</strong>
+            <p
+              style="
+                font-size: 0.9rem;
+                color: var(--text-muted);
+                margin-top: 0.5rem;
+              "
+            >
+              침투 테스트 중 개인정보를 취득·열람하면 이 법도 적용됨. 테스트
+              범위를 명확히 설정해야 함<br />
+              <strong>위반 시:</strong> 최대 5년 이하 징역 또는 5천만원 이하
+              벌금
+            </p>
+          </div>
+          <div
+            style="
+              background: var(--surface-2);
+              border: 1px solid var(--border);
+              border-radius: 10px;
+              padding: 1.5rem;
+            "
+          >
+            <div style="font-size: 1.5rem; margin-bottom: 0.5rem">🛡️</div>
+            <strong style="color: var(--accent)"
+              >정보보안 특별법 (주요정보통신기반시설)</strong
+            >
+            <p
+              style="
+                font-size: 0.9rem;
+                color: var(--text-muted);
+                margin-top: 0.5rem;
+              "
+            >
+              금융, 전력, 통신 등 국가 핵심 인프라 대상 공격은 가중 처벌<br />
+              <strong>위반 시:</strong> 10년 이하 징역
+            </p>
+          </div>
+        </div>
+
+        <div class="callout tip">
+          <div class="callout-icon">🌐</div>
+          <div class="callout-body">
+            <strong>해외 법규도 적용됩니다</strong>
+            <p>
+              대상 시스템이 해외에 있거나, 공격 트래픽이 해외를 경유하는 경우
+              해당국의 법규가 적용될 수 있습니다. 미국의 CFAA(Computer Fraud and
+              Abuse Act), EU의 사이버보안법 등을 숙지해야 합니다.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>📋 침투 테스트 계약 & 범위 설정</h2>
+        <p>
+          합법적인 침투 테스트의 핵심은 <strong>명확한 서면 허가</strong>와
+          <strong>범위 문서(Scope of Work)</strong>입니다. 구두 허락은 법적
+          보호를 제공하지 않습니다.
+        </p>
+
+        <div class="step-list">
+          <div class="step">
+            <div class="step-num">01</div>
+            <div class="step-content">
+              <strong>계약서 작성 (Rules of Engagement)</strong>
+              <p>
+                테스트 허가 범위, 허용되는 공격 기법, 금지 사항, 비밀 유지 조항,
+                책임 한계를 명확히 서면으로 작성하고 양측 서명을 받습니다.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">02</div>
+            <div class="step-content">
+              <strong>IP/도메인 범위 명시</strong>
+              <p>
+                테스트 대상 IP 대역, 도메인, 시스템을 구체적으로 나열합니다.
+                "전체 인프라"처럼 모호한 표현은 나중에 분쟁의 원인이 됩니다.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">03</div>
+            <div class="step-content">
+              <strong>테스트 기간 및 시간대 설정</strong>
+              <p>
+                시작/종료 날짜, 테스트 가능한 시간대(업무 시간 외 야간 등)를
+                명시합니다. 범위를 벗어난 시간의 테스트는 허가되지 않은 것으로
+                간주됩니다.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">04</div>
+            <div class="step-content">
+              <strong>긴급 연락망 확보</strong>
+              <p>
+                테스트 중 실제 보안 사고나 시스템 장애 발생 시 즉시 연락할 수
+                있는 고객사 담당자 연락처를 사전에 확보합니다.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">05</div>
+            <div class="step-content">
+              <strong>테스트 증거 보관</strong>
+              <p>
+                모든 테스트 활동을 로그로 기록하고, 허가 문서와 함께 안전하게
+                보관합니다. 법적 분쟁 발생 시 자신을 보호하는 증거가 됩니다.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>🔍 책임감 있는 공개 (Responsible Disclosure)</h2>
+        <p>
+          취약점을 발견했을 때 어떻게 행동해야 할까요? 업계 표준으로 자리 잡은
+          <strong>책임감 있는 공개(Responsible Disclosure)</strong> 프로세스를
+          따릅니다.
+        </p>
+
+        <div style="position: relative; margin: 2rem 0">
+          <div style="display: flex; flex-direction: column; gap: 0">
+            <div
+              style="
+                display: flex;
+                gap: 1.5rem;
+                align-items: flex-start;
+                padding: 1.2rem;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-radius: 10px 10px 0 0;
+                border-bottom: none;
+              "
+            >
+              <div
+                style="
+                  width: 36px;
+                  height: 36px;
+                  border-radius: 50%;
+                  background: var(--accent);
+                  color: #fff;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-weight: 700;
+                  flex-shrink: 0;
+                "
+              >
+                1
+              </div>
+              <div>
+                <strong style="color: var(--accent)">취약점 발견 및 검증</strong
+                ><br /><span style="color: var(--text-muted); font-size: 0.9rem"
+                  >PoC(Proof of Concept) 코드를 작성하여 취약점의 실재를
+                  확인합니다. 재현 가능한 형태로 문서화합니다.</span
+                >
+              </div>
+            </div>
+            <div
+              style="
+                display: flex;
+                gap: 1.5rem;
+                align-items: flex-start;
+                padding: 1.2rem;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-bottom: none;
+              "
+            >
+              <div
+                style="
+                  width: 36px;
+                  height: 36px;
+                  border-radius: 50%;
+                  background: var(--accent);
+                  color: #fff;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-weight: 700;
+                  flex-shrink: 0;
+                "
+              >
+                2
+              </div>
+              <div>
+                <strong style="color: var(--accent)">벤더에 비공개 신고</strong
+                ><br /><span style="color: var(--text-muted); font-size: 0.9rem"
+                  >해당 소프트웨어/서비스 벤더의 보안
+                  이메일(security@company.com)이나 버그 바운티 플랫폼(HackerOne,
+                  Bugcrowd)을 통해 비공개로 신고합니다.</span
+                >
+              </div>
+            </div>
+            <div
+              style="
+                display: flex;
+                gap: 1.5rem;
+                align-items: flex-start;
+                padding: 1.2rem;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-bottom: none;
+              "
+            >
+              <div
+                style="
+                  width: 36px;
+                  height: 36px;
+                  border-radius: 50%;
+                  background: var(--accent);
+                  color: #fff;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-weight: 700;
+                  flex-shrink: 0;
+                "
+              >
+                3
+              </div>
+              <div>
+                <strong style="color: var(--accent)"
+                  >패치 기간 부여 (보통 90일)</strong
+                ><br /><span style="color: var(--text-muted); font-size: 0.9rem"
+                  >Google Project Zero 표준인 90일을 포함해 벤더에 패치 개발
+                  시간을 줍니다. 기간 내 패치가 어려우면 연장 협의가
+                  가능합니다.</span
+                >
+              </div>
+            </div>
+            <div
+              style="
+                display: flex;
+                gap: 1.5rem;
+                align-items: flex-start;
+                padding: 1.2rem;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-bottom: none;
+              "
+            >
+              <div
+                style="
+                  width: 36px;
+                  height: 36px;
+                  border-radius: 50%;
+                  background: var(--accent);
+                  color: #fff;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-weight: 700;
+                  flex-shrink: 0;
+                "
+              >
+                4
+              </div>
+              <div>
+                <strong style="color: var(--accent)">CVE 번호 신청</strong
+                ><br /><span style="color: var(--text-muted); font-size: 0.9rem"
+                  >MITRE Corporation이나 CVE 넘버링 기관(CNA)을 통해 CVE 번호를
+                  신청합니다. 취약점을 공식적으로 추적·관리할 수 있게
+                  됩니다.</span
+                >
+              </div>
+            </div>
+            <div
+              style="
+                display: flex;
+                gap: 1.5rem;
+                align-items: flex-start;
+                padding: 1.2rem;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-radius: 0 0 10px 10px;
+              "
+            >
+              <div
+                style="
+                  width: 36px;
+                  height: 36px;
+                  border-radius: 50%;
+                  background: var(--accent);
+                  color: #fff;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-weight: 700;
+                  flex-shrink: 0;
+                "
+              >
+                5
+              </div>
+              <div>
+                <strong style="color: var(--accent)">패치 배포 후 공개</strong
+                ><br /><span style="color: var(--text-muted); font-size: 0.9rem"
+                  >패치가 배포된 후 기술 블로그, 보안 컨퍼런스(DEF CON, Black
+                  Hat, CODEGATE), 학술지 등에 취약점 분석 내용을
+                  공개합니다.</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout tip">
+          <div class="callout-icon">💰</div>
+          <div class="callout-body">
+            <strong>버그 바운티 프로그램</strong>
+            <p>
+              많은 기업이 취약점 신고자에게 현금 보상을 제공하는
+              <strong>버그 바운티</strong> 프로그램을 운영합니다. HackerOne과
+              Bugcrowd에 구글, 마이크로소프트, 삼성, 카카오 등 수천 개 기업이
+              참여 중입니다. 합법적으로 기술을 발휘하고 보상도 받을 수 있는
+              최고의 방법입니다.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>🎓 화이트햇 해커 자격증 로드맵</h2>
+        <p>
+          체계적인 경력 개발을 위한 보안 자격증 경로입니다. 국제 자격증은 취업과
+          신뢰도 구축에 모두 도움이 됩니다.
+        </p>
+
+        <div class="tab-container">
+          <div class="tab-nav">
+            <button class="tab-btn active" data-tab="cert-entry">입문</button>
+            <button class="tab-btn" data-tab="cert-mid">중급</button>
+            <button class="tab-btn" data-tab="cert-adv">고급</button>
+          </div>
+
+          <div class="tab-content active" id="cert-entry">
+            <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem;
+                margin-top: 1rem;
+              "
+            >
+              <div
+                style="
+                  background: var(--surface-2);
+                  border: 1px solid var(--border);
+                  border-radius: 8px;
+                  padding: 1.2rem;
+                "
+              >
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    margin-bottom: 0.5rem;
+                  "
+                >
+                  <span
+                    style="
+                      background: #1f6feb22;
+                      color: #1f6feb;
+                      padding: 2px 8px;
+                      border-radius: 4px;
+                      font-size: 0.8rem;
+                      font-weight: 600;
+                    "
+                    >CompTIA</span
+                  >
+                  <strong>Security+</strong>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-muted)">
+                  보안 분야 입문의 국제 표준. 방어·공격 개념 균형적으로 다룸.
+                  취업 시장에서 가장 광범위하게 인정.
+                </p>
+              </div>
+              <div
+                style="
+                  background: var(--surface-2);
+                  border: 1px solid var(--border);
+                  border-radius: 8px;
+                  padding: 1.2rem;
+                "
+              >
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    margin-bottom: 0.5rem;
+                  "
+                >
+                  <span
+                    style="
+                      background: #1f6feb22;
+                      color: #1f6feb;
+                      padding: 2px 8px;
+                      border-radius: 4px;
+                      font-size: 0.8rem;
+                      font-weight: 600;
+                    "
+                    >EC-Council</span
+                  >
+                  <strong>CEH</strong>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-muted)">
+                  Certified Ethical Hacker. 해킹 기법과 방어를 체계적으로 학습.
+                  기업 환경에서 인지도 높음.
+                </p>
+              </div>
+              <div
+                style="
+                  background: var(--surface-2);
+                  border: 1px solid var(--border);
+                  border-radius: 8px;
+                  padding: 1.2rem;
+                "
+              >
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    margin-bottom: 0.5rem;
+                  "
+                >
+                  <span
+                    style="
+                      background: #1f6feb22;
+                      color: #1f6feb;
+                      padding: 2px 8px;
+                      border-radius: 4px;
+                      font-size: 0.8rem;
+                      font-weight: 600;
+                    "
+                    >eLearnSecurity</span
+                  >
+                  <strong>eJPT</strong>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-muted)">
+                  eLearnSecurity Junior Penetration Tester. 완전 실기형 시험.
+                  MSF 활용 능력을 직접 테스트.
+                </p>
+              </div>
+              <div
+                style="
+                  background: var(--surface-2);
+                  border: 1px solid var(--border);
+                  border-radius: 8px;
+                  padding: 1.2rem;
+                "
+              >
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    margin-bottom: 0.5rem;
+                  "
+                >
+                  <span
+                    style="
+                      background: #1f6feb22;
+                      color: #1f6feb;
+                      padding: 2px 8px;
+                      border-radius: 4px;
+                      font-size: 0.8rem;
+                      font-weight: 600;
+                    "
+                    >KISA</span
+                  >
+                  <strong>ISMS / 정보보안기사</strong>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-muted)">
+                  국내 인정 자격증. 국내 취업 시장에서 필수. 정보보안 관리체계
+                  전반을 다룸.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-content" id="cert-mid">
+            <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem;
+                margin-top: 1rem;
+              "
+            >
+              <div
+                style="
+                  background: var(--surface-2);
+                  border: 1px solid var(--border);
+                  border-radius: 8px;
+                  padding: 1.2rem;
+                  border-top: 3px solid var(--accent);
+                "
+              >
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    margin-bottom: 0.5rem;
+                  "
+                >
+                  <span
+                    style="
+                      background: var(--accent-dim);
+                      color: var(--accent);
+                      padding: 2px 8px;
+                      border-radius: 4px;
+                      font-size: 0.8rem;
+                      font-weight: 600;
+                    "
+                    >Offensive Security</span
+                  >
+                  <strong>OSCP ⭐</strong>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-muted)">
+                  Offensive Security Certified Professional. 업계 최고 권위.
+                  24시간 실전 해킹 시험. Buffer Overflow + 5개 머신 침투 필요.
+                </p>
+              </div>
+              <div
+                style="
+                  background: var(--surface-2);
+                  border: 1px solid var(--border);
+                  border-radius: 8px;
+                  padding: 1.2rem;
+                "
+              >
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    margin-bottom: 0.5rem;
+                  "
+                >
+                  <span
+                    style="
+                      background: #1f6feb22;
+                      color: #1f6feb;
+                      padding: 2px 8px;
+                      border-radius: 4px;
+                      font-size: 0.8rem;
+                      font-weight: 600;
+                    "
+                    >eLearnSecurity</span
+                  >
+                  <strong>eCPPT</strong>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-muted)">
+                  Certified Professional Penetration Tester. OSCP 전 단계로
+                  적합. 7일간 실전 시험 + 보고서 작성.
+                </p>
+              </div>
+              <div
+                style="
+                  background: var(--surface-2);
+                  border: 1px solid var(--border);
+                  border-radius: 8px;
+                  padding: 1.2rem;
+                "
+              >
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    margin-bottom: 0.5rem;
+                  "
+                >
+                  <span
+                    style="
+                      background: #1f6feb22;
+                      color: #1f6feb;
+                      padding: 2px 8px;
+                      border-radius: 4px;
+                      font-size: 0.8rem;
+                      font-weight: 600;
+                    "
+                    >TCM Security</span
+                  >
+                  <strong>PNPT</strong>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-muted)">
+                  Practical Network Penetration Tester. 실전 네트워크 침투 +
+                  보고서 작성. 가성비 좋은 실기 자격증.
+                </p>
+              </div>
+              <div
+                style="
+                  background: var(--surface-2);
+                  border: 1px solid var(--border);
+                  border-radius: 8px;
+                  padding: 1.2rem;
+                "
+              >
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    margin-bottom: 0.5rem;
+                  "
+                >
+                  <span
+                    style="
+                      background: #1f6feb22;
+                      color: #1f6feb;
+                      padding: 2px 8px;
+                      border-radius: 4px;
+                      font-size: 0.8rem;
+                      font-weight: 600;
+                    "
+                    >ISC²</span
+                  >
+                  <strong>SSCP / CISSP</strong>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-muted)">
+                  보안 관리자/아키텍트 지향. 기술보다 거버넌스/정책 비중이 높음.
+                  보안 관리직 목표 시 유리.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-content" id="cert-adv">
+            <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem;
+                margin-top: 1rem;
+              "
+            >
+              <div
+                style="
+                  background: var(--surface-2);
+                  border: 1px solid var(--border);
+                  border-radius: 8px;
+                  padding: 1.2rem;
+                  border-top: 3px solid #ff0;
+                "
+              >
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    margin-bottom: 0.5rem;
+                  "
+                >
+                  <span
+                    style="
+                      background: var(--accent-dim);
+                      color: var(--accent);
+                      padding: 2px 8px;
+                      border-radius: 4px;
+                      font-size: 0.8rem;
+                      font-weight: 600;
+                    "
+                    >Offensive Security</span
+                  >
+                  <strong>OSEP / OSED / OSWE</strong>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-muted)">
+                  OSCP 이후 전문화 과정. OSEP(우회·AD), OSED(익스플로잇 개발),
+                  OSWE(웹 앱). 모두 취득 시 OSCE³ 수여.
+                </p>
+              </div>
+              <div
+                style="
+                  background: var(--surface-2);
+                  border: 1px solid var(--border);
+                  border-radius: 8px;
+                  padding: 1.2rem;
+                  border-top: 3px solid #ff0;
+                "
+              >
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    margin-bottom: 0.5rem;
+                  "
+                >
+                  <span
+                    style="
+                      background: #1f6feb22;
+                      color: #1f6feb;
+                      padding: 2px 8px;
+                      border-radius: 4px;
+                      font-size: 0.8rem;
+                      font-weight: 600;
+                    "
+                    >GIAC</span
+                  >
+                  <strong>GPEN / GWAPT / GXPN</strong>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-muted)">
+                  SANS Institute 산하. 매우 높은 신뢰도. GXPN(고급 침투
+                  테스트)은 업계 최고 수준 전문가 자격.
+                </p>
+              </div>
+            </div>
+            <div class="callout info" style="margin-top: 1rem">
+              <div class="callout-icon">🏆</div>
+              <div class="callout-body">
+                <strong>추천 학습 순서</strong>
+                <p>
+                  정보보안기사 / Security+ → eJPT / CEH → OSCP → OSEP/OSED/OSWE
+                  (OSCE³)
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>🧭 화이트햇 해커의 윤리 원칙</h2>
+        <p>
+          기술적 능력 못지않게 중요한 것이 윤리적 판단력입니다. 아래 원칙들을
+          항상 숙지하세요.
+        </p>
+
+        <div style="display: grid; gap: 1rem; margin: 1.5rem 0">
+          <div
+            style="
+              display: flex;
+              gap: 1rem;
+              background: var(--surface-2);
+              border: 1px solid var(--border);
+              border-radius: 8px;
+              padding: 1.2rem;
+              align-items: flex-start;
+            "
+          >
+            <span style="font-size: 1.8rem; flex-shrink: 0">📜</span>
+            <div>
+              <strong style="font-size: 1rem">명시적 허가의 원칙</strong>
+              <p
+                style="
+                  color: var(--text-muted);
+                  font-size: 0.9rem;
+                  margin-top: 0.3rem;
+                "
+              >
+                어떤 상황에서도 서면 허가 없이는 절대 테스트하지 않습니다.
+                "취약해 보여서 확인해 보려고" 같은 이유는 법적 보호를 받지
+                못합니다.
+              </p>
+            </div>
+          </div>
+          <div
+            style="
+              display: flex;
+              gap: 1rem;
+              background: var(--surface-2);
+              border: 1px solid var(--border);
+              border-radius: 8px;
+              padding: 1.2rem;
+              align-items: flex-start;
+            "
+          >
+            <span style="font-size: 1.8rem; flex-shrink: 0">🎯</span>
+            <div>
+              <strong style="font-size: 1rem">범위 준수의 원칙</strong>
+              <p
+                style="
+                  color: var(--text-muted);
+                  font-size: 0.9rem;
+                  margin-top: 0.3rem;
+                "
+              >
+                계약서에 명시된 범위를 절대 벗어나지 않습니다. 테스트 중 범위
+                밖의 취약점을 발견하면 테스트하지 말고 즉시 고객에게 보고합니다.
+              </p>
+            </div>
+          </div>
+          <div
+            style="
+              display: flex;
+              gap: 1rem;
+              background: var(--surface-2);
+              border: 1px solid var(--border);
+              border-radius: 8px;
+              padding: 1.2rem;
+              align-items: flex-start;
+            "
+          >
+            <span style="font-size: 1.8rem; flex-shrink: 0">🔐</span>
+            <div>
+              <strong style="font-size: 1rem">데이터 보호의 원칙</strong>
+              <p
+                style="
+                  color: var(--text-muted);
+                  font-size: 0.9rem;
+                  margin-top: 0.3rem;
+                "
+              >
+                테스트 중 취득한 모든 데이터(자격증명, 개인정보 등)는 계약서에
+                정해진 방식으로만 처리하고, 허가 없이 보관하거나 사용하지
+                않습니다.
+              </p>
+            </div>
+          </div>
+          <div
+            style="
+              display: flex;
+              gap: 1rem;
+              background: var(--surface-2);
+              border: 1px solid var(--border);
+              border-radius: 8px;
+              padding: 1.2rem;
+              align-items: flex-start;
+            "
+          >
+            <span style="font-size: 1.8rem; flex-shrink: 0">🧹</span>
+            <div>
+              <strong style="font-size: 1rem">원상 복구의 원칙</strong>
+              <p
+                style="
+                  color: var(--text-muted);
+                  font-size: 0.9rem;
+                  margin-top: 0.3rem;
+                "
+              >
+                테스트 과정에서 생성한 모든 백도어, 파일, 계정, 설정 변경 사항을
+                완전히 제거합니다. 테스트 흔적을 남겨두면 제3자의 공격 경로가
+                됩니다.
+              </p>
+            </div>
+          </div>
+          <div
+            style="
+              display: flex;
+              gap: 1rem;
+              background: var(--surface-2);
+              border: 1px solid var(--border);
+              border-radius: 8px;
+              padding: 1.2rem;
+              align-items: flex-start;
+            "
+          >
+            <span style="font-size: 1.8rem; flex-shrink: 0">📊</span>
+            <div>
+              <strong style="font-size: 1rem">정직한 보고의 원칙</strong>
+              <p
+                style="
+                  color: var(--text-muted);
+                  font-size: 0.9rem;
+                  margin-top: 0.3rem;
+                "
+              >
+                발견한 모든 취약점을 정확하게 보고합니다. "주요 취약점을
+                발견하지 못했다"는 것도 정직하게 보고하는 전문가의 역량입니다.
+                과장이나 축소는 금물입니다.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>🏁 가이드북을 마치며</h2>
+        <div class="callout info">
+          <div class="callout-icon">🎓</div>
+          <div class="callout-body">
+            <strong>다음 단계</strong>
+            <p>
+              이 가이드북의 내용을 모두 학습했다면, 다음 실전 훈련 플랫폼에서
+              기술을 연마하세요.
+            </p>
+            <ul style="margin: 0.5rem 0 0 1.2rem; line-height: 2">
+              <li>
+                <strong>Hack The Box</strong> — 전 세계 해커들이 사용하는 최고
+                수준의 실전 훈련 플랫폼
+              </li>
+              <li>
+                <strong>TryHackMe</strong> — 입문자 친화적인 가이드형 학습
+                플랫폼
+              </li>
+              <li>
+                <strong>VulnHub</strong> — 무료 취약한 VM 이미지 모음
+                (Metasploitable, DVWA 등)
+              </li>
+              <li>
+                <strong>PortSwigger Web Security Academy</strong> — 무료 웹
+                취약점 학습의 최강자
+              </li>
+              <li>
+                <strong>CODEGATE / SECUINSIDE</strong> — 국내 최고 수준의 CTF
+                대회
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div
+          style="
+            text-align: center;
+            margin: 3rem 0 1rem;
+            padding: 2.5rem;
+            background: linear-gradient(
+              135deg,
+              var(--surface-2),
+              var(--surface-3)
+            );
+            border: 1px solid var(--border);
+            border-radius: 16px;
+          "
+        >
+          <div style="font-size: 3rem; margin-bottom: 1rem">🛡️</div>
+          <h3
+            style="
+              color: var(--accent);
+              font-size: 1.4rem;
+              margin-bottom: 0.8rem;
+            "
+          >
+            기술은 도구, 윤리는 나침반
+          </h3>
+          <p
+            style="
+              color: var(--text-muted);
+              max-width: 500px;
+              margin: 0 auto;
+              line-height: 1.7;
+            "
+          >
+            Metasploit과 이 가이드북에서 배운 모든 기술은 보안을
+            <em>강화</em>하는 데 사용되어야 합니다. 훌륭한 해커는 기술적 능력과
+            윤리적 판단력을 모두 갖춘 전문가입니다. <br /><br />
+            <strong style="color: var(--text)"
+              >여러분이 배운 기술로 더 안전한 디지털 세상을 만들어
+              주세요.</strong
+            >
+          </p>
+        </div>
+      </section>
+
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          margin-top: 40px;
+          padding-top: 24px;
+          border-top: 1px solid var(--border);
+        "
+      >
+        <a
+          href="chapter9.html"
+          style="
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: var(--bg-card2);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+          "
+          >← Chapter 09: 커스텀 모듈 개발</a
+        >
+        <a
+          href="../index.html"
+          style="
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: var(--accent-soft);
+            color: var(--accent2);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+          "
+          >목차로 돌아가기 →</a
+        >
+      </div>
+    </main>
+    <script src="../js/main.js"></script>
+  </body>
+</html>
