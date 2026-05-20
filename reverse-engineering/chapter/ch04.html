@@ -1,40 +1,46 @@
 <div class="page-header">
   <div class="chapter-label">Chapter 04 · Part 1 — 기초</div>
   <h2>메모리 구조 & 스택/힙</h2>
-  <p class="subtitle">프로세스가 메모리를 어떻게 사용하는지 모르면 디버거 화면이 그냥 숫자 덩어리로 보인다</p>
+  <p class="subtitle">
+    프로세스가 메모리를 어떻게 사용하는지 모르면 디버거 화면이 그냥 숫자
+    덩어리로 보인다
+  </p>
 </div>
 
 <h3>프로세스 메모리 레이아웃</h3>
 <p>
   프로그램이 실행되면 OS는 가상 주소 공간(Virtual Address Space)을 할당한다.
-  64비트 프로세스는 이론상 16EB(엑사바이트)를 사용할 수 있지만, 실제로 사용되는 영역은 몇 가지 구역으로 나뉜다.
+  64비트 프로세스는 이론상 16EB(엑사바이트)를 사용할 수 있지만, 실제로 사용되는
+  영역은 몇 가지 구역으로 나뉜다.
 </p>
 
 <div class="section-card">
-  <pre style="font-size:12px;line-height:1.8"><code><span class="cm">; 전형적인 x64 프로세스 메모리 맵 (낮은 주소 → 높은 주소)</span>
+  <pre
+    style="font-size: 12px; line-height: 1.8"
+  ><code><span class="cm">; 전형적인 x64 프로세스 메모리 맵 (낮은 주소 → 높은 주소)</span>
 
 <span class="hex">0x0000000000000000</span>  ┌──────────────────────────┐
-                    │  NULL / 접근 불가 영역    │  (페이지 폴트 유발)
+                    │  NULL / 접근 불가 영역      │  (페이지 폴트 유발)
 <span class="hex">0x0000000000400000</span>  ├──────────────────────────┤
-                    │  .text (코드 섹션)        │  실행 가능, 읽기 전용
-                    │  .rodata (읽기 전용 데이터)│  문자열 리터럴 등
-                    │  .data (초기화된 전역변수) │  읽기/쓰기
-                    │  .bss  (미초기화 전역변수) │  읽기/쓰기, 0으로 초기화됨
+                    │  .text (코드 섹션)         │  실행 가능, 읽기 전용
+                    │  .rodata (읽기 전용 데이터) │  문자열 리터럴 등
+                    │  .data (초기화된 전역변수)   │  읽기/쓰기
+                    │  .bss  (미초기화 전역변수)   │  읽기/쓰기, 0으로 초기화됨
                     ├──────────────────────────┤
-                    │  힙 (Heap)               │  ↑ 위로 성장
+                    │  힙 (Heap)                │  ↑ 위로 성장
                     │  ...                     │
-                    │  (빈 공간)               │
+                    │  (빈 공간)                 │
                     │  ...                     │
-                    │  스택 (Stack)            │  ↓ 아래로 성장
+                    │  스택 (Stack)              │  ↓ 아래로 성장
 <span class="hex">0x00007fffffffffff</span>  ├──────────────────────────┤
-                    │  커널 공간 (접근 불가)    │
+                    │  커널 공간 (접근 불가)        │
 <span class="hex">0xffffffffffffffff</span>  └──────────────────────────┘</code></pre>
 </div>
 
 <h3>스택 (Stack)</h3>
 <p>
-  스택은 함수 호출의 무대다. 함수를 호출할 때마다 "스택 프레임(Stack Frame)"이 생성되고,
-  함수가 반환될 때 제거된다. LIFO(Last-In-First-Out) 구조.
+  스택은 함수 호출의 무대다. 함수를 호출할 때마다 "스택 프레임(Stack Frame)"이
+  생성되고, 함수가 반환될 때 제거된다. LIFO(Last-In-First-Out) 구조.
 </p>
 
 <h4>스택 프레임 해부</h4>
@@ -65,15 +71,20 @@
   <span class="callout-icon">💡</span>
   <div class="callout-body">
     <strong>Return Address — 공격의 핵심 타겟</strong>
-    <p>버퍼 오버플로우가 위험한 이유가 여기 있다. 스택에 있는 Return Address를 덮어쓰면 함수가 반환될 때 임의의 주소로 실행 흐름을 바꿀 수 있다. RE 과정에서 이 주소를 조작하는 패턴을 보면 취약점 또는 보호 우회 시도다.</p>
+    <p>
+      버퍼 오버플로우가 위험한 이유가 여기 있다. 스택에 있는 Return Address를
+      덮어쓰면 함수가 반환될 때 임의의 주소로 실행 흐름을 바꿀 수 있다. RE
+      과정에서 이 주소를 조작하는 패턴을 보면 취약점 또는 보호 우회 시도다.
+    </p>
   </div>
 </div>
 
 <h3>힙 (Heap)</h3>
 <p>
   스택이 "자동 관리"라면 힙은 "수동 관리"다.
-  <code>malloc()</code>/<code>new</code>로 요청하고, <code>free()</code>/<code>delete</code>로 반환한다.
-  OS는 힙 메모리를 청크(Chunk) 단위로 관리한다.
+  <code>malloc()</code>/<code>new</code>로 요청하고,
+  <code>free()</code>/<code>delete</code>로 반환한다. OS는 힙 메모리를
+  청크(Chunk) 단위로 관리한다.
 </p>
 
 <h4>glibc 힙 청크 구조 (Linux)</h4>
@@ -90,19 +101,31 @@
   <span class="callout-icon">💡</span>
   <div class="callout-body">
     <strong>RE에서 힙 분석이 중요한 이유</strong>
-    <p>악성코드는 힙에 페이로드를 동적으로 구성하고 실행하는 경우가 많다. Use-After-Free, Heap Spray 같은 익스플로잇 기법도 힙 구조를 이해해야 분석할 수 있다.</p>
+    <p>
+      악성코드는 힙에 페이로드를 동적으로 구성하고 실행하는 경우가 많다.
+      Use-After-Free, Heap Spray 같은 익스플로잇 기법도 힙 구조를 이해해야
+      분석할 수 있다.
+    </p>
   </div>
 </div>
 
 <h3>섹션별 특성</h3>
 
 <table class="cmp-table">
-  <tr><th>섹션</th><th>권한</th><th>담긴 것</th><th>RE에서 주목할 점</th></tr>
+  <tr>
+    <th>섹션</th>
+    <th>권한</th>
+    <th>담긴 것</th>
+    <th>RE에서 주목할 점</th>
+  </tr>
   <tr>
     <td><code>.text</code></td>
     <td>r-x</td>
     <td>실행 코드</td>
-    <td>함수들이 여기 있다. 쓰기 권한이 있으면 셀프 수정 코드(Self-Modifying Code) 의심</td>
+    <td>
+      함수들이 여기 있다. 쓰기 권한이 있으면 셀프 수정 코드(Self-Modifying Code)
+      의심
+    </td>
   </tr>
   <tr>
     <td><code>.data</code></td>
@@ -132,8 +155,9 @@
 
 <h3>가상 주소 vs 파일 오프셋</h3>
 <p>
-  디스어셈블러와 헥스 에디터를 동시에 쓸 때 혼동이 오는 부분이다.
-  디스어셈블러는 <strong>가상 주소(VA)</strong>로 표시하고, 헥스 에디터는 <strong>파일 오프셋</strong>으로 표시한다.
+  디스어셈블러와 헥스 에디터를 동시에 쓸 때 혼동이 오는 부분이다. 디스어셈블러는
+  <strong>가상 주소(VA)</strong>로 표시하고, 헥스 에디터는
+  <strong>파일 오프셋</strong>으로 표시한다.
 </p>
 <pre><code><span class="cm">; VA → 파일 오프셋 변환</span>
 <span class="cm">; 파일 오프셋 = VA - 섹션 VA + 섹션 파일 오프셋</span>
@@ -144,26 +168,54 @@
 <span class="cm">;  분석하려는 VA     = 0x401234</span>
 <span class="cm">;  파일 오프셋       = 0x401234 - 0x401000 + 0x400 = 0x634</span></code></pre>
 
-<p>pestudio나 Ghidra에서 섹션 정보를 보면 이 값들을 바로 확인할 수 있다. 패치를 파일에 직접 적용할 때 이 계산이 필요하다.</p>
+<p>
+  pestudio나 Ghidra에서 섹션 정보를 보면 이 값들을 바로 확인할 수 있다. 패치를
+  파일에 직접 적용할 때 이 계산이 필요하다.
+</p>
 
 <h3>ASLR과 그 한계</h3>
 <p>
-  ASLR(Address Space Layout Randomization)은 스택, 힙, 라이브러리의 베이스 주소를 실행마다 랜덤화한다.
-  하지만 PIE(Position-Independent Executable)가 비활성화된 실행 파일은 <code>.text</code> 섹션이 고정 주소에 로드된다.
+  ASLR(Address Space Layout Randomization)은 스택, 힙, 라이브러리의 베이스
+  주소를 실행마다 랜덤화한다. 하지만 PIE(Position-Independent Executable)가
+  비활성화된 실행 파일은 <code>.text</code> 섹션이 고정 주소에 로드된다.
 </p>
 
 <table class="cmp-table">
-  <tr><th>ASLR 대상</th><th>랜덤화 여부</th><th>확인 방법</th></tr>
-  <tr><td>스택</td><td>✅ 항상</td><td>실행마다 RSP 값 다름</td></tr>
-  <tr><td>힙</td><td>✅ 항상</td><td>malloc 반환 주소가 다름</td></tr>
-  <tr><td>라이브러리 (.so/.dll)</td><td>✅ 항상</td><td>kernel32.dll 베이스 주소가 다름</td></tr>
-  <tr><td>실행 파일 자체</td><td>PIE 여부에 따라</td><td><code>checksec</code> 또는 DIE로 확인</td></tr>
+  <tr>
+    <th>ASLR 대상</th>
+    <th>랜덤화 여부</th>
+    <th>확인 방법</th>
+  </tr>
+  <tr>
+    <td>스택</td>
+    <td>✅ 항상</td>
+    <td>실행마다 RSP 값 다름</td>
+  </tr>
+  <tr>
+    <td>힙</td>
+    <td>✅ 항상</td>
+    <td>malloc 반환 주소가 다름</td>
+  </tr>
+  <tr>
+    <td>라이브러리 (.so/.dll)</td>
+    <td>✅ 항상</td>
+    <td>kernel32.dll 베이스 주소가 다름</td>
+  </tr>
+  <tr>
+    <td>실행 파일 자체</td>
+    <td>PIE 여부에 따라</td>
+    <td><code>checksec</code> 또는 DIE로 확인</td>
+  </tr>
 </table>
 
 <div class="callout warn">
   <span class="callout-icon">⚠️</span>
   <div class="callout-body">
     <strong>디버거에서 주소가 매번 다른 이유</strong>
-    <p>디버거를 재시작할 때마다 스택과 힙의 주소가 바뀐다. 브레이크포인트는 주소가 아니라 심볼이나 오프셋으로 거는 습관을 들이자. x64dbg에서는 <code>모듈+오프셋</code> 형식으로 설정한다.</p>
+    <p>
+      디버거를 재시작할 때마다 스택과 힙의 주소가 바뀐다. 브레이크포인트는
+      주소가 아니라 심볼이나 오프셋으로 거는 습관을 들이자. x64dbg에서는
+      <code>모듈+오프셋</code> 형식으로 설정한다.
+    </p>
   </div>
 </div>
