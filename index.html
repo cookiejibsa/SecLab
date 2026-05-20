@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ghidra 심화 가이드북</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <style>
+      .hero {
+        text-align: center;
+        padding: 60px 0 40px;
+      }
+      .hero-badge {
+        display: inline-block;
+        background: rgba(88, 166, 255, 0.1);
+        border: 1px solid rgba(88, 166, 255, 0.3);
+        color: var(--accent);
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        margin-bottom: 20px;
+      }
+      .hero h1 {
+        font-size: 38px;
+        font-weight: 800;
+        line-height: 1.2;
+        margin-bottom: 14px;
+        background: linear-gradient(135deg, var(--text) 40%, var(--accent));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .hero p {
+        font-size: 16px;
+        color: var(--text-muted);
+        max-width: 520px;
+        margin: 0 auto 32px;
+      }
+      .hero-meta {
+        display: flex;
+        justify-content: center;
+        gap: 24px;
+        font-size: 13px;
+        color: var(--text-muted);
+      }
+      .hero-meta span {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <h1>🔍 Ghidra Guide</h1>
+        <p>NSA 리버스 엔지니어링 프레임워크 심화</p>
+      </div>
+
+      <div class="progress-bar" style="margin: 12px 16px 0; width: calc(100% - 32px)">
+        <div class="progress-fill" style="width: 0%"></div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-part">홈</div>
+        <button class="nav-item active" data-chapter="index">
+          🏠 <span>개요 및 목차</span>
+        </button>
+
+        <div class="nav-part">Part 1 — 기초 & 설치</div>
+        <button class="nav-item" data-chapter="ch01">
+          <span class="num">01</span> Ghidra란 무엇인가
+        </button>
+        <button class="nav-item" data-chapter="ch02">
+          <span class="num">02</span> 설치 & 환경 구성
+        </button>
+
+        <div class="nav-part">Part 2 — CodeBrowser 완전 정복</div>
+        <button class="nav-item" data-chapter="ch03">
+          <span class="num">03</span> UI 심층 해부 & 분석 워크플로우
+        </button>
+        <button class="nav-item" data-chapter="ch04">
+          <span class="num">04</span> 데이터 타입 & 구조체 정의
+        </button>
+
+        <div class="nav-part">Part 3 — 자동화 & 고급 기능</div>
+        <button class="nav-item" data-chapter="ch05">
+          <span class="num">05</span> 스크립팅 자동화 (Python/Java)
+        </button>
+        <button class="nav-item" data-chapter="ch06">
+          <span class="num">06</span> PCode & Headless 모드
+        </button>
+      </nav>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+      <div id="main-content">
+        <!-- 챕터 콘텐츠가 여기 로드됨 -->
+      </div>
+    </main>
+
+    <script src="js/main.js"></script>
+  </body>
+</html>
