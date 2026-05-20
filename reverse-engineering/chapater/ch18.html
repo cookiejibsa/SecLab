@@ -1,0 +1,64 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 18 · Part 5 — 실전 & 고급</div>
+  <h2>모바일 앱 리버싱</h2>
+  <p class="subtitle">apktool/jadx로 APK 디컴파일, Frida로 런타임 분석</p>
+</div>
+
+<h3>Android APK 정적 분석</h3>
+<pre><code><span class="cm"># APK 언패킹</span>
+apktool d target.apk -o output/
+<span class="cm"># output/smali/     : Dalvik 바이트코드 (어셈블리 수준)</span>
+<span class="cm"># output/res/       : 리소스 파일</span>
+<span class="cm"># output/AndroidManifest.xml : 권한, 컴포넌트 선언</span>
+
+<span class="cm"># Java 수준 디컴파일 (jadx가 더 읽기 쉬움)</span>
+jadx -d output/ target.apk
+<span class="cm"># output/sources/   : Java 의사코드</span>
+
+<span class="cm"># AndroidManifest에서 먼저 확인할 것</span>
+<span class="cm"># - uses-permission: 앱이 요청하는 권한</span>
+<span class="cm"># - activity/service/receiver: 진입점 컴포넌트</span></code></pre>
+
+<h3>분석 포인트</h3>
+<table class="cmp-table">
+<tr><th>확인 항목</th><th>방법</th></tr>
+<tr><td>네트워크 통신 URL/IP</td><td>jadx 코드 검색: "http", "https", "api"</td></tr>
+<tr><td>암호화 키 하드코딩</td><td>Base64 디코딩, 고정 문자열 검색</td></tr>
+<tr><td>루트 탐지 코드</td><td>"su", "RootBeer", "SafetyNet" 검색</td></tr>
+<tr><td>SSL Pinning 코드</td><td>OkHttp CertificatePinner, TrustManager 구현</td></tr>
+<tr><td>Native 라이브러리</td><td>.so 파일 → Ghidra로 분석</td></tr>
+</table>
+
+<h3>Frida로 런타임 분석</h3>
+<pre><code><span class="cm"># Android 에뮬레이터에서 frida-server 실행</span>
+adb push frida-server /data/local/tmp/
+adb shell chmod 755 /data/local/tmp/frida-server
+adb shell /data/local/tmp/frida-server &
+
+<span class="cm"># Java 메서드 후킹</span>
+Java.perform(<span class="kw">function</span>() {
+    <span class="kw">var</span> Activity = Java.use(<span class="str">'android.app.Activity'</span>);
+    
+    <span class="cm">// 특정 클래스의 메서드 후킹</span>
+    <span class="kw">var</span> CryptoHelper = Java.use(<span class="str">'com.target.app.CryptoHelper'</span>);
+    CryptoHelper.encrypt.implementation = <span class="kw">function</span>(data, key) {
+        console.log(<span class="str">'encrypt called:'</span>);
+        console.log(<span class="str">'  data: '</span> + data);
+        console.log(<span class="str">'  key:  '</span> + key);
+        <span class="kw">return</span> this.encrypt(data, key);  <span class="cm">// 원본 호출</span>
+    };
+    
+    <span class="cm">// 루트 탐지 우회</span>
+    <span class="kw">var</span> RootDetector = Java.use(<span class="str">'com.target.app.security.RootDetector'</span>);
+    RootDetector.isRooted.implementation = <span class="kw">function</span>() {
+        <span class="kw">return</span> <span class="kw">false</span>;
+    };
+});</code></pre>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>objection 활용</strong>
+    <p>objection은 Frida 기반 명령줄 도구로, 스크립트 없이 SSL Pinning 비활성화, 루트 탐지 우회, 클래스 목록 확인 등을 대화형으로 할 수 있다. 빠른 초기 분석에 유용하다.</p>
+  </div>
+</div>

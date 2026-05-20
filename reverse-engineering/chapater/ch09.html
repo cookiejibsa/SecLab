@@ -1,0 +1,80 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 09 · Part 3 — 동적 분석</div>
+  <h2>pwndbg 소개 & 심화편 예고</h2>
+  <p class="subtitle">GDB + pwndbg로 Linux 바이너리를 디버깅한다 — 기본 명령어와 핵심 기능 소개</p>
+</div>
+
+<div class="callout info">
+  <span class="callout-icon">📌</span>
+  <div class="callout-body">
+    <strong>이 챕터의 범위</strong>
+    <p>pwndbg 설치, 핵심 명령어, x64dbg와의 비교를 다룬다. heap 분석, ret2libc, ROP 체인 구성 등 심화 내용은 <strong>별도 pwndbg 심화 가이드</strong>에서 다룬다.</p>
+  </div>
+</div>
+
+<h3>pwndbg가 GDB에 더하는 것</h3>
+<p>
+  GDB는 강력하지만 기본 UI가 불편하다. pwndbg는 GDB 플러그인으로, 디버깅 중 레지스터/스택/코드를
+  자동으로 시각화해서 보여준다. IDA/x64dbg에 가까운 경험을 터미널에서 제공한다.
+</p>
+
+<h3>설치</h3>
+<pre><code><span class="cm"># pwndbg 설치</span>
+git clone https://github.com/pwndbg/pwndbg
+cd pwndbg
+./setup.sh
+
+<span class="cm"># GDB 실행 확인</span>
+gdb --version
+<span class="cm"># pwndbg가 로드되면 시작 메시지에 pwndbg가 표시됨</span></code></pre>
+
+<h3>기본 워크플로우</h3>
+<pre><code><span class="cm"># 바이너리 실행</span>
+gdb ./target
+
+<span class="cm"># 또는 실행 중인 프로세스에 attach</span>
+gdb -p 1234
+
+<span class="cm"># 브레이크포인트 설정</span>
+b main          <span class="cm"># 심볼로</span>
+b *0x401234     <span class="cm"># 주소로</span>
+b *main+0x20    <span class="cm"># 오프셋으로</span>
+
+<span class="cm"># 실행</span>
+r               <span class="cm"># run</span>
+r arg1 arg2     <span class="cm"># 인자와 함께 실행</span>
+r < input.txt   <span class="cm"># stdin 리다이렉션</span></code></pre>
+
+<h3>pwndbg 핵심 명령어</h3>
+<table class="cmp-table">
+<tr><th>명령어</th><th>설명</th></tr>
+<tr><td><code>context</code></td><td>레지스터 + 스택 + 코드를 한 번에 출력</td></tr>
+<tr><td><code>stack</code></td><td>스택 상위 N개 항목 출력</td></tr>
+<tr><td><code>heap</code></td><td>힙 청크 목록 출력</td></tr>
+<tr><td><code>vmmap</code></td><td>메모리 맵 (각 영역의 권한 포함)</td></tr>
+<tr><td><code>got</code></td><td>GOT 테이블 현재값</td></tr>
+<tr><td><code>plt</code></td><td>PLT 항목 목록</td></tr>
+<tr><td><code>checksec</code></td><td>바이너리 보안 기능 확인</td></tr>
+<tr><td><code>cyclic 100</code></td><td>100바이트 De Bruijn 패턴 생성 (오프셋 계산용)</td></tr>
+<tr><td><code>cyclic -l 0x61616166</code></td><td>패턴에서 오프셋 역산</td></tr>
+<tr><td><code>search -x "90 90"</code></td><td>메모리에서 바이트 패턴 검색</td></tr>
+</table>
+
+<h3>x64dbg vs pwndbg 비교</h3>
+<table class="cmp-table">
+<tr><th>항목</th><th>x64dbg</th><th>pwndbg</th></tr>
+<tr><td>OS</td><td>Windows 전용</td><td>Linux (주로)</td></tr>
+<tr><td>UI</td><td>GUI</td><td>터미널 (TUI)</td></tr>
+<tr><td>PLT/GOT 분석</td><td>별도 플러그인</td><td>내장 (<code>got</code>, <code>plt</code>)</td></tr>
+<tr><td>힙 분석</td><td>제한적</td><td>glibc 힙 완전 지원</td></tr>
+<tr><td>익스플로잇 개발</td><td>불편</td><td>pwntools와 연동 최적</td></tr>
+<tr><td>스크립팅</td><td>JavaScript 플러그인</td><td>Python (GDB Python API)</td></tr>
+</table>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>심화편 예고 — pwndbg 심화 가이드</strong>
+    <p>힙 청크 상세 분석, tcache/fastbin 추적, Return-Oriented Programming(ROP) 가젯 탐색, one_gadget과 연동, GDB Python 스크립팅으로 자동화 분석.</p>
+  </div>
+</div>

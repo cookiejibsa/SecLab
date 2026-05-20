@@ -1,0 +1,107 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 08 · Part 3 — 동적 분석</div>
+  <h2>x64dbg 실습</h2>
+  <p class="subtitle">Windows 환경 동적 분석의 핵심 툴 — 브레이크포인트부터 메모리 덤프까지</p>
+</div>
+
+<h3>x64dbg 기본 레이아웃</h3>
+<p>x64dbg는 네 개의 주요 패널로 구성된다. 각 패널의 역할을 먼저 이해해야 효율적으로 쓸 수 있다.</p>
+<table class="cmp-table">
+<tr><th>패널</th><th>위치</th><th>역할</th></tr>
+<tr><td>디스어셈블리 뷰</td><td>좌상단</td><td>현재 실행 위치의 코드. 노란 화살표가 EIP/RIP.</td></tr>
+<tr><td>레지스터 뷰</td><td>우상단</td><td>모든 레지스터 현재값. 변경된 레지스터 빨간색 강조.</td></tr>
+<tr><td>스택 뷰</td><td>우하단</td><td>현재 스택 상태. RSP가 가리키는 위치.</td></tr>
+<tr><td>덤프 뷰</td><td>좌하단</td><td>임의 메모리 주소의 헥스 뷰.</td></tr>
+</table>
+
+<h3>필수 단축키</h3>
+<table class="cmp-table">
+<tr><th>키</th><th>동작</th><th>설명</th></tr>
+<tr><td>F9</td><td>Run</td><td>다음 브레이크포인트까지 실행</td></tr>
+<tr><td>F8</td><td>Step Over</td><td>CALL을 함수 단위로 건너뜀</td></tr>
+<tr><td>F7</td><td>Step Into</td><td>CALL 안으로 들어감</td></tr>
+<tr><td>F4</td><td>Run to Cursor</td><td>커서 위치까지 실행</td></tr>
+<tr><td>F2</td><td>브레이크포인트 토글</td><td>현재 줄에 BP 설정/해제</td></tr>
+<tr><td>Ctrl+G</td><td>주소로 이동</td><td>모듈+오프셋 형식 지원</td></tr>
+<tr><td>Ctrl+B</td><td>바이트 패턴 검색</td><td>메모리 전체 검색</td></tr>
+<tr><td>Alt+M</td><td>메모리 맵</td><td>로드된 모듈 전체 목록</td></tr>
+</table>
+
+<h3>브레이크포인트 전략</h3>
+<div class="tabs">
+<div class="tab-header">
+<button class="tab-btn">소프트웨어 BP</button>
+<button class="tab-btn">하드웨어 BP</button>
+<button class="tab-btn">메모리 BP</button>
+<button class="tab-btn">조건부 BP</button>
+</div>
+<div class="tab-panel">
+<div class="section-card">
+<h4>소프트웨어 브레이크포인트 (INT3)</h4>
+<p>가장 기본적인 방식. 해당 주소의 첫 바이트를 <code>0xCC</code>(INT3)로 교체한다. 실행 시 SIGTRAP 발생 → 디버거가 잡음.</p>
+<p><strong>장점:</strong> 무한정 설정 가능, 속도 빠름.</p>
+<p><strong>단점:</strong> <code>IsDebuggerPresent</code>나 코드 체크섬 검사에 걸릴 수 있음. 실행 코드에만 설정 가능.</p>
+<pre><code><span class="cm">; BP 설정 후 메모리 상태</span>
+<span class="cm">; 원본: 48 89 4C 24 08 (mov [rsp+8], rcx)</span>
+<span class="cm">; 변경: CC 89 4C 24 08 (int3 + 나머지)</span></code></pre>
+</div>
+</div>
+<div class="tab-panel">
+<div class="section-card">
+<h4>하드웨어 브레이크포인트 (DR0~DR3)</h4>
+<p>CPU의 디버그 레지스터를 사용. 코드를 수정하지 않는다.</p>
+<p><strong>장점:</strong> 코드 수정 없음 → 체크섬 우회 가능. 실행/읽기/쓰기 트리거 모두 지원.</p>
+<p><strong>단점:</strong> 동시에 4개까지만 설정 가능.</p>
+<p>설정 방법: 주소에서 우클릭 → <em>Breakpoint → Hardware, on Execution</em></p>
+</div>
+</div>
+<div class="tab-panel">
+<div class="section-card">
+<h4>메모리 브레이크포인트</h4>
+<p>특정 메모리 영역에 대한 접근(읽기/쓰기/실행)이 발생하면 멈춘다.</p>
+<p><strong>용도:</strong> "이 버퍼에 언제 쓰는가?", "이 값이 언제 읽히는가?" 추적.</p>
+<p>덤프 뷰에서 범위 선택 → 우클릭 → <em>Breakpoint → Memory, on Access</em></p>
+</div>
+</div>
+<div class="tab-panel">
+<div class="section-card">
+<h4>조건부 브레이크포인트</h4>
+<p>특정 조건이 만족될 때만 멈춘다. 반복 호출되는 함수에서 특정 케이스만 잡을 때 유용하다.</p>
+<pre><code><span class="cm">; 예: CreateFileA가 "config.ini"를 열 때만 멈추기</span>
+<span class="cm">; BP 설정 후 우클릭 → Edit Breakpoint → Condition 입력</span>
+
+<span class="cm">; x64dbg 조건식 (rcx = 첫 번째 인자 = 파일 경로)</span>
+streq(rcx, "config.ini")</code></pre>
+</div>
+</div>
+</div>
+
+<h3>API 브레이크포인트 설정</h3>
+<pre><code><span class="cm">; 심볼 이름으로 BP 설정 (Ctrl+G 또는 커맨드창)</span>
+bp CreateFileA
+bp VirtualAlloc
+bp MessageBoxA
+
+<span class="cm">; 특정 DLL 내 함수</span>
+bp kernel32.CreateFileA
+
+<span class="cm">; 로그만 남기고 멈추지 않기</span>
+bph CreateFileA log "CreateFile called: {rcx}"</code></pre>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>인자 확인 패턴</strong>
+    <p>Windows API에 BP를 걸면 멈추는 순간 RCX/RDX/R8/R9가 인자다. RCX가 문자열 포인터면 덤프 창에서 Ctrl+G로 RCX 값으로 이동해서 확인한다.</p>
+  </div>
+</div>
+
+<h3>메모리 덤프</h3>
+<p>언패킹 후 또는 런타임에 복호화된 코드를 파일로 저장해야 할 때 사용한다.</p>
+<pre><code><span class="cm">; 플러그인: OllyDumpEx 사용</span>
+<span class="cm">; Plugins → OllyDumpEx → Dump Process</span>
+
+<span class="cm">; 또는 메모리 맵에서 특정 영역 우클릭 → Dump Memory to File</span>
+
+<span class="cm">; 커맨드창으로 특정 범위 덤프</span>
+savedata "C:\dump.bin", 0x401000, 0x1000</code></pre>

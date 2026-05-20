@@ -1,0 +1,55 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 07 · Part 2 — 정적 분석</div>
+  <h2>함수 인식 & 호출 규약</h2>
+  <p class="subtitle">디컴파일된 코드에서 함수 경계를 찾고, 호출 규약을 구분한다</p>
+</div>
+
+<h3>함수 인식의 기준</h3>
+<p>
+  스트립된(stripped) 바이너리에는 함수 이름이 없다. 디스어셈블러는 패턴으로 함수 경계를 추측한다.
+  Ghidra의 Auto Analysis가 자동으로 해주지만, 놓치거나 잘못 분류한 함수들이 있다.
+  수동으로 찾는 기준을 알아야 그 경우를 처리할 수 있다.
+</p>
+<p>함수 시작 신호: <code>push rbp</code>로 시작하는 프롤로그, CALL 명령의 타겟 주소, 다른 함수의 XRef 타겟.</p>
+<p>함수 끝 신호: <code>ret</code>/<code>retn</code> 명령어, 또는 <code>jmp</code>로 다른 함수 시작으로 점프 (tail call optimization).</p>
+
+<h3>호출 규약 (Calling Convention)</h3>
+<div class="section-card">
+<table class="cmp-table">
+<tr><th>규약</th><th>인자 전달</th><th>스택 정리</th><th>주로 쓰이는 곳</th></tr>
+<tr><td>cdecl</td><td>오른쪽→왼쪽, 스택</td><td>호출자(caller)</td><td>C 함수 (x86)</td></tr>
+<tr><td>stdcall</td><td>오른쪽→왼쪽, 스택</td><td>피호출자(callee)</td><td>Win32 API (x86)</td></tr>
+<tr><td>fastcall</td><td>ECX, EDX → 스택</td><td>피호출자</td><td>MSVC 최적화 (x86)</td></tr>
+<tr><td>x64 Windows</td><td>RCX, RDX, R8, R9 → 스택</td><td>호출자</td><td>Windows 64비트 모두</td></tr>
+<tr><td>System V AMD64</td><td>RDI, RSI, RDX, RCX, R8, R9 → 스택</td><td>호출자</td><td>Linux/macOS 64비트</td></tr>
+<tr><td>thiscall</td><td>ECX = this 포인터</td><td>피호출자</td><td>C++ 멤버 함수 (MSVC)</td></tr>
+</table>
+</div>
+
+<h4>Shadow Space (Windows x64 전용)</h4>
+<p>
+  Windows x64 ABI에서는 레지스터로 인자를 전달하더라도, 호출자가 스택에 32바이트(4 * 8 = 32)의 "Shadow Space"를 예약해야 한다.
+  이 공간은 callee가 RCX/RDX/R8/R9를 저장하는 데 쓸 수 있는 예약 공간이다.
+  Linux x64에는 없는 개념이라 헷갈리기 쉽다.
+</p>
+<pre><code><span class="cm">; Windows x64 함수 호출 패턴</span>
+<span class="fn">sub</span>  <span class="reg">rsp</span>, <span class="num">0x28</span>      <span class="cm">; 0x20 (shadow) + 0x8 (정렬)</span>
+<span class="fn">mov</span>  <span class="reg">rcx</span>, param1   <span class="cm">; 1번째 인자</span>
+<span class="fn">mov</span>  <span class="reg">rdx</span>, param2   <span class="cm">; 2번째 인자</span>
+<span class="fn">call</span> target_func
+<span class="fn">add</span>  <span class="reg">rsp</span>, <span class="num">0x28</span>      <span class="cm">; 스택 복원</span></code></pre>
+
+<h3>가상 함수 테이블 (vtable) 인식</h3>
+<p>C++ 바이너리에서 polymorphism은 vtable로 구현된다. 객체 포인터의 첫 8바이트가 vtable 포인터다.</p>
+<pre><code><span class="cm">; vtable을 통한 가상 함수 호출</span>
+<span class="fn">mov</span>  <span class="reg">rax</span>, [<span class="reg">rcx</span>]          <span class="cm">; rcx = 객체 포인터, rax = vtable 주소</span>
+<span class="fn">call</span> [<span class="reg">rax</span> + <span class="num">0x18</span>]       <span class="cm">; vtable[3] 호출 (0x18 / 8 = 3번째 가상 함수)</span></code></pre>
+<p>Ghidra에서 <code>.rdata</code> 섹션의 포인터 배열을 보면 vtable을 찾을 수 있다. 각 항목이 <code>.text</code> 내 함수를 가리킨다.</p>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>Ghidra에서 호출 규약 수동 지정</strong>
+    <p>자동 분석이 틀린 경우, 함수 시그니처에서 우클릭 → <em>Edit Function</em> → <em>Calling Convention</em> 변경. 디컴파일 결과가 즉시 달라진다.</p>
+  </div>
+</div>

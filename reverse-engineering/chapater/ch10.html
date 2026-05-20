@@ -1,0 +1,74 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 10 · Part 3 — 동적 분석</div>
+  <h2>API 모니터링</h2>
+  <p class="subtitle">실행을 보지 않고 행위를 본다 — 블랙박스 분석 접근법</p>
+</div>
+
+<h3>블랙박스 분석의 개념</h3>
+<p>
+  디버거 없이 프로그램이 무엇을 하는지 관찰하는 방법이 있다.
+  OS와의 인터페이스 — 파일 접근, 레지스트리, 네트워크, 프로세스 생성 — 를 모니터링하면
+  내부 구현을 몰라도 행위를 파악할 수 있다. 악성코드 초기 분석에 특히 효과적이다.
+</p>
+
+<h3>Process Monitor (Procmon)</h3>
+<p>SysInternals의 Procmon은 Windows에서 파일/레지스트리/네트워크/프로세스 이벤트를 실시간으로 로깅한다.</p>
+
+<h4>효과적인 필터 설정</h4>
+<pre><code><span class="cm">; 분석 대상만 보기</span>
+Process Name is malware.exe → Include
+
+<span class="cm">; 노이즈 제거</span>
+Result is SUCCESS → 일단 Include (실패 이벤트 제외)
+Path contains \Windows\System32 → Exclude (시스템 접근 제거)
+
+<span class="cm">; 관심 이벤트만</span>
+Operation is WriteFile → Include
+Operation is RegSetValue → Include
+Operation is Process Create → Include</code></pre>
+
+<h4>주목할 이벤트 패턴</h4>
+<table class="cmp-table">
+<tr><th>이벤트</th><th>의미</th></tr>
+<tr><td>%APPDATA%\*.exe 쓰기</td><td>자기 복제 / 드롭퍼</td></tr>
+<tr><td>HKCU\Run 레지스트리 쓰기</td><td>시작 프로그램 등록 (지속성)</td></tr>
+<tr><td>CreateProcess → cmd.exe</td><td>쉘 명령 실행</td></tr>
+<tr><td>%TEMP%\*.dll 쓰기 후 LoadLibrary</td><td>DLL 드롭 & 로드</td></tr>
+<tr><td>수십~수백 개의 파일 쓰기 + .enc 확장자</td><td>랜섬웨어 암호화</td></tr>
+</table>
+
+<h3>API Monitor</h3>
+<p>Win32 API 호출을 함수 단위로 캡처한다. 인자값과 반환값까지 볼 수 있어서 Procmon보다 세밀한 분석이 가능하다.</p>
+<pre><code><span class="cm">; API Monitor 설정</span>
+<span class="cm">; 1. 모니터링할 API 그룹 선택 (Crypto, Networking, Process 등)</span>
+<span class="cm">; 2. File → Monitor New Process → 대상 바이너리 선택</span>
+<span class="cm">; 3. API 호출 목록에서 함수명/인자/반환값 확인</span>
+
+<span class="cm">; 출력 예시</span>
+CryptAcquireContextA(NULL, NULL, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT) → TRUE
+CryptGenKey(hProv, CALG_AES_256, CRYPT_EXPORTABLE, &hKey) → TRUE
+CryptEncrypt(hKey, 0, TRUE, 0, pbData, &dwDataLen, dwBufLen) → TRUE</code></pre>
+
+<h3>strace / ltrace (Linux)</h3>
+<pre><code><span class="cm"># 시스템 콜 추적</span>
+strace ./target
+
+<span class="cm"># 특정 시스템 콜만</span>
+strace -e trace=open,read,write,execve ./target
+
+<span class="cm"># 라이브러리 함수 추적</span>
+ltrace ./target
+
+<span class="cm"># 실행 중인 프로세스에 attach</span>
+strace -p 1234
+
+<span class="cm"># 출력 저장</span>
+strace -o strace.log ./target</code></pre>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>조합 분석 워크플로우</strong>
+    <p>Procmon으로 큰 그림의 행위를 파악 → 의심스러운 API를 API Monitor로 세부 확인 → 특정 함수에 x64dbg BP를 걸어 내부 분석. 이 세 단계가 악성코드 분석의 표준 접근법이다.</p>
+  </div>
+</div>
