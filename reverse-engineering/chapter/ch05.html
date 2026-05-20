@@ -24,7 +24,7 @@
       <pre style="font-size:12px;line-height:2"><code>파일 시작
 ┌─────────────────────────────────┐
 │  DOS Header (0x40 bytes)        │  <span class="cm">← MZ 시그니처 (0x4D5A)</span>
-│  └ e_lfanew: PE 헤더 오프셋    │
+│  └ e_lfanew: PE 헤더 오프셋       │
 ├─────────────────────────────────┤
 │  DOS Stub                       │  <span class="cm">"This program cannot be run..."</span>
 ├─────────────────────────────────┤
@@ -36,11 +36,11 @@
 ├─────────────────────────────────┤
 │  Section Headers                │  각 섹션의 VA, 크기, 파일 오프셋
 ├─────────────────────────────────┤
-│  .text  (코드)                  │
-│  .rdata (읽기 전용 데이터)      │
-│  .data  (초기화된 데이터)       │
-│  .rsrc  (리소스)                │
-│  .reloc (재배치 정보)           │
+│  .text  (코드)                   │
+│  .rdata (읽기 전용 데이터)         │
+│  .data  (초기화된 데이터)          │
+│  .rsrc  (리소스)                 │
+│  .reloc (재배치 정보)             │
 └─────────────────────────────────┘</code></pre>
     </div>
 
@@ -92,22 +92,23 @@
   <div class="tab-panel">
     <h3>ELF (Executable and Linkable Format) 구조</h3>
     <div class="section-card">
-      <pre style="font-size:12px;line-height:2"><code>┌─────────────────────────────────┐
-│  ELF Header (64bytes)           │  <span class="cm">← 매직 \x7fELF, 아키텍처, 진입점</span>
-├─────────────────────────────────┤
-│  Program Headers (Segments)     │  로더가 메모리에 올릴 때 사용
-│  └ LOAD, DYNAMIC, INTERP, ...  │
-├─────────────────────────────────┤
-│  Sections                       │
-│  .text   (코드)                 │
-│  .plt    (Procedure Linkage Table)
-│  .got    (Global Offset Table)  │
-│  .data   (초기화된 데이터)      │
-│  .bss    (미초기화 데이터)      │
-│  .dynsym (동적 심볼 테이블)     │
-│  .dynstr (동적 문자열 테이블)   │
-├─────────────────────────────────┤
-│  Section Header Table           │  분석 툴이 사용 (없어도 실행됨)</code></pre>
+      <pre style="font-size:12px;line-height:2"><code>┌────────────────────────────────────┐
+│  ELF Header (64bytes)              │  <span class="cm">← 매직 \x7fELF, 아키텍처, 진입점</span>
+├────────────────────────────────────┤
+│  Program Headers (Segments)        │  로더가 메모리에 올릴 때 사용
+│  └ LOAD, DYNAMIC, INTERP, ...      │
+├────────────────────────────────────┤
+│  Sections                          │
+│  .text   (코드)                     │
+│  .plt    (Procedure Linkage Table) |
+│  .got    (Global Offset Table)     │
+│  .data   (초기화된 데이터)            │
+│  .bss    (미초기화 데이터)            │
+│  .dynsym (동적 심볼 테이블)           │
+│  .dynstr (동적 문자열 테이블)          │
+├────────────────────────────────────┤
+│  Section Header Table              │  분석 툴이 사용 (없어도 실행됨)
+└────────────────────────────────────┘</code></pre>
     </div>
 
     <h4>PLT/GOT — 동적 링킹의 메커니즘</h4>
