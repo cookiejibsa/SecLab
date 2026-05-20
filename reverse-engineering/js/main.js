@@ -26,6 +26,11 @@ function initNav() {
   });
 }
 
+// ── 심화 학습 ────────────────────────────────────
+function advanced(name) {
+  window.open(`https://cookiejibsa.github.io/SecLab/tools/${name}/`, "_blank");
+}
+
 // ── 챕터 로드 ────────────────────────────────────
 let currentChapter = null;
 
