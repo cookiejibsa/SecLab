@@ -1,0 +1,140 @@
+<div class="page-header">
+  <div class="chapter-label">Chapter 01 · Part 1 — 기초</div>
+  <h2>리버스 엔지니어링 개요 & 법적·윤리적 기준</h2>
+  <p class="subtitle">분석을 시작하기 전에, "이걸 해도 되는가"를 먼저 이해한다</p>
+</div>
+
+<h3>왜 RE를 배우는가</h3>
+<p>
+  리버스 엔지니어링(Reverse Engineering, RE)은 소스코드 없이 바이너리만으로 프로그램의 동작을 이해하는 기술이다.
+  컴파일러가 소스코드를 기계어로 <em>변환</em>한다면, 우리는 그 과정을 거꾸로 거슬러 올라간다.
+</p>
+<p>
+  이 기술이 필요한 상황은 생각보다 다양하다. 악성코드를 분석해서 침해 지표(IOC)를 추출해야 할 때,
+  소스코드가 없는 레거시 바이너리를 유지보수해야 할 때, 취약점 리서처가 패치 전후를 비교할 때,
+  CTF 문제를 풀 때. 공격과 방어 양쪽 모두에서 핵심 기술이다.
+</p>
+
+<div class="callout info">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>이 가이드의 전제</strong>
+    <p>C와 x86/x64 어셈블리를 어느 정도 알고 있다고 가정한다. 어셈블리가 완전히 낯설다면 Ch.03을 먼저 읽는 것을 권장한다.</p>
+  </div>
+</div>
+
+<h3>RE의 두 가지 접근법</h3>
+
+<div class="tabs">
+  <div class="tab-header">
+    <button class="tab-btn">정적 분석 (Static)</button>
+    <button class="tab-btn">동적 분석 (Dynamic)</button>
+  </div>
+  <div class="tab-panel">
+    <div class="section-card">
+      <h4>🔬 정적 분석</h4>
+      <p>
+        프로그램을 <strong>실행하지 않고</strong> 바이너리를 직접 들여다보는 방식이다.
+        디스어셈블러(Ghidra, IDA)로 어셈블리를 읽고, 디컴파일러로 의사코드(pseudo-code)를 생성한다.
+      </p>
+      <p><strong>장점:</strong> 안전하다. 악성코드를 실행하지 않아도 된다. 전체 코드를 한 번에 볼 수 있다.</p>
+      <p><strong>단점:</strong> 패킹, 난독화, 동적 코드 생성에 약하다. 런타임 값을 알 수 없다.</p>
+    </div>
+  </div>
+  <div class="tab-panel">
+    <div class="section-card">
+      <h4>⚡ 동적 분석</h4>
+      <p>
+        프로그램을 <strong>실제로 실행</strong>하면서 관찰하는 방식이다.
+        디버거(x64dbg, pwndbg)로 중단점을 걸고, API 모니터로 시스템 호출을 추적한다.
+      </p>
+      <p><strong>장점:</strong> 패킹이 자동으로 풀린다. 실제 값을 확인할 수 있다. 행위를 직접 관찰한다.</p>
+      <p><strong>단점:</strong> 안전한 환경(VM, 샌드박스) 필요. 안티 디버깅 기법에 막힐 수 있다.</p>
+    </div>
+  </div>
+</div>
+
+<p>실전에서는 두 방법을 번갈아 사용한다. 정적으로 구조를 파악하고, 동적으로 확인하고, 다시 정적으로 들어간다.</p>
+
+<h3>법적 기준 — 어디까지가 합법인가</h3>
+
+<div class="callout danger">
+  <span class="callout-icon">⚠️</span>
+  <div class="callout-body">
+    <strong>이 섹션은 반드시 읽을 것</strong>
+    <p>RE 기술 자체는 중립적이지만, 적용 대상과 목적에 따라 법적 책임이 달라진다. 모르고 했다는 변명은 통하지 않는다.</p>
+  </div>
+</div>
+
+<h4>합법적인 경우</h4>
+<ul>
+  <li><strong>자신이 소유한 소프트웨어</strong>를 분석하는 경우</li>
+  <li><strong>상호운용성(Interoperability)</strong> 목적 — EU 소프트웨어 지침, 미국 DMCA 1201(f) 예외 조항</li>
+  <li>버그 바운티 프로그램의 <strong>허가된 범위</strong> 내에서 취약점을 찾는 경우</li>
+  <li>악성코드 <strong>방어·분석</strong> 목적 (보안 연구자, CERT 등)</li>
+  <li>교육 목적으로 <strong>전용 설계된 샘플</strong>(크랙미, CTF 바이너리)을 분석하는 경우</li>
+</ul>
+
+<h4>위험한 경우 (지역에 따라 불법)</h4>
+<ul>
+  <li>상용 소프트웨어의 <strong>라이선스 보호를 우회</strong>하는 행위 (DMCA, 컴퓨터프로그램보호법)</li>
+  <li>타인 시스템에 <strong>허가 없이</strong> 접근하는 행위 (정보통신망법 제48조)</li>
+  <li>분석 결과물로 <strong>크랙, 키젠</strong>을 배포하는 행위</li>
+  <li>악성코드를 <strong>제작·배포</strong>하는 행위</li>
+</ul>
+
+<div class="callout tip">
+  <span class="callout-icon">🇰🇷</span>
+  <div class="callout-body">
+    <strong>한국 법률 기준</strong>
+    <p>정보통신망법 제48조(무단 침입 금지), 저작권법 제101조의4(기술적 보호조치 무력화 금지), 컴퓨터프로그램보호법이 주요 근거다. 연구·교육 목적 예외 규정이 있지만 범위가 좁다. 확실하지 않으면 하지 말 것.</p>
+  </div>
+</div>
+
+<h3>윤리적 원칙</h3>
+<p>법적으로 허용되더라도 윤리적으로 고민해야 할 영역이 있다. 보안 연구 커뮤니티가 공유하는 암묵적 기준들이다.</p>
+
+<ul>
+  <li><strong>Responsible Disclosure</strong> — 취약점 발견 시 벤더에게 먼저 보고하고, 수정 기간을 준 후 공개한다 (보통 90일).</li>
+  <li><strong>Do No Harm</strong> — 취약점 정보가 악용될 가능성을 최소화하는 방식으로 공개한다.</li>
+  <li><strong>목적의 명확성</strong> — "이 분석이 방어에 기여하는가"를 항상 자문한다.</li>
+  <li><strong>샌드박스 격리</strong> — 악성코드 분석 시 반드시 격리된 환경을 사용한다. 실수로 네트워크에 C2 통신이 나가는 일을 막아야 한다.</li>
+</ul>
+
+<h3>RE 학습 경로 미리보기</h3>
+<p>이 가이드의 전체 흐름을 한 줄로 요약하면 이렇다:</p>
+
+<ul class="step-list">
+  <li>
+    <div class="step-num">1</div>
+    <div><strong>환경 구성</strong> — 툴을 설치하고 VM을 구성한다 (Ch.02)</div>
+  </li>
+  <li>
+    <div class="step-num">2</div>
+    <div><strong>기반 지식</strong> — 어셈블리와 메모리 구조를 복습한다 (Ch.03~04)</div>
+  </li>
+  <li>
+    <div class="step-num">3</div>
+    <div><strong>정적 분석</strong> — 파일 포맷과 디스어셈블리를 읽는다 (Ch.05~07)</div>
+  </li>
+  <li>
+    <div class="step-num">4</div>
+    <div><strong>동적 분석</strong> — 디버거로 실행 흐름을 추적한다 (Ch.08~11)</div>
+  </li>
+  <li>
+    <div class="step-num">5</div>
+    <div><strong>난독화 해제</strong> — 패킹과 암호화를 벗겨낸다 (Ch.12~14)</div>
+  </li>
+  <li>
+    <div class="step-num">6</div>
+    <div><strong>실전 적용</strong> — CTF, 자동화, 악성코드 분석 (Ch.15~19)</div>
+  </li>
+</ul>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div class="callout-body">
+    <strong>추천 연습 환경</strong>
+    <p>crackmes.one, reversing.kr — 법적으로 안전하고 난이도별로 분류된 크랙미 바이너리를 제공한다. 이 가이드의 실습 예제 대부분도 여기서 가져온다.</p>
+  </div>
+</div>
