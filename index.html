@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>리버스 엔지니어링 가이드북</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <style>
+      /* 홈 전용 */
+      .hero {
+        text-align: center;
+        padding: 60px 0 40px;
+      }
+      .hero-badge {
+        display: inline-block;
+        background: rgba(88, 166, 255, 0.1);
+        border: 1px solid rgba(88, 166, 255, 0.3);
+        color: var(--accent);
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        margin-bottom: 20px;
+      }
+      .hero h1 {
+        font-size: 38px;
+        font-weight: 800;
+        line-height: 1.2;
+        margin-bottom: 14px;
+        background: linear-gradient(135deg, var(--text) 40%, var(--accent));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .hero p {
+        font-size: 16px;
+        color: var(--text-muted);
+        max-width: 520px;
+        margin: 0 auto 32px;
+      }
+      .hero-meta {
+        display: flex;
+        justify-content: center;
+        gap: 24px;
+        font-size: 13px;
+        color: var(--text-muted);
+      }
+      .hero-meta span {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .start-btn {
+        display: inline-block;
+        background: var(--accent);
+        color: #000;
+        padding: 10px 28px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 14px;
+        cursor: pointer;
+        border: none;
+        margin-bottom: 32px;
+        transition: opacity 0.15s;
+      }
+      .start-btn:hover {
+        opacity: 0.85;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <h1>🔍 RE Guidebook</h1>
+        <p>중급자를 위한 리버스 엔지니어링</p>
+      </div>
+
+      <div
+        class="progress-bar"
+        style="margin: 12px 16px 0; width: calc(100% - 32px)"
+      >
+        <div class="progress-fill" style="width: 0%"></div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-part">홈</div>
+        <button class="nav-item active" data-chapter="index">
+          🏠 <span>개요 및 목차</span>
+        </button>
+
+        <div class="nav-part">Part 1 — 기초</div>
+        <button class="nav-item" data-chapter="ch01">
+          <span class="num">01</span> RE 개요 & 법적 윤리
+        </button>
+        <button class="nav-item" data-chapter="ch02">
+          <span class="num">02</span> 환경 세팅
+        </button>
+        <button class="nav-item" data-chapter="ch03">
+          <span class="num">03</span> 어셈블리 핵심 요약
+        </button>
+        <button class="nav-item" data-chapter="ch04">
+          <span class="num">04</span> 메모리 & 스택/힙
+        </button>
+
+        <div class="nav-part">Part 2 — 정적 분석</div>
+        <button class="nav-item" data-chapter="ch05">
+          <span class="num">05</span> PE/ELF 파일 포맷
+        </button>
+        <button class="nav-item" data-chapter="ch06">
+          <span class="num">06</span> Ghidra 소개 ✦ 심화편 예고
+        </button>
+        <button class="nav-item" data-chapter="ch07">
+          <span class="num">07</span> 함수 인식 & 호출 규약
+        </button>
+
+        <div class="nav-part">Part 3 — 동적 분석</div>
+        <button class="nav-item" data-chapter="ch08">
+          <span class="num">08</span> x64dbg 실습
+        </button>
+        <button class="nav-item" data-chapter="ch09">
+          <span class="num">09</span> pwndbg 소개 ✦ 심화편 예고
+        </button>
+        <button class="nav-item" data-chapter="ch10">
+          <span class="num">10</span> API 모니터링
+        </button>
+        <button class="nav-item" data-chapter="ch11">
+          <span class="num">11</span> 안티 디버깅 & 우회
+        </button>
+
+        <div class="nav-part">Part 4 — 난독화 해제</div>
+        <button class="nav-item" data-chapter="ch12">
+          <span class="num">12</span> 패킹 & 언패킹
+        </button>
+        <button class="nav-item" data-chapter="ch13">
+          <span class="num">13</span> 암호화 루틴 식별
+        </button>
+        <button class="nav-item" data-chapter="ch14">
+          <span class="num">14</span> Frida 런타임 후킹
+        </button>
+
+        <div class="nav-part">Part 5 — 실전 & 고급</div>
+        <button class="nav-item" data-chapter="ch15">
+          <span class="num">15</span> CTF 크랙미 풀이
+        </button>
+        <button class="nav-item" data-chapter="ch16">
+          <span class="num">16</span> angr 심볼릭 실행
+        </button>
+        <button class="nav-item" data-chapter="ch17">
+          <span class="num">17</span> 네트워크 프로토콜 리버싱
+        </button>
+        <button class="nav-item" data-chapter="ch18">
+          <span class="num">18</span> 모바일 앱 리버싱
+        </button>
+        <button class="nav-item" data-chapter="ch19">
+          <span class="num">19</span> 악성코드 분석 입문
+        </button>
+      </nav>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+      <div id="main-content">
+        <!-- 챕터 콘텐츠가 여기 로드됨 -->
+      </div>
+    </main>
+
+    <script src="js/main.js"></script>
+  </body>
+</html>
