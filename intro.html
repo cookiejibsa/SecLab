@@ -1,0 +1,85 @@
+<div class="hero">
+  <div class="hero-badge">PWNDBG DEEP DIVE</div>
+  <h1>pwndbg 심화 가이드</h1>
+  <p>
+    GDB를 익스플로잇 개발 머신으로 바꾸는 플러그인 —
+    설치부터 힙 분석, pwntools 자동화까지
+  </p>
+  <button class="start-btn" onclick="navTo('ch01')">
+    Chapter 01 부터 시작하기 →
+  </button>
+  <div class="hero-meta">
+    <span>📚 10개 챕터</span>
+    <span>💣 힙 공격 포함</span>
+    <span>🔗 pwntools 연동</span>
+    <span>⚡ CTF 실전 예제</span>
+  </div>
+</div>
+
+<hr style="border-color:var(--border);margin:8px 0 32px"/>
+
+<div class="part-title">Part 1 — 기초</div>
+<div class="chapter-grid">
+  <a class="chapter-card" onclick="navTo('ch01')">
+    <div class="ch-num">Chapter 01</div>
+    <h3>pwndbg란 & 설치</h3>
+    <p>vanilla GDB의 한계, pwndbg·GEF·PEDA 비교, Ubuntu/macOS 설치, gdbinit 구성, LLDB 지원 현황.</p>
+  </a>
+  <a class="chapter-card" onclick="navTo('ch02')">
+    <div class="ch-num">Chapter 02</div>
+    <h3>Context 화면 완전 해부</h3>
+    <p>REGISTERS · DISASM · STACK · BACKTRACE 각 패널의 의미, 색상 범례, context 명령어로 재출력하는 법.</p>
+  </a>
+</div>
+
+<div class="part-title">Part 2 — 핵심 명령어</div>
+<div class="chapter-grid">
+  <a class="chapter-card" onclick="navTo('ch03')">
+    <div class="ch-num">Chapter 03</div>
+    <h3>실행 제어 & 브레이크포인트</h3>
+    <p>starti·run·si·ni·finish·continue 완전 정리, 조건부 BP, 하드웨어 BP, catch syscall, 와치포인트.</p>
+  </a>
+  <a class="chapter-card" onclick="navTo('ch04')">
+    <div class="ch-num">Chapter 04</div>
+    <h3>메모리 검사 — telescope · vmmap · search</h3>
+    <p>x 명령어의 모든 포맷, telescope로 포인터 체인 추적, vmmap으로 메모리 권한 파악, search로 패턴 탐색.</p>
+  </a>
+  <a class="chapter-card" onclick="navTo('ch05')">
+    <div class="ch-num">Chapter 05</div>
+    <h3>스택 & 레지스터 분석</h3>
+    <p>stack 명령어, 레지스터 읽기·쓰기, 스택 프레임 추적, xinfo로 주소 컨텍스트 파악, distance 명령어.</p>
+  </a>
+</div>
+
+<div class="part-title">Part 3 — 익스플로잇 개발</div>
+<div class="chapter-grid">
+  <a class="chapter-card" onclick="navTo('ch06')">
+    <div class="ch-num">Chapter 06</div>
+    <h3>cyclic & 오프셋 계산</h3>
+    <p>De Bruijn 패턴 원리, cyclic 생성·검색, 크래시에서 오프셋 계산, 32/64비트 차이, 파일로 저장하기.</p>
+  </a>
+  <a class="chapter-card" onclick="navTo('ch07')">
+    <div class="ch-num">Chapter 07</div>
+    <h3>ROP 가젯 탐색</h3>
+    <p>ropgadget·ropper 명령어, 런타임 가젯 탐색, ret2libc 체인 구성, one_gadget 연동.</p>
+  </a>
+  <a class="chapter-card" onclick="navTo('ch08')">
+    <div class="ch-num">Chapter 08</div>
+    <h3>힙 분석 완전 정복</h3>
+    <p>heap·bins·vis_heap_chunks 명령어, tcache/fastbin/unsorted bin 시각화, 청크 구조 분석, double free 탐지.</p>
+  </a>
+</div>
+
+<div class="part-title">Part 4 — 고급 활용</div>
+<div class="chapter-grid">
+  <a class="chapter-card" onclick="navTo('ch09')">
+    <div class="ch-num">Chapter 09</div>
+    <h3>checksec & 보호 기법 분석</h3>
+    <p>NX·PIE·RELRO·Canary·ASLR를 pwndbg에서 직접 확인하고, 각 보호 기법의 우회 전략까지.</p>
+  </a>
+  <a class="chapter-card" onclick="navTo('ch10')">
+    <div class="ch-num">Chapter 10</div>
+    <h3>pwntools 연동 & 자동화</h3>
+    <p>gdb.attach()·process()·remote() 패턴, context 설정, pwntools + pwndbg 동시 사용 워크플로우.</p>
+  </a>
+</div>
