@@ -93,33 +93,70 @@
       </section>
 
       <section class="section">
-        <h2>🗺️ db_nmap — Nmap 결과를 DB에 저장</h2>
+        <h2>🗄️ DB 조회 — 수집된 정보 한눈에 보기</h2>
         <p>
-          일반 nmap과 db_nmap의 차이는 딱 하나입니다. db_nmap은 스캔 결과를
-          Metasploit 데이터베이스에 자동으로 저장합니다. 이후
-          <code>hosts</code>나 <code>services</code> 명령어로 결과를 쿼리하고
-          다른 모듈과 연계할 수 있습니다.
+          메타스플로잇은 스캐너들이나 여러 모듈이 실행되고 나면 Metasploit DB에
+          결과가 쌓입니다.
+          <code>vulns</code>는 스캐너가 발견한 취약점, <code>creds</code>는
+          획득한 계정 정보, <code>loot</code>는 시스템에서 꺼내온 파일,
+          <code>notes</code>는 모듈이 자동으로 기록한 부가 정보입니다.
         </p>
 
         <div class="code-block">
           <div class="code-header">
-            <span class="code-label badge-real">🔨 db_nmap 실전 활용</span
+            <span class="code-label badge-real">🔍 db 조회 실전 활용</span
             ><button class="copy-btn">복사</button>
           </div>
-          <pre><code><span class="cm"># 서비스 버전 + 기본 스크립트 + OS 감지</span>
-msf6 > db_nmap -sV -sC -O 192.168.56.101
+          <pre><code><span class="cm"># ── hosts 조회 ──────────────────────────────────────</span>
+msf6 > hosts                               <span class="cm"># 발견된 모든 호스트 목록</span>
+msf6 > hosts -c address,os_name            <span class="cm"># 특정 컬럼만 출력</span>
+msf6 > hosts -c address,os_flavor,os_sp,purpose
+msf6 > hosts -S 192.168.56.               <span class="cm"># IP 패턴으로 검색</span>
+msf6 > hosts -o /tmp/hosts.csv             <span class="cm"># CSV로 저장</span>
+msf6 > hosts -R                            <span class="cm"># 결과를 RHOSTS에 자동 세팅</span>
+msf6 > hosts -d 192.168.56.5              <span class="cm"># 특정 호스트 삭제</span>
 
-<span class="cm"># 전체 포트 스캔 (시간 오래 걸림)</span>
-msf6 > db_nmap -p- 192.168.56.101
+<span class="cm"># ── services 조회 ───────────────────────────────────</span>
+msf6 > services                            <span class="cm"># 발견된 모든 서비스 목록</span>
+msf6 > services -p 22                      <span class="cm"># SSH 서비스만 필터</span>
+msf6 > services -p 80,443,22              <span class="cm"># 여러 포트 필터</span>
+msf6 > services -p 1-1024                 <span class="cm"># 포트 범위 필터</span>
+msf6 > services -s http,ftp,ssh           <span class="cm"># 서비스 이름으로 필터</span>
+msf6 > services -u                         <span class="cm"># 상태가 up인 것만</span>
+msf6 > services -c port,proto,name,info   <span class="cm"># 컬럼 지정 출력</span>
+msf6 > services -S apache                 <span class="cm"># 문자열 검색</span>
+msf6 > services -o /tmp/services.csv      <span class="cm"># CSV로 저장</span>
+msf6 > services -R                         <span class="cm"># 결과를 RHOSTS에 자동 세팅</span></code></pre>
+        </div>
+      </section>
 
-<span class="cm"># 빠른 스캔 (타이밍 레벨 4)</span>
-msf6 > db_nmap -T4 -F 192.168.56.0/24
+      <section class="section">
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-label badge-real">🔨 db_nmap 실전 활용</span>
+            <button class="copy-btn">복사</button>
+          </div>
+          <pre><code><span class="cm"># ── vulns 조회 ──────────────────────────────────────</span>
+msf6 > vulns                               <span class="cm"># 발견된 취약점 목록</span>
+msf6 > vulns -p 445                        <span class="cm"># 특정 포트의 취약점만</span>
+msf6 > vulns -S ms17                       <span class="cm"># 이름으로 검색 (ex. EternalBlue)</span>
+msf6 > vulns -h 192.168.56.5              <span class="cm"># 특정 호스트의 취약점만</span>
 
-<span class="cm"># 스캔 후 결과 조회</span>
-msf6 > hosts          <span class="cm"># 발견된 호스트 목록</span>
-msf6 > services       <span class="cm"># 발견된 서비스 목록</span>
-msf6 > services -p 22 <span class="cm"># SSH 서비스만 필터</span>
-msf6 > vulns          <span class="cm"># 발견된 취약점 목록</span></code></pre>
+<span class="cm"># ── creds / loot 조회 ───────────────────────────────</span>
+msf6 > creds                               <span class="cm"># 수집된 자격증명 목록</span>
+msf6 > creds -h 192.168.56.5              <span class="cm"># 특정 호스트 자격증명</span>
+msf6 > creds -p 22                         <span class="cm"># 특정 포트 자격증명</span>
+msf6 > creds -s ssh                        <span class="cm"># 서비스별 필터</span>
+msf6 > creds -t password                   <span class="cm"># 타입 필터 (password, hash 등)</span>
+msf6 > loot                                <span class="cm"># 수집된 파일/데이터 목록</span>
+msf6 > loot -t passwd                      <span class="cm"># 타입으로 필터</span>
+msf6 > loot -h 192.168.56.5               <span class="cm"># 특정 호스트 loot</span>
+
+<span class="cm"># ── notes 조회 ──────────────────────────────────────</span>
+msf6 > notes                               <span class="cm"># 수집된 노트 전체</span>
+msf6 > notes -h 192.168.56.5              <span class="cm"># 특정 호스트 노트</span>
+msf6 > notes -t host.os.session           <span class="cm"># 타입으로 필터</span>
+msf6 > notes -S smb                        <span class="cm"># 문자열 검색</span></code></pre>
         </div>
       </section>
 

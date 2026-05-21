@@ -23,15 +23,28 @@ function initActiveNav() {
 
 // ── Tabs ──
 function initTabs() {
-  document.querySelectorAll('.tab-group').forEach(group => {
+  // .tab-group 또는 .tab-container 둘 다 지원
+  document.querySelectorAll('.tab-group, .tab-container').forEach(group => {
     const btns = group.querySelectorAll('.tab-btn');
-    const contents = group.querySelectorAll('.tab-content');
-    btns.forEach((btn, i) => {
+    btns.forEach(btn => {
       btn.addEventListener('click', () => {
+        // 같은 container 안의 버튼만 비활성화
         btns.forEach(b => b.classList.remove('active'));
-        contents.forEach(c => c.classList.remove('active'));
         btn.classList.add('active');
-        contents[i].classList.add('active');
+
+        const tabId = btn.getAttribute('data-tab');
+        if (tabId) {
+          // data-tab 방식: id로 콘텐츠 찾기
+          group.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+          const target = group.querySelector('#' + tabId);
+          if (target) target.classList.add('active');
+        } else {
+          // fallback: 인덱스 방식
+          const contents = group.querySelectorAll('.tab-content');
+          const i = Array.from(btns).indexOf(btn);
+          contents.forEach(c => c.classList.remove('active'));
+          if (contents[i]) contents[i].classList.add('active');
+        }
       });
     });
     if (btns.length) { btns[0].click(); }

